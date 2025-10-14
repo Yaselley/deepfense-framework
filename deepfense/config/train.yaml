@@ -1,0 +1,55 @@
+exp_name : "W2V_BiMamba"
+
+data:
+  label_map: {"bonafide": 1, "spoof": 0}
+  train:
+    names: ["ASVSpoof19"]
+    parquet_files: [
+      "/ds-slt/speech/ASVSpoof19.train.parquet",
+      ]
+    root_dir: ""
+
+  val:
+    names: ["ASVSpoof19"]
+    parquet_files: [
+      "/ds-slt/speech/ASVSpoof19.val.parquet",
+      ]
+    root_dir: ""
+
+
+always_transform:
+  - type: pad
+    length: 64600
+  - type: ToTensor
+  
+detector:
+  name: "detector_modular"
+  loss_func: "cross_entropy"
+
+  frontend: 
+    name: "wav2vec_large_xlsr"
+
+  backend: 
+    name: "bimamba"
+    args:
+      in_channels: 1024
+      channel: 128
+      n_classes: 2
+
+loss:
+  name: "CrossEntropy"
+
+optimizer_config:
+  name: "adam"
+  lr: 0.000001
+  weight_decay: 0.0001
+
+val_points: 5000
+
+trainer:
+  device: "cuda"
+  batch_size: 64
+  num_workers: 4
+  output_dir: "./outputs/"
+  batch_log_interval: 500
+  eval_every_steps: 1000
