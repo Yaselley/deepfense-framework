@@ -1,34 +1,55 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
-from data.transforms import build_transforms_from_config
-from data.registry import AUGMENTATION_REGISTRY
 
-class DetectionDataset(Dataset):
-    def __init__(self, parquet_files, names, root_dir, always_transform_config=None,
-                 optional_transform_config=None, label_map=None, max_per_class=None,
-                 seed=42):
-        np.random.seed(seed)
-        self.label_map = label_map
-        self.always_transform = build_transforms_from_config(always_transform_config) \
-            if always_transform_config else None
-        self.optional_transform = build_transforms_from_config(optional_transform_config) \
-            if optional_transform_config else None
+from deepfense.data.transforms.transforms import load_audio
+from deepfense.data.base_dataset import BaseDataset
+from deepfense.data.registry import register_dataset
+from deepfense.data.transforms.registry import build_transforms_from_config
 
+@register_dataset("StandardDataset")
+class StandardDataset(BaseDataset):
+    """
+    Dataset for audio deepfake detection.
+    Handles reading Parquet metadata, mapping labels,
+    applying transforms, and loading feature/audio files.
+    """
+
+    def __init__(self, cfg):
+        super().__init__()
+
+        self.config_data = cfg
+        self.label_map = self.config_data["label_map"]
+        self.parquet_files = self.config_data["parquet_files"]
+        self.dataset_names = self.config_data.get("dataset_names", None)
+
+        self.max_per_class = self.config_data.get("max_per_class", None)
+
+        self.base_transform_cfg = self.config_data.get("base_transform", None)
+        self.augment_transform_cfg = self.config_data.get("augment_transform", None)
+
+        self.base_transform = build_transforms_from_config(self.base_transform_cfg)
+        self.augment_transform = build_transforms_from_config(self.augment_transform_cfg)
+
+        # Load and concatenate Parquet metadata
         self.data = []
-        for i, p_file in enumerate(parquet_files):
+        for i, p_file in enumerate(self.parquet_files):
             df = pd.read_parquet(p_file)
-            df["dataset_name"] = names[i] if i < len(names) else f"dataset_{i}"
+            df["dataset_name"] = self.dataset_names[i] if i < len(self.dataset_names) else f"dataset_{i}"
             self.data.append(df)
         self.data = pd.concat(self.data, ignore_index=True)
-        self.data["label"] = self.data["label"].map(label_map).fillna(-1).astype(int)
 
-        if max_per_class is not None:
+        # Map labels
+        self.data["label"] = self.data["label"].map(self.label_map)
+
+        # Optionally limit samples per class
+        if self.max_per_class is not None:
             limited_data = []
             for label in self.data["label"].unique():
                 df_label = self.data[self.data["label"] == label]
-                limited_data.append(df_label.sample(n=min(max_per_class, len(df_label)), random_state=seed))
+                limited_data.append(
+                    df_label.sample(n=min(self.max_per_class, len(df_label)))
+                )
             self.data = pd.concat(limited_data, ignore_index=True)
 
     def __len__(self):
@@ -36,33 +57,23 @@ class DetectionDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
-        x = np.load(f"{row['dataset_name']}/{row['file_path']}")  # placeholder for actual loading
-        if self.always_transform:
-            x = self.always_transform(x)
-        if self.optional_transform:
-            x = self.optional_transform(x)
-        return torch.tensor(x, dtype=torch.float32), row["label"]
 
-def collate_fn(batch, dynamic_batch=False):
-    xs, ys = zip(*batch)
-    if dynamic_batch:
-        max_len = max([x.shape[0] for x in xs])
-        xs = [torch.nn.functional.pad(x, (0, max_len - x.shape[0])) for x in xs]
-    xs = torch.stack(xs)
-    ys = torch.tensor(ys)
-    return xs, ys
+        # Load audio
+        x = load_audio(
+            path=row["path"],
+            target_sr=self.config_data.get("target_sr", 16000),
+            mono=self.config_data.get("mono", True)
+        )
 
-def build_dataloader(config, split="train", batch_size=8, shuffle=True,
-                     dynamic_batch=False, seed=42):
-    dataset_cfg = config["data"][split]
-    ds = DetectionDataset(
-        parquet_files=dataset_cfg["parquet_files"],
-        names=dataset_cfg.get("names"),
-        root_dir=dataset_cfg.get("root_dir"),
-        always_transform_config=dataset_cfg.get("always_transform"),
-        optional_transform_config=dataset_cfg.get("optional_transform"),
-        label_map=config["data"]["label_map"],
-        seed=seed
-    )
-    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
-                      collate_fn=lambda b: collate_fn(b, dynamic_batch))
+        if self.base_transform:
+            x = self.base_transform(x)
+        if self.augment_transform:
+            x = self.augment_transform(x)
+
+        return {
+            "x": torch.tensor(x, dtype=torch.float32),
+            "label": torch.tensor(row["label"], dtype=torch.long),
+            "dataset_name": row["dataset_name"],
+        }
+
+        

@@ -70,7 +70,7 @@ class Residual_block(nn.Module):
         return out
 
 
-@register_module("rawnet")
+@register_backend("rawnet")
 class RawNet(nn.Module):
     def __init__(self, d_args):
         super().__init__()

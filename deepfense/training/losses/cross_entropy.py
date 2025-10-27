@@ -3,7 +3,7 @@ import torch.nn as nn
 from deepfense.training.losses.registry import register_loss
 
 @register_loss("CrossEntropy")
-class WeightedCrossEntropy(nn.Module):
+class CrossEntropy(nn.Module):
     """
     Wrapper around torch.nn.CrossEntropyLoss with optional class weights.
     """

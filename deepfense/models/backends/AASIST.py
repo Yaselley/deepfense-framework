@@ -1,5 +1,3 @@
-# code from https://github.com/clovaai/aasist/blob/main/models/AASIST.py
-
 import random
 from typing import Union
 
@@ -8,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from deepfense.models.backends.registry import register_backend
 
 
 class GraphAttentionLayer(nn.Module):
@@ -370,6 +369,8 @@ class Residual_block(nn.Module):
         out = self.mp(out)
         return out
 
+
+@register_backend("AASIST")
 class AASIST(nn.Module):
     def __init__(self, d_args):
         super().__init__()
@@ -424,6 +425,7 @@ class AASIST(nn.Module):
 
         self.pool_hS2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
         self.pool_hT2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
+        self.linear = nn.Linear(5 * gat_dims[1], 2)
 
     def forward(self, x):
 
@@ -500,5 +502,5 @@ class AASIST(nn.Module):
             [T_max, T_avg, S_max, S_avg, master.squeeze(1)], dim=1)
 
         last_hidden = self.drop(last_hidden)
-
+        last_hidden = self.linear(last_hidden)
         return last_hidden

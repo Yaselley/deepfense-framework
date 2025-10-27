@@ -1,55 +1,51 @@
-exp_name : "W2V_BiMamba"
+exp_name : "W2V_LR"
+
+output_dir: "./outputs/"
 
 data:
+  sampling_rate: 16000
   label_map: {"bonafide": 1, "spoof": 0}
+
   train:
-    names: ["ASVSpoof19"]
+    dataset_type: "StandardDataset"
+    dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/ds-slt/speech/ASVSpoof19.train.parquet",
+      "/netscratch/yelkheir/DeepFense/DeepFense/tests/train.parquet",
       ]
-    root_dir: ""
 
   val:
-    names: ["ASVSpoof19"]
+    dataset_type: "StandardDataset"
+    dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/ds-slt/speech/ASVSpoof19.val.parquet",
+      "/netscratch/yelkheir/DeepFense/DeepFense/tests/test.parquet",
       ]
-    root_dir: ""
 
-
-always_transform:
-  - type: pad
-    length: 64600
-  - type: ToTensor
-  
 detector:
-  name: "detector_modular"
-  loss_func: "cross_entropy"
+  type: "StandardDetector"
 
   frontend: 
-    name: "wav2vec_large_xlsr"
+    type: "wav2vec"
 
   backend: 
-    name: "bimamba"
+    type: "linear_layer"
     args:
-      in_channels: 1024
-      channel: 128
-      n_classes: 2
+      input_dim: 768
+      num_classes: 2
 
 loss:
-  name: "CrossEntropy"
+  type: "CrossEntropy"
 
 optimizer_config:
   name: "adam"
   lr: 0.000001
   weight_decay: 0.0001
 
-val_points: 5000
-
 trainer:
-  device: "cuda"
-  batch_size: 64
-  num_workers: 4
-  output_dir: "./outputs/"
-  batch_log_interval: 500
-  eval_every_steps: 1000
+  type: "StandardTrainer"
+  config_type: "StandardConfig"
+  params:
+    device: "cuda"
+    batch_size: 2
+    num_workers: 4
+    batch_log_interval: 1
+    eval_every_steps: 1
