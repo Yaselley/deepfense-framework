@@ -5,17 +5,20 @@ from deepfense.training.evaluations.registry import register_eval
 
 @register_eval("minDCF")
 def compute_mindcf(frr, far, thresholds, Pspoof, Cmiss, Cfa):
-    min_c_det = float("inf")
-    min_c_det_threshold = thresholds
-
+    # prior of target class
     p_target = 1- Pspoof
-    for i in range(0, len(frr)):
-        # Weighted sum of false negative and false positive errors.
-        c_det = Cmiss * frr[i] * p_target + Cfa * far[i] * (1 - p_target)
-        if c_det < min_c_det:
-            min_c_det = c_det
-            min_c_det_threshold = thresholds[i]
-    # See Equations (3) and (4).  Now we normalize the cost.
-    c_def = min(Cmiss * p_target, Cfa * (1 - p_target))
-    min_dcf = min_c_det / c_def
+    
+    # detection cost at all operation points
+    c_det = Cmiss * frr  * p_target + Cfa * far * (1 - p_target)
+
+    # find the minimium operation point
+    mindcf_idx = np.argmin(c_det)
+    min_c_det = c_det[mindcf_idx]
+    min_c_det_threshold = thresholds[mindcf_idx]
+
+    # Normalize the cost.
+    #  floor_c_dct: a dummy system that accept or reject all
+    floor_c_dcf = min(Cmiss * p_target, Cfa * (1 - p_target))
+    
+    min_dcf = min_c_det / floor_c_dcf
     return min_dcf, min_c_det_threshold
