@@ -12,5 +12,6 @@ from deepfense.data.transforms.registry import register_transform
 def sample_aug_func(x, noise_ratio):
     return x
 
+
 if __name__ == "__main__":
     print("Waveform augmentation tools loaded")
