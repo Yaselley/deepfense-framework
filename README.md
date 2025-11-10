@@ -5,6 +5,12 @@ It supports flexible configuration, pretrained SSL model integration, and multil
 
 ---
 
+# UPDATE
+```bash
+conda env create -f environment.yml
+```
+
+
 ## 🧩 Environment Setup
 
 ### 1. Create a Conda Environment
