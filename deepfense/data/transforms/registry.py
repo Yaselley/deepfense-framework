@@ -32,7 +32,7 @@ def build_transform(config):
     config = config.copy()  # avoid modifying original
     transform_type = config.pop("type")
     transform_fn = get_transform(transform_type)
-    return transform_fn(**config)
+    return lambda x: transform_fn(x, **config)
 
 def build_transforms_from_config(config_list):
     """

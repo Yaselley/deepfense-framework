@@ -3,41 +3,57 @@
 import numpy as np
 from deepfense.training.evaluations.registry import register_eval
 
+import numpy as np
+
 @register_eval("actDCF")
-def compute_actDCF(bonafide_scores, spoof_scores, Pspoof, Cmiss, Cfa):
+def compute_actDCF(labels, scores, params):
     """
-    compute actual DCF, given threshold decided by prior and decision costs
+    Compute the actual Detection Cost Function (actDCF).
 
-    input
-    -----
-      bonafide_scores: np.array, scores of bonafide data
-      spoof_scores: np.array, scores of spoof data
-      Pspoof: scalar, prior probabiltiy of spoofed class
-      Cmiss: scalar, decision cost of missing a bonafide sample
-      Cfa: scalar, decision cost of falsely accept a spoofed sample
+    Args:
+        labels (np.ndarray): Binary ground-truth labels (0 = bonafide, 1 = spoof)
+        scores (np.ndarray): Model prediction scores (higher → more likely spoof)
+        params (dict):
+            - Pspoof (float): Prior probability of spoof class
+            - Cmiss (float): Cost of missing a bonafide sample
+            - Cfa (float): Cost of falsely accepting a spoofed sample
+            - bonafide_label (int, optional): Label representing bonafide (default: 0)
 
-    output
-    ------
-      actDCF: scalar, actual DCF normalized
-      threshold: scalar, threshold for making the decision
+    Returns:
+        dicr: {"actDCF": actDCF}
     """
-    # the beta in evaluation plan (eq.(3))
-    beta = Cmiss * (1 - Pspoof) / (Cfa * Pspoof)
-    
-    # compute the decision threshold based on
-    threshold = - np.log(beta)
 
-    # miss rate
-    rate_miss = np.sum(bonafide_scores < threshold) / bonafide_scores.size
+    # ---- Validate input ----
+    labels = np.asarray(labels).astype(int)
+    scores = np.asarray(scores).astype(float)
+    if labels.shape != scores.shape:
+        print(labels.shape, scores.shape)
+        raise ValueError("labels and scores must have the same shape")
 
-    # fa rate
-    rate_fa = np.sum(spoof_scores >= threshold) / spoof_scores.size
+    # ---- Extract parameters ----
+    Pspoof = params.get("Pspoof", 0.5)
+    Cmiss = params.get("Cmiss", 1.0)
+    Cfa = params.get("Cfa", 1.0)
+    bonafide_label = params.get("bonafide_label", 0)
+    spoof_label = 1 - bonafide_label
 
-    # unnormalized DCF
+    # ---- Compute threshold ----
+    if Pspoof <= 0 or Pspoof >= 1:
+        raise ValueError("Pspoof must be in (0, 1)")
+    beta = (Cmiss * (1 - Pspoof)) / (Cfa * Pspoof)
+    threshold = -np.log(beta)
+
+    # ---- Split scores ----
+    bona_scores = scores[labels == bonafide_label]
+    spoof_scores = scores[labels == spoof_label]
+
+    # ---- Compute rates ----
+    rate_miss = np.mean(bona_scores < threshold)
+    rate_fa = np.mean(spoof_scores >= threshold)
+
+    # ---- Compute normalized DCF ----
     act_dcf = Cmiss * (1 - Pspoof) * rate_miss + Cfa * Pspoof * rate_fa
+    denom = np.min([Cfa * Pspoof, Cmiss * (1 - Pspoof)])
+    act_dcf /= denom if denom > 0 else np.nan
 
-    # normalized DCF
-    act_dcf = act_dcf / np.min([Cfa * Pspoof, Cmiss * (1 - Pspoof)])
-    
-    return act_dcf, threshold
-    
+    return {"actDCF": act_dcf}

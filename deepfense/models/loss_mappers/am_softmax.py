@@ -6,14 +6,14 @@ Wang, F., Cheng, J., Liu, W. & Liu, H.
 Additive margin softmax for face verification. IEEE Signal Process. Lett. 2018
 
 """
-from __future__ import print_function
 
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
-from deepfense.training.losses.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_mapper
 
-
+@register_mapper("AMSoftmaxMapper")
 class AMAngleLayer(nn.Module):
     """ Output layer to produce activation for Angular softmax layer
     AMAngleLayer(in_dim, output_dim, s=20, m=0.9):
@@ -55,8 +55,14 @@ class AMAngleLayer(nn.Module):
 
       loss.backward()
     """
-    def __init__(self, in_planes, out_planes, s=20, m=0.9):
+    def __init__(self, config):
         super(AMAngleLayer, self).__init__()
+
+        in_planes = config["embedding_dim"]
+        out_planes = config["n_classes"]
+        s = config["s"]
+        m = config["m"]
+
         self.in_planes = in_planes
         self.out_planes = out_planes
         

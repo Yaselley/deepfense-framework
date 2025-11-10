@@ -28,6 +28,7 @@ class StandardDataset(BaseDataset):
         self.base_transform_cfg = self.config_data.get("base_transform", None)
         self.augment_transform_cfg = self.config_data.get("augment_transform", None)
 
+        print(self.base_transform_cfg)
         self.base_transform = build_transforms_from_config(self.base_transform_cfg)
         self.augment_transform = build_transforms_from_config(self.augment_transform_cfg)
 

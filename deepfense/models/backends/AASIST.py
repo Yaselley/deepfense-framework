@@ -1,6 +1,5 @@
 import random
 from typing import Union
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -366,58 +365,69 @@ class Residual_block(nn.Module):
             identity = self.conv_downsample(identity)
 
         out += identity
-        out = self.mp(out)
+        # out = self.mp(out)
         return out
-
 
 @register_backend("AASIST")
 class AASIST(nn.Module):
-    def __init__(self, d_args):
+    def __init__(self, config):
         super().__init__()
 
-        self.d_args = d_args
-        filts = d_args["filts"]
-        gat_dims = d_args["gat_dims"]
-        pool_ratios = d_args["pool_ratios"]
-        temperatures = d_args["temperatures"]
-        pool = d_args.get("pool", (1, 3))
+        self.config = config
+        filts = config["filts"]
+        gat_dims = config["gat_dims"]
+        pool_ratios = config["pool_ratios"]
+        temperatures = config["temperatures"]
+        pool = config.get("pool", (1, 1))
+
+        self.LL = nn.Linear(1024, 128)
 
         self.first_bn = nn.BatchNorm2d(num_features=1)
-
+        self.first_bn1 = nn.BatchNorm2d(num_features=64)
         self.drop = nn.Dropout(0.5, inplace=True)
         self.drop_way = nn.Dropout(0.2, inplace=True)
         self.selu = nn.SELU(inplace=True)
 
+        # RawNet2 encoder
         self.encoder = nn.Sequential(
-            nn.Sequential(Residual_block(nb_filts=filts[1], pool=pool, first=True)),
-            nn.Sequential(Residual_block(nb_filts=filts[2], pool=pool)),
-            nn.Sequential(Residual_block(nb_filts=filts[3], pool=pool)),
-            nn.Sequential(Residual_block(nb_filts=filts[4], pool=pool)),
-            nn.Sequential(Residual_block(nb_filts=filts[4], pool=pool)),
-            nn.Sequential(Residual_block(nb_filts=filts[4], pool=pool)))
+            nn.Sequential(Residual_block(nb_filts=filts[1], first=True)),
+            nn.Sequential(Residual_block(nb_filts=filts[2])),
+            nn.Sequential(Residual_block(nb_filts=filts[3])),
+            nn.Sequential(Residual_block(nb_filts=filts[4])),
+            nn.Sequential(Residual_block(nb_filts=filts[4])),
+            nn.Sequential(Residual_block(nb_filts=filts[4])))
 
-        self.pos_S = nn.Parameter(torch.randn(1, 23, filts[-1][-1]))
+        self.attention = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=(1,1)),
+            nn.SELU(inplace=True),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 64, kernel_size=(1,1)),
+            
+        )
+        # position encoding
+        self.pos_S = nn.Parameter(torch.randn(1, 42, filts[-1][-1]))
+        
         self.master1 = nn.Parameter(torch.randn(1, 1, gat_dims[0]))
         self.master2 = nn.Parameter(torch.randn(1, 1, gat_dims[0]))
-
+        
+        # Graph module
         self.GAT_layer_S = GraphAttentionLayer(filts[-1][-1],
                                                gat_dims[0],
                                                temperature=temperatures[0])
         self.GAT_layer_T = GraphAttentionLayer(filts[-1][-1],
                                                gat_dims[0],
                                                temperature=temperatures[1])
-
+        # HS-GAL layer 
         self.HtrgGAT_layer_ST11 = HtrgGraphAttentionLayer(
             gat_dims[0], gat_dims[1], temperature=temperatures[2])
         self.HtrgGAT_layer_ST12 = HtrgGraphAttentionLayer(
             gat_dims[1], gat_dims[1], temperature=temperatures[2])
-
         self.HtrgGAT_layer_ST21 = HtrgGraphAttentionLayer(
             gat_dims[0], gat_dims[1], temperature=temperatures[2])
-
         self.HtrgGAT_layer_ST22 = HtrgGraphAttentionLayer(
             gat_dims[1], gat_dims[1], temperature=temperatures[2])
 
+        # Graph pooling layers
         self.pool_S = GraphPool(pool_ratios[0], gat_dims[0], 0.3)
         self.pool_T = GraphPool(pool_ratios[1], gat_dims[0], 0.3)
         self.pool_hS1 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
@@ -425,33 +435,45 @@ class AASIST(nn.Module):
 
         self.pool_hS2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
         self.pool_hT2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
-        self.linear = nn.Linear(5 * gat_dims[1], 2)
+
 
     def forward(self, x):
-
-        x = x.unsqueeze(dim=1)
-        x = F.max_pool2d(torch.abs(x), (3, 3))
+        #-------pre-trained Wav2vec model fine tunning ------------------------##
+        x = self.LL(x) #(bs,frame_number,feat_out_dim)
+        
+        # post-processing on front-end features
+        x = x.transpose(1, 2)   #(bs,feat_out_dim,frame_number)
+        x = x.unsqueeze(dim=1) # add channel 
+        x = F.max_pool2d(x, (3, 3))
         x = self.first_bn(x)
         x = self.selu(x)
 
-        # get embeddings using encoder
-        # (#bs, #filt, #spec, #seq)
-        e = self.encoder(x)
-
-        # spectral GAT (GAT-S)
-        e_S, _ = torch.max(torch.abs(e), dim=3)  # max along time
-        e_S = e_S.transpose(1, 2) + self.pos_S
-
+        # RawNet2-based encoder
+        x = self.encoder(x)
+        x = self.first_bn1(x)
+        x = self.selu(x)
+        
+        w = self.attention(x)
+        
+        #------------SA for spectral feature-------------#
+        w1 = F.softmax(w,dim=-1)
+        m = torch.sum(x * w1, dim=-1)
+        e_S = m.transpose(1, 2) + self.pos_S 
+        
+        # graph module layer
         gat_S = self.GAT_layer_S(e_S)
         out_S = self.pool_S(gat_S)  # (#bs, #node, #dim)
-
-        # temporal GAT (GAT-T)
-        e_T, _ = torch.max(torch.abs(e), dim=2)  # max along freq
-        e_T = e_T.transpose(1, 2)
-
+        
+        #------------SA for temporal feature-------------#
+        w2 = F.softmax(w,dim=-2)
+        m1 = torch.sum(x * w2, dim=-2)
+     
+        e_T = m1.transpose(1, 2)
+       
+        # graph module layer
         gat_T = self.GAT_layer_T(e_T)
         out_T = self.pool_T(gat_T)
-
+        
         # learnable master node
         master1 = self.master1.expand(x.size(0), -1, -1)
         master2 = self.master2.expand(x.size(0), -1, -1)
@@ -492,15 +514,16 @@ class AASIST(nn.Module):
         out_S = torch.max(out_S1, out_S2)
         master = torch.max(master1, master2)
 
+        # Readout operation
         T_max, _ = torch.max(torch.abs(out_T), dim=1)
         T_avg = torch.mean(out_T, dim=1)
 
         S_max, _ = torch.max(torch.abs(out_S), dim=1)
         S_avg = torch.mean(out_S, dim=1)
-
+        
         last_hidden = torch.cat(
             [T_max, T_avg, S_max, S_avg, master.squeeze(1)], dim=1)
-
+        
         last_hidden = self.drop(last_hidden)
-        last_hidden = self.linear(last_hidden)
+        
         return last_hidden

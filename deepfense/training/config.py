@@ -23,7 +23,7 @@ class StandardConfig:
     scheduler: Optional[dict] = None
     use_sam: bool = False
     sam_rho: float = 0.05
-    monitor_metric: str = "auc"  # metric name to select best checkpoint
-    monitor_mode: str = "max"  # 'max' or 'min'
+    monitor_metric: str = "loss"  # metric name to select best checkpoint
+    monitor_mode: str = "min"  # 'max' or 'min'
     batch_size: int=32
     num_workers: int=4

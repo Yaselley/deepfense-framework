@@ -7,11 +7,18 @@ from datetime import datetime
 from deepfense.data.data_utils import build_dataloader
 from deepfense.models.registry import DETECTOR
 from deepfense.training.registry import TRAINER_REGISTRY, TRAINER_CONFIG_REGISTRY
-from deepfense.training.losses.registry import LOSS_REGISTRY
 
 def load_config(config_path):
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
+
+def suppress_fairseq_logging():
+    """Suppress all fairseq logging output."""
+    fairseq_logger = logging.getLogger("fairseq")
+    fairseq_logger.setLevel(logging.CRITICAL)  # Only show critical errors
+    # Remove any existing handlers attached by fairseq
+    for handler in fairseq_logger.handlers[:]:
+        fairseq_logger.removeHandler(handler)
 
 def setup_logging(output_dir, exp_name, cfg):
     """Setup structured logging and clean folder creation."""
@@ -79,14 +86,12 @@ def main():
     val_loader = build_dataloader(cfg["data"]["val"])
 
 
-    # Detector (frontend + backend)
+    # Detector (frontend + backend + lossMapper)
     detector_cfg = cfg["detector"]
-    detector = DETECTOR[detector_cfg["type"]](detector_cfg)
+    loss_cfg = cfg["loss"]
+    detector_cfg["loss"] = loss_cfg
 
-    # Loss
-    loss_name = cfg["loss"]["type"]
-    loss_params = cfg["loss"].get("params", {})
-    criterion = LOSS_REGISTRY[loss_name](**loss_params)
+    detector = DETECTOR[detector_cfg["type"]](detector_cfg)
 
     # Trainer
     trainer_type = cfg["trainer"]["type"]
@@ -100,8 +105,9 @@ def main():
         model=detector,
         train_loader=train_loader,
         val_loader=val_loader,
-        criterion=criterion,
         optimizer_config=cfg.get("optimizer_config"),
+        scheduler_config=cfg.get("scheduler_config", None),
+        metrics_config=cfg.get("metrics", None),
         config=TrainerConfig,
     )
 

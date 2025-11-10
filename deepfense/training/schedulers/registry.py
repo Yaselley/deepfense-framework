@@ -11,4 +11,4 @@ def build_scheduler(config):
     scheduler_type = config.pop("type")
     if scheduler_type not in SCHEDULER_REGISTRY:
         raise ValueError(f"Unknown scheduler: {scheduler_type}")
-    return SCHEDULER_REGISTRY[scheduler_type](**config)
+    return SCHEDULER_REGISTRY[scheduler_type](config)

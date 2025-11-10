@@ -3,10 +3,9 @@
 import os
 import json
 import logging
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional
 
 import numpy as np
-from sklearn import metrics as sk_metrics
 from tqdm import tqdm
 
 import torch
@@ -14,8 +13,9 @@ from torch import nn
 
 from deepfense.training.base_trainer import BaseTrainer
 from deepfense.training.registry import register_trainer
-
-
+from deepfense.training.optimizers.registry import OPTIMIZER_REGISTRY
+from deepfense.training.schedulers.registry import SCHEDULER_REGISTRY
+from deepfense.training.evaluations.evaluator import Evaluator
 
 @register_trainer("StandardTrainer")
 class StandardTrainer(BaseTrainer):
@@ -27,19 +27,23 @@ class StandardTrainer(BaseTrainer):
         model: nn.Module,
         train_loader,
         val_loader,
-        criterion: Callable,
         optimizer_config: Optional[dict],
+        scheduler_config: Optional[dict],
+        metrics_config: Optional[dict],
         config,
     ):
         super().__init__(model, config)
 
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.criterion = criterion
 
         # optimizers / schedulers
         self.optimizer = self._build_optimizer(optimizer_config)
-        self.scheduler = self._build_scheduler(config.scheduler) if config.scheduler else None
+        self.scheduler = self._build_scheduler(self.optimizer, scheduler_config) if scheduler_config else None
+
+        # evaluator
+        metrics_config
+        self.evaluator = Evaluator(metrics_config) if metrics_config else None
 
         # output dirs
         self.output_dir = config.output_dir
@@ -64,45 +68,22 @@ class StandardTrainer(BaseTrainer):
     # ------------------------------
     def _build_optimizer(self, opt_cfg):
         opt_name = opt_cfg.get("type", "adam").lower()
+        optimizer_class = OPTIMIZER_REGISTRY[opt_name]
         params = self.model.parameters()
-        lr = opt_cfg.get("lr", 1e-4)
-        wd = opt_cfg.get("weight_decay", 0.0)
-
-        if opt_name == "adam":
-            return torch.optim.Adam(params, lr=lr, weight_decay=wd)
-        elif opt_name == "adamw":
-            return torch.optim.AdamW(params, lr=lr, weight_decay=wd)
-        elif opt_name == "sgd":
-            return torch.optim.SGD(params, lr=lr, momentum=opt_cfg.get("momentum", 0.9), weight_decay=wd)
-
-        return torch.optim.Adam(params, lr=lr, weight_decay=wd)
+        return optimizer_class(params, opt_cfg.get("params", {}))
 
     # ------------------------------
     # Scheduler Builder
     # ------------------------------
-    def _build_scheduler(self, sched_cfg):
-        name = sched_cfg.get("type", "").lower()
+    def _build_scheduler(self, optim, sched_cfg):
+        sched_name = sched_cfg.get("type", "").lower()
         opt = self.optimizer
 
-        if name == "steplr":
-            return torch.optim.lr_scheduler.StepLR(
-                opt,
-                step_size=sched_cfg.get("step_size", 10),
-                gamma=sched_cfg.get("gamma", 0.1)
-            )
-        if name == "cosine":
-            return torch.optim.lr_scheduler.CosineAnnealingLR(
-                opt, T_max=sched_cfg.get("t_max", self.config.epochs)
-            )
-        if name == "onecycle":
-            return torch.optim.lr_scheduler.OneCycleLR(
-                opt,
-                max_lr=sched_cfg.get("max_lr", 1e-3),
-                steps_per_epoch=len(self.train_loader),
-                epochs=self.config.epochs
-            )
-
-        return None
+        if sched_name is None or sched_name == "":
+            return None
+        
+        scheduler_class = SCHEDULER_REGISTRY[sched_name]
+        return scheduler_class(optim, sched_cfg.get("params", {}))
 
     # ------------------------------
     # Training Loop
@@ -151,7 +132,7 @@ class StandardTrainer(BaseTrainer):
         Training step for batches with:
             batch["x"], batch["label"], batch["mask"], batch["dataset_name"]
         """
-        x = batch["x"].to(self.device)          # waveform/features
+        x = batch["x"].to(self.device)          # waveform or features
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
         if mask is not None:
@@ -159,12 +140,13 @@ class StandardTrainer(BaseTrainer):
 
         self.optimizer.zero_grad()
 
-        # Forward pass
-        logits = self.model(x, mask=mask) if mask is not None else self.model(x)
-        if isinstance(logits, dict) and "cls" in logits:
-            logits = logits["cls"]
+        # Forward pass through the detector
+        outputs = self.model(x, mask=mask) if mask is not None else self.model(x)
 
-        loss = self.criterion(logits, labels)
+        # Compute total loss using ModularDetector's compute_loss
+        loss = self.model.compute_loss(outputs, labels)
+
+        # Backpropagation
         loss.backward()
         self.optimizer.step()
 
@@ -176,7 +158,7 @@ class StandardTrainer(BaseTrainer):
     # ------------------------------
     def evaluate(self, epoch, step):
         self.model.eval()
-        all_labels, all_probs, all_names = [], [], []
+        all_labels, all_probs, all_names, all_losses = [], [], [], []
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluating", leave=False):
@@ -186,29 +168,32 @@ class StandardTrainer(BaseTrainer):
                 names = batch["dataset_name"]
 
                 logits = self.model(x, mask=mask) if mask is not None else self.model(x)
-                if isinstance(logits, dict) and "cls" in logits:
-                    logits = logits["cls"]
+                probs = logits["probs"]
 
-                # Probability
-                if logits.dim() == 2 and logits.size(1) == 2:
-                    probs = torch.softmax(logits, dim=1)[:, 1]
-                else:
-                    probs = logits.squeeze()
+                batch_loss = self.model.compute_loss(logits, labels)
+                all_losses.append(batch_loss.detach().cpu().item())
 
-                all_labels.append(labels.cpu())
-                all_probs.append(probs.cpu())
+                if torch.is_tensor(probs):
+                    probs = probs.detach().cpu().numpy()
+                if torch.is_tensor(labels):
+                    labels = labels.detach().cpu().numpy()
+
+                all_labels.append(labels)
+                all_probs.append(probs)
                 all_names.extend(names)
 
-        labels = torch.cat(all_labels).numpy()
-        probs = torch.cat(all_probs).numpy()
+
+        labels = np.concatenate(all_labels, axis=0)
+        probs = np.concatenate(all_probs, axis=0)
         names = np.array(all_names)
 
         results = {}
+        results["loss"] = float(np.mean(all_losses))
         results["average"] = self._compute_metrics(labels, probs)
 
         for ds in np.unique(names):
             mask_ds = names == ds
-            results[ds] = self._compute_metrics(labels[mask_ds], probs[mask_ds])
+            results[str(ds)] = self._compute_metrics(labels[mask_ds], probs[mask_ds])
 
         # Save metrics JSON
         json_path = os.path.join(self.results_dir, f"metrics_epoch{epoch}_step{step}.json")
@@ -228,18 +213,15 @@ class StandardTrainer(BaseTrainer):
     # Metrics + Checkpointing
     # ------------------------------
     def _compute_metrics(self, labels, probs):
-        preds = (probs >= 0.5).astype(int)
-        return {
-            "acc": sk_metrics.accuracy_score(labels, preds),
-            "precision": sk_metrics.precision_score(labels, preds, zero_division=0),
-            "recall": sk_metrics.recall_score(labels, preds, zero_division=0),
-            "f1": sk_metrics.f1_score(labels, preds, zero_division=0),
-            "auc": sk_metrics.roc_auc_score(labels, probs) if len(np.unique(labels)) > 1 else float("nan"),
-            "ap": sk_metrics.average_precision_score(labels, probs) if len(np.unique(labels)) > 1 else float("nan"),
-        }
+        if self.evaluator:
+            results = self.evaluator.evaluate(labels, probs)
+        else:
+            results = {}
+        return results
 
     def _maybe_checkpoint(self, metrics: Dict, epoch: int, step: int):
-        metric = metrics["average"][self.config.monitor_metric]
+        print(metrics)
+        metric = metrics[self.config.monitor_metric]
         better = (metric > self.best_metric) if self.config.monitor_mode == "max" else (metric < self.best_metric)
         if better:
             self.best_metric = metric
@@ -275,10 +257,7 @@ class StandardTrainer(BaseTrainer):
         if load_optimizer:
             opt_state = state.get("optimizer_state", None)
             if opt_state:
-                if isinstance(self.optimizer, SAM):
-                    self.optimizer.base_optimizer.load_state_dict(opt_state)
-                else:
-                    self.optimizer.load_state_dict(opt_state)
+                self.optimizer.load_state_dict(opt_state)
         self.start_epoch = state.get("epoch", 0)
         self.global_step = state.get("step", 0)
         self.best_metric = state.get("best_metric", self.best_metric)

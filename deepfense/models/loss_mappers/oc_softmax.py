@@ -9,8 +9,10 @@ arXiv preprint arXiv:2010.13995
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
-from deepfense.training.losses.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_mapper
 
+@register_mapper("OCSoftmaxMapper")
 class OCAngleLayer(nn.Module):
     """ Output layer to produce activation for one-class softmax
 
@@ -31,8 +33,13 @@ class OCAngleLayer(nn.Module):
 
      loss.backward()
     """
-    def __init__(self, in_planes, w_posi=0.9, w_nega=0.2, alpha=20.0):
+    def __init__(self, config):
         super(OCAngleLayer, self).__init__()
+        in_planes = config["in_planes"]
+        w_posi = config["w_posi"]
+        w_nega = config["w_nega"]
+        alpha = config["alpha"]
+
         self.in_planes = in_planes
         self.w_posi = w_posi
         self.w_nega = w_nega

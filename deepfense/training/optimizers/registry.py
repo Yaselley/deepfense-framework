@@ -12,4 +12,4 @@ def build_optimizer(config):
     optimizer_type = config.pop("type")
     if optimizer_type not in OPTIMIZER_REGISTRY:
         raise ValueError(f"Unknown loss: {optimizer_type}")
-    return OPTIMIZER_REGISTRY[optimizer_type](**config)
+    return OPTIMIZER_REGISTRY[optimizer_type](config)
