@@ -1,94 +1,28 @@
-annotated-types==0.7.0
-antlr4-python3-runtime==4.8
-audioread==3.1.0
-bitarray==3.8.0
-brotlicffi @ file:///home/task_176174500296019/conda-bld/brotlicffi_1761745023421/work
-certifi @ file:///home/task_175978570070155/conda-bld/certifi_1759786060979/work/certifi
-cffi @ file:///home/task_176183215827778/conda-bld/cffi_1761832774246/work
-charset-normalizer @ file:///home/task_176174482135433/conda-bld/charset-normalizer_1761744871447/work
-click==8.3.0
-colorama==0.4.6
-Cython==3.2.0
-decorator==5.2.1
-filelock @ file:///home/task_176241979569947/conda-bld/filelock_1762419849833/work
-fsspec==2025.10.0
-gitdb==4.0.12
-GitPython==3.1.45
-gmpy2 @ file:///croot/gmpy2_1738085463648/work
-hf-xet==1.2.0
-huggingface-hub==0.36.0
-hydra-core==1.0.7
-idna @ file:///home/task_176191177045451/conda-bld/idna_1761911980742/work
-Jinja2 @ file:///croot/jinja2_1741710844255/work
-joblib==1.5.2
-lazy_loader==0.4
-librosa==0.11.0
-llvmlite==0.45.1
-lxml==6.0.2
-MarkupSafe @ file:///croot/markupsafe_1738584038848/work
-mkl-service==2.5.2
-mkl_fft @ file:///home/task_176159252575002/conda-bld/mkl_fft_1761592901585/work
-mkl_random @ file:///home/task_176159293813909/conda-bld/mkl_random_1761592952512/work
-mpmath @ file:///croot/mpmath_1690848262763/work
-msgpack==1.1.2
-networkx @ file:///croot/networkx_1737039604450/work
-numba==0.62.1
-numpy @ file:///home/task_176157872663408/conda-bld/numpy_and_numpy_base_1761579342634/work/dist/numpy-2.2.5-cp310-cp310-linux_x86_64.whl#sha256=fb5b85b589f86e6404be6a37347b98be70b32c4ae837bb26e1180e9f9a7fb718
-nvidia-cublas-cu12==12.8.3.14
-nvidia-cuda-cupti-cu12==12.8.57
-nvidia-cuda-nvrtc-cu12==12.8.61
-nvidia-cuda-runtime-cu12==12.8.57
-nvidia-cudnn-cu12==9.7.1.26
-nvidia-cufft-cu12==11.3.3.41
-nvidia-cufile-cu12==1.13.0.11
-nvidia-curand-cu12==10.3.9.55
-nvidia-cusolver-cu12==11.7.2.55
-nvidia-cusparse-cu12==12.5.7.53
-nvidia-cusparselt-cu12==0.6.3
-nvidia-nccl-cu12==2.26.2
-nvidia-nvjitlink-cu12==12.8.61
-nvidia-nvtx-cu12==12.8.55
-omegaconf==2.0.6
-packaging==25.0
-pandas==2.3.3
-pillow @ file:///home/task_176252756305210/conda-bld/pillow_1762528238325/work
-platformdirs==4.5.0
-pooch==1.8.2
-portalocker==3.2.0
-protobuf==6.33.0
-pyarrow==22.0.0
-pycparser @ file:///home/task_175749556993857/conda-bld/pycparser_1757496041120/work
-pydantic==2.12.4
-pydantic_core==2.41.5
-pydub==0.25.1
-PySocks @ file:///home/task_176175228103966/conda-bld/pysocks_1761753009555/work
-python-dateutil==2.9.0.post0
-pytz==2025.2
-PyYAML @ file:///croot/pyyaml_1728657952215/work
-regex==2025.11.3
-requests @ file:///home/task_176235919024464/conda-bld/requests_1762359590301/work
-sacrebleu==2.5.1
-safetensors==0.6.2
-scikit-learn==1.7.2
-scipy==1.15.3
-sentry-sdk==2.43.0
-six==1.17.0
-smmap==5.0.2
-soundfile==0.13.1
-soxr==1.0.0
-sympy==1.14.0
-tabulate==0.9.0
-threadpoolctl==3.6.0
-tokenizers==0.22.1
-torch==2.7.0+cu128
-torchaudio==2.7.0+cu128
-torchvision==0.22.0+cu128
-tqdm==4.67.1
-transformers==4.57.1
-triton==3.3.0
-typing-inspection==0.4.2
-typing_extensions @ file:///croot/typing_extensions_1756280817316/work
-tzdata==2025.2
-urllib3 @ file:///croot/urllib3_1750775463400/work
-wandb==0.22.3
-wget==3.2
+# Core ML
+torch>=2.1.0,<2.9
+torchaudio>=2.1.0,<2.9
+torchvision>=0.12.0,<0.23
+
+# Data and computation
+numpy>=1.24,<2.2
+pandas>=2.0,<3.0
+scipy>=1.9,<1.16
+scikit-learn>=1.2,<1.8
+pyarrow
+
+# Audio and speech
+librosa>=0.10,<0.12
+pydub
+soundfile
+soxr
+
+# Transformers and tokenizers
+transformers>=4.50,<5.0
+tokenizers
+
+# Utilities
+tqdm
+pyyaml
+typing-extensions
+safetensors
+wandb>=0.12,<1.0

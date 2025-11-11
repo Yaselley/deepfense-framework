@@ -5,12 +5,6 @@ It supports flexible configuration, pretrained SSL model integration, and multil
 
 ---
 
-# UPDATE
-```bash
-conda env create -f environment.yml
-```
-
-
 ## 🧩 Environment Setup
 
 ### 1. Create a Conda Environment
@@ -27,7 +21,7 @@ pip install -r requirements.txt
 ### 3. Downgrade pip
 After installation, make sure to downgrade pip to version 24.0:
 ```bash
-pip install pip==24.0
+pip install "pip<=24.0"
 ```
 
 ### 4. Build Fairseq
@@ -38,7 +32,9 @@ Navigate to the modules directory:
 ```bash
 git clone https://github.com/facebookresearch/fairseq
 cd fairseq
+git checkout 3d262bb
 pip install --editable ./
+pip install --upgrade pip
 ```
 
 ### 5. Download Pretrained Weights
