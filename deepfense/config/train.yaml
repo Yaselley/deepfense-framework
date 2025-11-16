@@ -61,11 +61,23 @@ detector:
     
 
 loss:
-  embedding_dim: 160
-  n_classes: 2
-  type: "CrossEntropy"
-  args: 
-    weight: [0.1, 0.9]
+  - # --- Loss 1: Cross Entropy ---
+    type: "CrossEntropy"
+    weight: 0.5
+
+    embedding_dim: 160
+    n_classes: 2
+    class_weights: [0.1, 0.9]
+
+  - # --- Loss 2: AMSoftmax ---
+    type: "AMSoftmax"
+    weight: 0.5                
+
+    embedding_dim: 160
+    n_classes: 2
+    s: 30.0                       
+    m: 0.4
+
 
 optimizer_config:
   type: "adam"
@@ -78,16 +90,18 @@ scheduler_config:
   params:
     gamma: 0.9
 
-# metrics:
-#   EER: {}
-#   actDCF:
-#     Pspoof: 0.05
-#     Cmiss: 1
-#     Cfa: 1
-#   minDCF:
-#     Pspoof: 0.05
-#     Cmiss: 1
-#     Cfa: 1
+metrics:
+  ACC: {}
+  F1_SCORE: {}
+  EER: {}
+  actDCF:
+    Pspoof: 0.05
+    Cmiss: 1
+    Cfa: 1
+  minDCF:
+    Pspoof: 0.05
+    Cmiss: 1
+    Cfa: 1
 
 trainer:
   type: "StandardTrainer"
@@ -98,4 +112,4 @@ trainer:
     num_workers: 4
     batch_log_interval: 1
     eval_every_steps: 1
-    # monitor_metric: "EER"
+    monitor_metric: "EER"

@@ -96,7 +96,7 @@ class OCSoftmaxWithLoss(nn.Module):
     OCSoftmaxWithLoss()
     
     """
-    def __init__(self):
+    def __init__(self, config):
         super(OCSoftmaxWithLoss, self).__init__()
         self.m_loss = nn.Softplus()
 

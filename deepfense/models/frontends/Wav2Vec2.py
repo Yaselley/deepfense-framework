@@ -25,9 +25,7 @@ class Wav2VecWrapper(nn.Module):
         return
 
     def forward(self, input_data):
-        print("Wav2Vec2 input shape:", input_data.shape)
         emb = self.model(input_data, mask=False, features_only=True)
         x, layerresult = emb['x'], emb['layer_results']
         layerresult = torch.stack([t[0].permute(1,0,2) if isinstance(t, tuple) else t for t in layerresult], dim=1)
-        print("Wav2Vec2 X:", x.shape)
         return x
