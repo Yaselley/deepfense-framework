@@ -17,18 +17,17 @@ def sample_aug_func(x, noise_ratio):
 # augmentation failed (e.g., failed to load the rir due to some network issue)
 @register_transform("rir")
 def rir(
-    audio: np.ndarray,
-    rir_audio: np.ndarray,
-    #rir_path: str, # TODO: rir_audio or a path?
-    probability: float = 0.3,
+    x: dict,
+    noise_ratio: float = 0.3,
 ) -> np.ndarray:
     """
     apply rir augmentation to monochannel audio 
     - rir_path: directory containing .wav RIR files
     """
-    prob = np.random.rand()
-    if prob > probability:
+    if np.random.random() > noise_ratio:
         return audio
+    audio = x['audio']
+    rir_audio = x['noise']
 
     audio_power = float((audio ** 2).mean())
     if audio_power < 1e-10:
@@ -49,26 +48,26 @@ def rir(
 from deepfense.data.transforms.RawBoost.data_utils_rawboost import process_Rawboost_feature, get_default_args
 @register_transform("rawboost")
 def rawboost(
-    audio: np.ndarray,
-    algorithm: int = 5,
-    probability: float = 0.5,
-    sample_rate: int = 16000,
+    x: dict,
+    noise_ratio: float = 0.5,
 ) -> np.ndarray:
     """
     apply RawBoost augmentation to mono audio 
     """
-    if np.random.random() > probability:
+    if np.random.random() > noise_ratio:
         return audio
+    
+    audio: np.ndarray = x['audio']
+    sample_rate = 16000
 
-    if parameters is None:
-        parameters = get_default_args()
+    parameters = get_default_args()
 
     try:
         return process_Rawboost_feature(
             feature=audio,
             sr=sample_rate,
             args=parameters,
-            algo=algorithm,
+            algo=5,
         )
     except Exception as e:
         print(f"Warning: RawBoost augmentation failed, returning original audio: {e}")
@@ -79,12 +78,18 @@ import torchaudio
 import random
 import torch
 @register_transform("codec")
-def codec(audio: np.ndarray, 
-    sample_rate: int = 16000) -> np.ndarray:
+def codec(
+    x: dict,
+    noise_ratio: float) -> np.ndarray:
     """
     Apply codec augmentation on mono audio. 
     Implementation adapted from speechbrain.
     """
+    if np.random.random() > noise_ratio:
+        return audio
+    
+    audio: np.ndarray = x['audio']
+    sample_rate: int = 16000
     #formats = [("wav", "pcm_mulaw"), ("mp3", None), ("g722", None)]
     # TODO: add more formats
     formats = [("wav", "pcm_mulaw"), ("g722", None)]
@@ -104,15 +109,20 @@ def codec(audio: np.ndarray,
 
 @register_transform("morph")
 def morph(
-    audio: np.ndarray,
-    noise: np.ndarray,
-    noise_db_low: float = 5,
-    noise_db_high: float = 20,
+    x: dict,
+    noise_ratio: float,
 ) -> np.ndarray:
     """
     Apply morphing augmentation on mono audio.
     Implementation adapted from ESPNet.
     """
+    if np.random.rand() > noise_ratio:
+        return audio
+    audio: np.ndarray = x['audio']
+    noise: np.ndarray = x['noise']
+    noise_db_low: float = 5,
+    noise_db_high: float = 20,
+
     audio_power = float((audio**2).mean())
     noise_db = np.random.uniform(noise_db_low, noise_db_high)
 
@@ -142,10 +152,6 @@ def morph(
     audio = audio + scale * noise
     return audio
 
-# Add more as needed (codec, reverb, morph, RawBoost etc.)
-# Just wrap each function with @register_transform("name")
-# TODO: Speechbrain supports many? Add speechbrain lib?
-
 if __name__ == "__main__":
     print("Waveform augmentation tools loaded")
     
@@ -165,14 +171,19 @@ if __name__ == "__main__":
 
     noise = np.random.randn(len(x))
 
-    y_rir = rir(x, rir_audio=rir_audio, probability=1.0)
+    input_dict = {
+        'audio': x,
+        'noise': rir_audio
+    }
+    y_rir = rir(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_rir.wav", y_rir, sr)
 
-    y_raw = rawboost(x, probability=0.0, sample_rate=sr)
+    y_raw = rawboost(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_rawboost.wav", y_raw, sr)
 
-    y_codec = codec(x, sample_rate=sr)
+    y_codec = codec(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_codec.wav", y_codec, sr)
 
-    y_morph = morph(x, noise=noise, noise_db_low=5, noise_db_high=20)
+    input_dict['noise'] = noise
+    y_morph = morph(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_morph.wav", y_morph, sr)
