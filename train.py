@@ -4,16 +4,16 @@ import yaml
 import logging
 from datetime import datetime
 
+from deepfense.training.set_seed import set_seed
 from deepfense.data.data_utils import build_dataloader
 from deepfense.models.registry import DETECTOR
 from deepfense.training.registry import TRAINER_REGISTRY, TRAINER_CONFIG_REGISTRY
-from deepfense.training.losses.registry import LOSS_REGISTRY
 
 def load_config(config_path):
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
 
-def setup_logging(output_dir, exp_name, cfg):
+def setup_logging(output_dir, exp_name):
     """Setup structured logging and clean folder creation."""
     # Ensure clean and unique experiment directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -22,29 +22,33 @@ def setup_logging(output_dir, exp_name, cfg):
 
     # Paths
     log_file = os.path.join(exp_dir, "train.log")
-    config_out = os.path.join(exp_dir, "config.yaml")
+    # config_out path is no longer needed here
+    
+    log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+    formatter = logging.Formatter(log_format, datefmt)
 
-    # Configure logging (console + file)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="[%(asctime)s] [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[
-            logging.StreamHandler(),                # Console
-            logging.FileHandler(log_file, mode="w") # File
-        ]
-    )
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
 
-    # Save a copy of the configuration for reproducibility
-    with open(config_out, "w") as f:
-        yaml.safe_dump(cfg, f, sort_keys=False)
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
 
-    logging.info(f"Experiment directory: {exp_dir}")
-    logging.info(f"Configuration saved to: {config_out}")
-    logging.info("Logging initialized successfully.\n")
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    file_handler = logging.FileHandler(log_file, mode="w")
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+    
+    logger = logging.getLogger("train") # Matches what you use in main()
+    
+    logger.info(f"Experiment directory: {exp_dir}")
+    # Removed config log message
+    logger.info(f"Logging re-configured successfully. All logs saving to {log_file}\n")
 
     return exp_dir
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -58,15 +62,17 @@ def main():
     # Setup experiment directory + logging
     base_output_dir = cfg["output_dir"]
     exp_name = cfg.get("exp_name", "default_exp")
-    output_dir = setup_logging(base_output_dir, exp_name, cfg)
-    cfg["trainer"]["params"]["output_dir"] = output_dir  # override with exp-specific path
-
+    
+    # --- MODIFIED: Call new setup_logging ---
+    output_dir = setup_logging(base_output_dir, exp_name)
 
     # Logging
     logger = logging.getLogger("train")
     logger.info(f"Experiment directory: {output_dir}")
 
-    # DataLoaders
+    # --- MODIFICATIONS: Apply all config overrides ---
+    cfg["trainer"]["params"]["output_dir"] = output_dir  # override with exp-specific path
+
     # add the labels to the config for dataset initialization
     cfg["data"]["train"]["label_map"] = cfg["data"]["label_map"]
     cfg["data"]["val"]["label_map"] = cfg["data"]["label_map"]
@@ -75,18 +81,29 @@ def main():
     cfg["data"]["train"]["sampling_rate"] = cfg["data"]["sampling_rate"]
     cfg["data"]["val"]["sampling_rate"] = cfg["data"]["sampling_rate"]
 
+    # --- NEW: Save the *final* modified config ---
+    config_out = os.path.join(output_dir, "config.yaml")
+    try:
+        with open(config_out, "w") as f:
+            yaml.safe_dump(cfg, f, sort_keys=False)
+        logger.info(f"Final configuration saved to: {config_out}")
+    except Exception as e:
+        logger.error(f"Failed to save final config: {e}")
+
+
+    # set seed
+    set_seed(cfg["seed"])
+
+    # DataLoaders
     train_loader = build_dataloader(cfg["data"]["train"])
     val_loader = build_dataloader(cfg["data"]["val"])
 
-
-    # Detector (frontend + backend)
+    # Detector (frontend + backend + lossMapper)
     detector_cfg = cfg["detector"]
-    detector = DETECTOR[detector_cfg["type"]](detector_cfg)
+    loss_cfg = cfg["loss"]
+    detector_cfg["loss"] = loss_cfg
 
-    # Loss
-    loss_name = cfg["loss"]["type"]
-    loss_params = cfg["loss"].get("params", {})
-    criterion = LOSS_REGISTRY[loss_name](**loss_params)
+    detector = DETECTOR[detector_cfg["type"]](detector_cfg)
 
     # Trainer
     trainer_type = cfg["trainer"]["type"]
@@ -100,8 +117,9 @@ def main():
         model=detector,
         train_loader=train_loader,
         val_loader=val_loader,
-        criterion=criterion,
         optimizer_config=cfg.get("optimizer_config"),
+        scheduler_config=cfg.get("scheduler_config", None),
+        metrics_config=cfg.get("metrics", None),
         config=TrainerConfig,
     )
 

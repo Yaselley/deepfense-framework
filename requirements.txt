@@ -1,0 +1,29 @@
+# Core ML
+torch>=2.1.0,<2.9
+torchaudio>=2.1.0,<2.9
+torchvision>=0.12.0,<0.23
+
+# Data and computation
+numpy>=1.24,<2.2
+pandas>=2.0,<3.0
+scipy>=1.9,<1.16
+scikit-learn>=1.2,<1.8
+pyarrow
+
+# Audio and speech
+librosa>=0.10,<0.12
+pydub
+soundfile
+soxr
+
+# Transformers and tokenizers
+transformers>=4.50,<5.0
+tokenizers
+
+# Utilities
+tqdm
+pyyaml
+typing-extensions
+safetensors
+wandb>=0.12,<1.0
+einops>=0.7,<1.0

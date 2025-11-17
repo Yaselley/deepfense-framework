@@ -1,6 +1,6 @@
-exp_name : "W2V_LR"
-
+exp_name : "W2V_AASIST"
 output_dir: "./outputs/"
+seed: 1234
 
 data:
   sampling_rate: 16000
@@ -12,6 +12,17 @@ data:
     parquet_files: [
       "/netscratch/yelkheir/DeepFense/DeepFense/tests/train.parquet",
       ]
+    
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+        random_pad: False
+        pad_type: "repeat"
+
+    augment_transform:
+      - type: "simple_aug"
+        noise_ratio: 6
+
 
   val:
     dataset_type: "StandardDataset"
@@ -20,25 +31,89 @@ data:
       "/netscratch/yelkheir/DeepFense/DeepFense/tests/test.parquet",
       ]
 
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+        random_pad: False
+        pad_type: "repeat"
+
+  test:
+    dataset_type: "StandardDataset"
+    dataset_names: ["ASVSpoof19"]
+    parquet_files: [
+      "/netscratch/yelkheir/DeepFense/DeepFense/tests/test.parquet",
+      ]
+      
 detector:
   type: "StandardDetector"
 
-  frontend: 
-    type: "wav2vec"
+  # frontend: 
+  #   type: "wav2vec2"
+  #   args:
+  #     ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
 
-  backend: 
-    type: "linear_layer"
+  frontend: 
+    type: "wavlm"
     args:
-      input_dim: 768
-      num_classes: 2
+      ckpt_path: "/netscratch/yelkheir/ssl_models/WavLM-Large.pt"
+
+  # backend: 
+  #   type: "AASIST"
+  #   args:
+  #     filts: [128, [1, 32], [32, 32], [32, 64], [64, 64]]
+  #     gat_dims: [64, 32]
+  #     pool_ratios: [0.5, 0.5, 0.5, 0.5]
+  #     temperatures: [2.0, 2.0, 100.0, 100.0]
+  
+  backend: 
+    type: "Nes2Net"
+    args:
+      input_dim: 1024 
+      pool: mean 
 
 loss:
-  type: "CrossEntropy"
+  - # --- Loss 1: Cross Entropy ---
+    type: "CrossEntropy"
+    weight: 0.5
+
+    embedding_dim: 1024
+    n_classes: 2
+    class_weights: [0.1, 0.9]
+
+  - # --- Loss 2: AMSoftmax ---
+    type: "AMSoftmax"
+    weight: 0.5                
+
+    embedding_dim: 1024
+    n_classes: 2
+    s: 30.0                       
+    m: 0.4
+
 
 optimizer_config:
-  name: "adam"
-  lr: 0.000001
-  weight_decay: 0.0001
+  type: "adam"
+  params:
+    lr: 0.000001
+    weight_decay: 0.0001
+
+scheduler_config:
+  type: "exponential"
+  params:
+    gamma: 0.9
+
+metrics:
+  ACC: {}
+  F1_SCORE: {}
+  EER: {}
+  EER_CI: {}
+  actDCF:
+    Pspoof: 0.05
+    Cmiss: 1
+    Cfa: 1
+  minDCF:
+    Pspoof: 0.05
+    Cmiss: 1
+    Cfa: 1
 
 trainer:
   type: "StandardTrainer"
@@ -49,3 +124,4 @@ trainer:
     num_workers: 4
     batch_log_interval: 1
     eval_every_steps: 1
+    monitor_metric: "EER"

@@ -10,8 +10,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter
-from deepfense.training.losses.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_mapper
 
+@register_mapper("ASoftmaxMapper")
 class AngleLayer(nn.Module):
     """ Output layer to produce activation for Angular softmax layer
     AngleLayer(in_dim, output_dim, m=4):
@@ -34,8 +36,14 @@ class AngleLayer(nn.Module):
                input feature vector x[i, :] and weight vector w[j, :]
     phi[i, j]: -1^k cos(m \theta) - 2k
     """
-    def __init__(self, in_planes, out_planes, m=4):
+    def __init__(self, config):
+
         super(AngleLayer, self).__init__()
+
+        in_planes = config["embedding_dim"]
+        out_planes = config["n_classes"]
+        m = config["m"] 
+
         self.in_planes = in_planes
         self.out_planes = out_planes
         self.weight = Parameter(torch.Tensor(in_planes, out_planes))
@@ -104,7 +112,7 @@ class AngleLayer(nn.Module):
             cos_x = cos_theta * x_modulus.view(-1, 1)
             phi_x = phi_theta * x_modulus.view(-1, 1)
 
-        # ((batchsie, output_dim), (batchsie, output_dim))
+        # ((batchsize, output_dim), (batchsize, output_dim))
         return cos_x, phi_x
 
 @register_loss("ASoftmax")
@@ -123,13 +131,14 @@ class AngularSoftmaxWithLoss(nn.Module):
     target: target labels (batchsize)
     
     """
-    def __init__(self, gamma=0):
+    def __init__(self, config):
         super(AngularSoftmaxWithLoss, self).__init__()
-        self.gamma = gamma
-        self.iter = 0
-        self.lambda_min = 5.0
-        self.lambda_max = 1500.0
-        self.lamb = 1500.0
+
+        self.gamma = config.get("gamma", 0.5)
+        self.iter = config.get("iter", 0)
+        self.lambda_min = config.get("lambda_min", 5)
+        self.lambda_max = config.get("lambda_max", 1500)
+        self.lamb = config.get("lamb", 1500)
 
     def forward(self, input, target):
         """ 

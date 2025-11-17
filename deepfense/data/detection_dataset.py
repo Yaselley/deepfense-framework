@@ -69,11 +69,12 @@ class StandardDataset(BaseDataset):
             x = self.base_transform(x)
         if self.augment_transform:
             x = self.augment_transform(x)
-
+        
         return {
+            "ID": row["ID"],
             "x": torch.tensor(x, dtype=torch.float32),
             "label": torch.tensor(row["label"], dtype=torch.long),
-            "dataset_name": row["dataset_name"],
+            "dataset_name": row["dataset_name"]
         }
 
         

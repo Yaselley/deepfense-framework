@@ -9,4 +9,4 @@ def register_frontend(name: str):
 def build_frontend(name: str, config: dict):
     if name not in FRONTEND:
         raise ValueError(f"Unknown frontend: {name}")
-    return FRONTEND[name](**config)
+    return FRONTEND[name](config)

@@ -1,3 +1,5 @@
+# https://github.com/ductuantruong/tcm_add/blob/main/conformer.py
+
 import math
 import torch
 from torch import nn, einsum
@@ -6,10 +8,7 @@ import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
-from deepfense.models.modules.utils.activations.swish import Swish
-from deepfense.models.modules.utils.activations.GLU import GLU
-from deepfense.models.modules.utils.layers.convolution import DepthWiseConv1d
-
+# helper functions
 
 def exists(val):
     return val is not None
@@ -20,6 +19,31 @@ def default(val, d):
 def calc_same_padding(kernel_size):
     pad = kernel_size // 2
     return (pad, pad - (kernel_size + 1) % 2)
+
+# helper classes
+
+class Swish(nn.Module):
+    def forward(self, x):
+        return x * x.sigmoid()
+
+class GLU(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, x):
+        out, gate = x.chunk(2, dim=self.dim)
+        return out * gate.sigmoid()
+
+class DepthWiseConv1d(nn.Module):
+    def __init__(self, chan_in, chan_out, kernel_size, padding):
+        super().__init__()
+        self.padding = padding
+        self.conv = nn.Conv1d(chan_in, chan_out, kernel_size, groups = chan_in)
+
+    def forward(self, x):
+        x = F.pad(x, self.padding)
+        return self.conv(x)
 
 # attention, feedforward, and conv module
 

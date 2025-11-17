@@ -6,14 +6,14 @@ Wang, F., Cheng, J., Liu, W. & Liu, H.
 Additive margin softmax for face verification. IEEE Signal Process. Lett. 2018
 
 """
-from __future__ import print_function
 
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
-from deepfense.training.losses.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_loss
+from deepfense.models.loss_mappers.registry import register_mapper
 
-
+@register_mapper("AMSoftmaxMapper")
 class AMAngleLayer(nn.Module):
     """ Output layer to produce activation for Angular softmax layer
     AMAngleLayer(in_dim, output_dim, s=20, m=0.9):
@@ -55,8 +55,14 @@ class AMAngleLayer(nn.Module):
 
       loss.backward()
     """
-    def __init__(self, in_planes, out_planes, s=20, m=0.9):
+    def __init__(self, config):
         super(AMAngleLayer, self).__init__()
+
+        in_planes = config["embedding_dim"]
+        out_planes = config["n_classes"]
+        s = config["s"]
+        m = config["m"]
+
         self.in_planes = in_planes
         self.out_planes = out_planes
         
@@ -103,7 +109,7 @@ class AMAngleLayer(nn.Module):
             cos_x = self.s * cos_theta
             phi_x = self.s * (cos_theta - self.m) 
 
-        # ((batchsie, output_dim), (batchsie, output_dim))
+        # ((batchsize, output_dim), (batchsie, output_dim))
         return cos_x, phi_x
 
 @register_loss("AMSoftmax")
@@ -112,9 +118,15 @@ class AMSoftmaxWithLoss(nn.Module):
     AMSoftmaxWithLoss()
     See usage in __doc__ of AMAngleLayer
     """
-    def __init__(self):
+    def __init__(self, config):
         super(AMSoftmaxWithLoss, self).__init__()
-        self.m_loss = nn.CrossEntropyLoss()
+  
+        class_weights = config.get("class_weights", [0.5, 0.5])
+        reduction = config.get("reduction", "mean")
+        if class_weights is not None:
+            class_weights = torch.tensor(class_weights, dtype=torch.float)
+            
+        self.m_loss = nn.CrossEntropyLoss(weight=class_weights, reduction=reduction)
 
     def forward(self, input, target):
         """ 
