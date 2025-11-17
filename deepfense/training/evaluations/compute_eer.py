@@ -8,13 +8,13 @@ from deepfense.training.evaluations.utils import _metric_get_1d_scores
 # Get a logger for this module
 logger = logging.getLogger(__name__)
 
-def compute_det_curve(labels, scores, bonafide_label=0):
+def compute_det_curve(labels, scores, bonafide_label=1):
     """
     Compute the DET curve values.
 
     Args:
         labels (np.ndarray): Binary ground-truth labels
-                             (0 = bonafide, 1 = spoof by default)
+                             (1 = bonafide, 0 = spoof by default)
         scores (np.ndarray): 1D model prediction scores (higher → more likely spoof)
         bonafide_label (int): Label representing bonafide class (default: 0)
 
@@ -69,7 +69,7 @@ def compute_eer(labels, scores, params, precise=False):
 
     Args:
         labels (np.ndarray): Binary ground-truth labels
-                             (0 = bonafide, 1 = spoof by default)
+                             (1 = bonafide, 0 = spoof by default)
         scores (np.ndarray): Raw [N, C] model prediction scores.
         params (dict):
             - bonafide_label (int, optional): Label for bonafide class (default: 0)
@@ -83,7 +83,7 @@ def compute_eer(labels, scores, params, precise=False):
     # Convert raw [N, C] scores to 1D based on the loss_type in params
     scores_1d = _metric_get_1d_scores(scores, params)
 
-    bonafide_label = params.get("bonafide_label", 0)
+    bonafide_label = params.get("bonafide_label", 1)
     
     frr, far, thresholds = compute_det_curve(labels, scores_1d, bonafide_label)
 

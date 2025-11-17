@@ -11,10 +11,10 @@ def calculate_CLLR(labels, scores, params):
 
     Args:
         labels (np.ndarray): Binary ground-truth labels 
-                             (0 = bonafide, 1 = spoof by default)
+                             (1 = bonafide, 0 = spoof by default)
         scores (np.ndarray): Raw [N, C] model output scores (LLRs).
         params (dict):
-            - bonafide_label (int, optional): Label for bonafide class (default: 0)
+            - bonafide_label (int, optional): Label for bonafide class (default: 1)
             - loss (str, optional): 'crossentropy' or 'amsoftmax'.
                                          (default: 'crossentropy')
 
@@ -35,7 +35,7 @@ def calculate_CLLR(labels, scores, params):
         print(labels.shape, scores.shape)
         raise ValueError("labels and scores must have the same shape")
 
-    bonafide_label = params.get("bonafide_label", 0)
+    bonafide_label = params.get("bonafide_label", 1)
     spoof_label = 1 - bonafide_label
 
     # ---- Split scores ----

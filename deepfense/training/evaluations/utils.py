@@ -12,12 +12,12 @@ def _metric_get_1d_scores(raw_scores: np.ndarray, metric_params: dict) -> np.nda
     # Get loss_type from the metric's parameters (e.g., from your config file)
     loss_type = metric_params.get("loss", "crossentropy").lower()
     
-    # Get the bonafide_label (defaults to 0)
-    bonafide_label = metric_params.get("bonafide_label", 0)
+    # Get the bonafide_label (defaults to 1)
+    bonafide_label = metric_params.get("bonafide_label", 1)
     spoof_label = abs(1 - bonafide_label)
     
     if loss_type != 'crossentropy':
-        return raw_scores[:, spoof_label] - raw_scores[:, bonafide_label]
+        return raw_scores[:, bonafide_label] - raw_scores[:, spoof_label]
     
     else:
-        return raw_scores[:, spoof_label]
+        return raw_scores[:, bonafide_label]

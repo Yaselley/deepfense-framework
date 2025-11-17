@@ -12,13 +12,13 @@ def compute_mindcf(labels, scores, params):
 
     Args:
         labels (np.ndarray): Binary ground-truth labels 
-                             (0 = bonafide, 1 = spoof by default)
+                             (1 = bonafide, 0 = spoof by default)
         scores (np.ndarray): Raw [N, C] model prediction scores.
         params (dict):
             - Pspoof (float): Prior probability of spoof class (default: 0.5)
             - Cmiss (float): Cost of missing a bonafide sample (default: 1.0)
             - Cfa (float): Cost of falsely accepting a spoof sample (default: 1.0)
-            - bonafide_label (int, optional): Label representing bonafide class (default: 0)
+            - bonafide_label (int, optional): Label representing bonafide class (default: 1)
             - loss (str, optional): 'crossentropy' or 'amsoftmax'.
                                          (default: 'crossentropy')
 
@@ -45,7 +45,7 @@ def compute_mindcf(labels, scores, params):
     Cmiss = params.get("Cmiss", 1.0)
     Cfa = params.get("Cfa", 1.0)
     # bonafide_label is handled by compute_eer, but we can get it here for clarity
-    bonafide_label = params.get("bonafide_label", 0) 
+    bonafide_label = params.get("bonafide_label", 1) 
 
     # ---- Compute DET curve ----
     # 'scores' is now 1D, and we pass 'params' so compute_eer

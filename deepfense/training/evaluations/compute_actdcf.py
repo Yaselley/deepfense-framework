@@ -29,10 +29,8 @@ def compute_actDCF(labels, scores, params):
         dict: {"actDCF": actDCF}
     """
     
-    # --- ADD THIS LINE ---
     # Convert raw [N, C] scores to 1D based on the loss_type in params
     scores = _metric_get_1d_scores(scores, params)
-    # --- END OF CHANGE ---
 
     # ---- Validate input ----
     labels = np.asarray(labels).astype(int)
@@ -45,7 +43,7 @@ def compute_actDCF(labels, scores, params):
     Pspoof = params.get("Pspoof", 0.5)
     Cmiss = params.get("Cmiss", 1.0)
     Cfa = params.get("Cfa", 1.0)
-    bonafide_label = params.get("bonafide_label", 0)
+    bonafide_label = params.get("bonafide_label", 1)
     spoof_label = 1 - bonafide_label
 
     # ---- Compute threshold ----

@@ -9,7 +9,7 @@ class Evaluator:
     {
         "EER": {},
         "ACC": {},
-        "CLLR": {"bonafide_label": 0},
+        "CLLR": {"bonafide_label": 1},
         "F1_SCORE": {"f1_average": "macro"}
     }
     """
