@@ -26,3 +26,4 @@ pyyaml
 typing-extensions
 safetensors
 wandb>=0.12,<1.0
+einops>=0.7,<1.0
