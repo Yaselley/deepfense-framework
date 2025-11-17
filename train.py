@@ -4,6 +4,7 @@ import yaml
 import logging
 from datetime import datetime
 
+from deepfense.training.set_seed import set_seed
 from deepfense.data.data_utils import build_dataloader
 from deepfense.models.registry import DETECTOR
 from deepfense.training.registry import TRAINER_REGISTRY, TRAINER_CONFIG_REGISTRY
@@ -88,7 +89,10 @@ def main():
         logger.info(f"Final configuration saved to: {config_out}")
     except Exception as e:
         logger.error(f"Failed to save final config: {e}")
-    # --- END NEW SECTION ---
+
+
+    # set seed
+    set_seed(cfg["seed"])
 
     # DataLoaders
     train_loader = build_dataloader(cfg["data"]["train"])
