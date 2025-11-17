@@ -1,5 +1,6 @@
 exp_name : "W2V_AASIST"
 output_dir: "./outputs/"
+seed: 1234
 
 data:
   sampling_rate: 16000
@@ -46,26 +47,36 @@ data:
 detector:
   type: "StandardDetector"
 
-  frontend: 
-    type: "wav2vec2"
-    args:
-      ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
+  # frontend: 
+  #   type: "wav2vec2"
+  #   args:
+  #     ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
 
-  backend: 
-    type: "AASIST"
+  frontend: 
+    type: "wavlm"
     args:
-      filts: [128, [1, 32], [32, 32], [32, 64], [64, 64]]
-      gat_dims: [64, 32]
-      pool_ratios: [0.5, 0.5, 0.5, 0.5]
-      temperatures: [2.0, 2.0, 100.0, 100.0]
-    
+      ckpt_path: "/netscratch/yelkheir/ssl_models/WavLM-Large.pt"
+
+  # backend: 
+  #   type: "AASIST"
+  #   args:
+  #     filts: [128, [1, 32], [32, 32], [32, 64], [64, 64]]
+  #     gat_dims: [64, 32]
+  #     pool_ratios: [0.5, 0.5, 0.5, 0.5]
+  #     temperatures: [2.0, 2.0, 100.0, 100.0]
+  
+  backend: 
+    type: "Nes2Net"
+    args:
+      input_dim: 1024 
+      pool: mean 
 
 loss:
   - # --- Loss 1: Cross Entropy ---
     type: "CrossEntropy"
     weight: 0.5
 
-    embedding_dim: 160
+    embedding_dim: 1024
     n_classes: 2
     class_weights: [0.1, 0.9]
 
@@ -73,7 +84,7 @@ loss:
     type: "AMSoftmax"
     weight: 0.5                
 
-    embedding_dim: 160
+    embedding_dim: 1024
     n_classes: 2
     s: 30.0                       
     m: 0.4
