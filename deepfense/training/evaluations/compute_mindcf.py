@@ -3,6 +3,7 @@
 import numpy as np
 from deepfense.training.evaluations.registry import register_eval
 from deepfense.training.evaluations.compute_eer import compute_eer
+from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
 @register_eval("minDCF")
 def compute_mindcf(labels, scores, params):
@@ -11,27 +12,31 @@ def compute_mindcf(labels, scores, params):
 
     Args:
         labels (np.ndarray): Binary ground-truth labels 
-                             (0 = bonafide, 1 = spoof by default)
-        scores (np.ndarray): Model prediction scores (higher → more likely spoof)
+                             (1 = bonafide, 0 = spoof by default)
+        scores (np.ndarray): Raw [N, C] model prediction scores.
         params (dict):
             - Pspoof (float): Prior probability of spoof class (default: 0.5)
             - Cmiss (float): Cost of missing a bonafide sample (default: 1.0)
             - Cfa (float): Cost of falsely accepting a spoof sample (default: 1.0)
-            - bonafide_label (int, optional): Label representing bonafide class (default: 0)
+            - bonafide_label (int, optional): Label representing bonafide class (default: 1)
+            - loss (str, optional): 'crossentropy' or 'amsoftmax'.
+                                         (default: 'crossentropy')
 
     Returns:
         {
         "minDCF": min_dcf,
         "minDCF_threshold": min_c_det_threshold
     }
-
     """
 
-    import numpy as np
+    # --- 1. ADD THIS LINE ---
+    # Convert raw [N, C] scores to 1D based on the loss_type in params
+    scores = _metric_get_1d_scores(scores, params)
+    # --- END OF CHANGE ---
 
     # ---- Validate inputs ----
     labels = np.asarray(labels).astype(int)
-    scores = np.asarray(scores).astype(float)
+    scores = np.asarray(scores).astype(float) # scores is now 1D
     if labels.shape != scores.shape:
         raise ValueError("labels and scores must have the same shape")
 
@@ -39,13 +44,24 @@ def compute_mindcf(labels, scores, params):
     Pspoof = params.get("Pspoof", 0.5)
     Cmiss = params.get("Cmiss", 1.0)
     Cfa = params.get("Cfa", 1.0)
-    bonafide_label = params.get("bonafide_label", 0)
+    # bonafide_label is handled by compute_eer, but we can get it here for clarity
+    bonafide_label = params.get("bonafide_label", 1) 
 
     # ---- Compute DET curve ----
-    eer_metrics = compute_eer(labels, scores, params)
-    frr = eer_metrics["FRR"]
-    far = eer_metrics["FAR"]
-    thresholds = eer_metrics["thresholds"]
+    # 'scores' is now 1D, and we pass 'params' so compute_eer
+    # also gets bonafide_label, loss_type, etc.
+    eer_metrics = compute_eer(labels, scores, params, precise=True)
+    
+    frr = np.array(eer_metrics.get("FRR"))
+    far = np.array(eer_metrics.get("FAR"))
+    thresholds = np.array(eer_metrics.get("thresholds"))
+
+    # Handle case where compute_eer failed (e.g., missing samples)
+    if frr.size <= 1 or far.size <= 1:
+        import logging
+        logging.warning("minDCF calculation failed: invalid DET curve data.")
+        return {"minDCF": np.nan, "minDCF_threshold": np.nan}
+
 
     Pbonafide = 1 - Pspoof
     min_c_det = float("inf")
@@ -63,6 +79,6 @@ def compute_mindcf(labels, scores, params):
     min_dcf = min_c_det / denom if denom > 0 else np.nan
 
     return {
-        "minDCF": min_dcf,
-        "minDCF_threshold": min_c_det_threshold
+        "minDCF": float(min_dcf),
+        "minDCF_threshold": float(min_c_det_threshold)
     }

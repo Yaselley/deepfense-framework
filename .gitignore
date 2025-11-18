@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Pre-trained checkpoints
+deepfense/models/pretrained/*.pt
+
 # C extensions
 *.so
 

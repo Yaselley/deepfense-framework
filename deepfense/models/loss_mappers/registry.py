@@ -5,9 +5,9 @@ LOSS_REGISTRY: Dict[str, Type[nn.Module]] = {}
 MAPPER_REGISTRY: Dict[str, Type[nn.Module]] = {}
 
 LOSS_TO_MAPPER = {
-    "ASoftmax": "ALinearMapper",
-    "ArcFace": "ArcFaceMapper",
-    "AMSoftmax": "AMLinearMapper",
+    "OCSoftmax": "OCSoftmaxMapper",
+    "ASoftmax": "ASoftmaxMapper",
+    "AMSoftmax": "AMSoftmaxMapper",
     "CrossEntropy": "CrossEntropyMapper",  # no special mapper needed
 }
 

@@ -28,7 +28,6 @@ class StandardDataset(BaseDataset):
         self.base_transform_cfg = self.config_data.get("base_transform", None)
         self.augment_transform_cfg = self.config_data.get("augment_transform", None)
 
-        print(self.base_transform_cfg)
         self.base_transform = build_transforms_from_config(self.base_transform_cfg)
         self.augment_transform = build_transforms_from_config(self.augment_transform_cfg)
 
@@ -70,11 +69,12 @@ class StandardDataset(BaseDataset):
             x = self.base_transform(x)
         if self.augment_transform:
             x = self.augment_transform(x)
-
+        
         return {
+            "ID": row["ID"],
             "x": torch.tensor(x, dtype=torch.float32),
             "label": torch.tensor(row["label"], dtype=torch.long),
-            "dataset_name": row["dataset_name"],
+            "dataset_name": row["dataset_name"]
         }
 
         

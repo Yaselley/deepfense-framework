@@ -109,7 +109,7 @@ class AMAngleLayer(nn.Module):
             cos_x = self.s * cos_theta
             phi_x = self.s * (cos_theta - self.m) 
 
-        # ((batchsie, output_dim), (batchsie, output_dim))
+        # ((batchsize, output_dim), (batchsie, output_dim))
         return cos_x, phi_x
 
 @register_loss("AMSoftmax")
@@ -118,9 +118,15 @@ class AMSoftmaxWithLoss(nn.Module):
     AMSoftmaxWithLoss()
     See usage in __doc__ of AMAngleLayer
     """
-    def __init__(self):
+    def __init__(self, config):
         super(AMSoftmaxWithLoss, self).__init__()
-        self.m_loss = nn.CrossEntropyLoss()
+  
+        class_weights = config.get("class_weights", [0.5, 0.5])
+        reduction = config.get("reduction", "mean")
+        if class_weights is not None:
+            class_weights = torch.tensor(class_weights, dtype=torch.float)
+            
+        self.m_loss = nn.CrossEntropyLoss(weight=class_weights, reduction=reduction)
 
     def forward(self, input, target):
         """ 

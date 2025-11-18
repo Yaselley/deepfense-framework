@@ -13,11 +13,13 @@ def collate_fn(batch, max_pad=None, pad_strategy="zero"):
             "label": Tensor of shape (B,),
             "dataset_name": list[str],
             "mask": Tensor of shape (B, max_len), 1=valid, 0=pad
+            "ID": list[str]
         }
     """
     xs = [item["x"] for item in batch]
     labels = [item["label"] for item in batch]
     dataset_names = [item["dataset_name"] for item in batch]
+    ids = [item["ID"] for item in batch]
 
     # Determine max length
     max_len = max(x.shape[0] for x in xs)
@@ -58,6 +60,7 @@ def collate_fn(batch, max_pad=None, pad_strategy="zero"):
         "label": label,
         "dataset_name": dataset_names,
         "mask": mask,
+        "ID": ids
     }
 
 

@@ -1,23 +1,25 @@
 # https://github.com/asvspoof-challenge/asvspoof5/tree/main/evaluation-package
 
 import numpy as np
+import logging
 from deepfense.training.evaluations.registry import register_eval
+from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
-def compute_det_curve(labels, scores, bonafide_label=0):
+# Get a logger for this module
+logger = logging.getLogger(__name__)
+
+def compute_det_curve(labels, scores, bonafide_label=1):
     """
     Compute the DET curve values.
 
     Args:
         labels (np.ndarray): Binary ground-truth labels
-                             (0 = bonafide, 1 = spoof by default)
-        scores (np.ndarray): Model prediction scores (higher → more likely spoof)
+                             (1 = bonafide, 0 = spoof by default)
+        scores (np.ndarray): 1D model prediction scores (higher → more likely spoof)
         bonafide_label (int): Label representing bonafide class (default: 0)
 
     Returns:
         tuple: (frr, far, thresholds)
-            - frr: np.ndarray, False Rejection Rates (#N,)
-            - far: np.ndarray, False Acceptance Rates (#N,)
-            - thresholds: np.ndarray, thresholds corresponding to FRR/FAR
     """
     labels = np.asarray(labels).astype(int)
     scores = np.asarray(scores).astype(float)
@@ -28,7 +30,11 @@ def compute_det_curve(labels, scores, bonafide_label=0):
     nontarget_scores = scores[labels == spoof_label]   # spoof/fake trials
 
     if target_scores.size == 0 or nontarget_scores.size == 0:
-        raise ValueError("Both bonafide and spoof samples must be present")
+        # --- MODIFICATION: Log a warning instead of crashing ---
+        logger.warning("DET curve calculation failed: missing bonafide or spoof samples.")
+        # Return sensible defaults to avoid crashing EER calculation
+        return np.array([0.0]), np.array([1.0]), np.array([0.0])
+        # --- END MODIFICATION ---
 
     n_scores = target_scores.size + nontarget_scores.size
     all_scores = np.concatenate((target_scores, nontarget_scores))
@@ -57,38 +63,45 @@ def compute_det_curve(labels, scores, bonafide_label=0):
 
 
 @register_eval("EER")
-def compute_eer(labels, scores, params):
+def compute_eer(labels, scores, params, precise=False):
     """
     Compute Equal Error Rate (EER) and the corresponding threshold.
 
     Args:
         labels (np.ndarray): Binary ground-truth labels
-                             (0 = bonafide, 1 = spoof by default)
-        scores (np.ndarray): Model prediction scores (higher → more likely spoof)
+                             (1 = bonafide, 0 = spoof by default)
+        scores (np.ndarray): Raw [N, C] model prediction scores.
         params (dict):
-            - bonafide_label (int, optional): Label representing bonafide class (default: 0)
+            - bonafide_label (int, optional): Label for bonafide class (default: 0)
+            - loss (str, optional): 'crossentropy' or 'amsoftmax'.
+            - precise (bool, optional): From config, to return full DET data.
 
     Returns:
-        tuple: {
-        "EER": float(eer),
-        "EER_threshold": float(thresholds[min_index]),
-        "FRR": frr.tolist(),
-        "FAR": far.tolist(),
-        "thresholds": thresholds.tolist(),
-    }
+        dict: { "EER": ... }
     """
-    bonafide_label = params.get("bonafide_label", 0)
-    print(scores)
-    frr, far, thresholds = compute_det_curve(labels, scores, bonafide_label)
+    
+    # Convert raw [N, C] scores to 1D based on the loss_type in params
+    scores_1d = _metric_get_1d_scores(scores, params)
+
+    bonafide_label = params.get("bonafide_label", 1)
+    
+    frr, far, thresholds = compute_det_curve(labels, scores_1d, bonafide_label)
 
     abs_diffs = np.abs(frr - far)
     min_index = np.argmin(abs_diffs)
     eer = np.mean((frr[min_index], far[min_index]))
 
-    return {
-        "EER": float(eer),
-        "EER_threshold": float(thresholds[min_index]),
-        "FRR": frr.tolist(),
-        "FAR": far.tolist(),
-        "thresholds": thresholds.tolist(),
-    }
+    precise = params.get("precise", precise)
+
+    if precise:
+        return {
+            "EER": float(eer),
+            "EER_threshold": float(thresholds[min_index]),
+            "FRR": frr.tolist(),
+            "FAR": far.tolist(),
+            "thresholds": thresholds.tolist(),
+        }
+    else:
+        return {
+            "EER": float(eer),
+        }

@@ -2,6 +2,7 @@
 
 import numpy as np
 from deepfense.training.evaluations.registry import register_eval
+from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
 @register_eval("CLLR")
 def calculate_CLLR(labels, scores, params):
@@ -10,25 +11,31 @@ def calculate_CLLR(labels, scores, params):
 
     Args:
         labels (np.ndarray): Binary ground-truth labels 
-                             (0 = bonafide, 1 = spoof by default)
-        scores (np.ndarray): Log-likelihood ratio scores (LLRs)
-                             (higher → more likely spoof)
+                             (1 = bonafide, 0 = spoof by default)
+        scores (np.ndarray): Raw [N, C] model output scores (LLRs).
         params (dict):
-            - bonafide_label (int, optional): Label representing bonafide class (default: 0)
+            - bonafide_label (int, optional): Label for bonafide class (default: 1)
+            - loss (str, optional): 'crossentropy' or 'amsoftmax'.
+                                         (default: 'crossentropy')
 
     Returns:
         {"CLLR": cllr}
     """
+    
+    # --- 1. ADD THIS LINE ---
+    # Convert raw [N, C] scores to 1D based on the loss_type in params
+    scores = _metric_get_1d_scores(scores, params)
+    # --- END OF CHANGE ---
 
     # ---- Validate input ----
     labels = np.asarray(labels).astype(int)
-    scores = np.asarray(scores).astype(float)
+    scores = np.asarray(scores).astype(float) # scores is now 1D
 
     if labels.shape != scores.shape:
         print(labels.shape, scores.shape)
         raise ValueError("labels and scores must have the same shape")
 
-    bonafide_label = params.get("bonafide_label", 0)
+    bonafide_label = params.get("bonafide_label", 1)
     spoof_label = 1 - bonafide_label
 
     # ---- Split scores ----
@@ -36,7 +43,13 @@ def calculate_CLLR(labels, scores, params):
     spoof_scores = scores[labels == spoof_label]
 
     if bona_scores.size == 0 or spoof_scores.size == 0:
-        raise ValueError("Both bonafide and spoof samples must be present")
+        # Don't raise an error, just return NaN or a high value if no samples
+        # Or log a warning. Let's log and return nan.
+        import logging
+        logger = logging.getLogger("CLLR")
+        logger.warning("CLLR calculation failed: missing bonafide or spoof samples.")
+        return {"CLLR": np.nan}
+
 
     # ---- Helper: negative log sigmoid ----
     def negative_log_sigmoid(x):
@@ -46,6 +59,8 @@ def calculate_CLLR(labels, scores, params):
     # ---- Compute CLLR ----
     term1 = np.mean(negative_log_sigmoid(bona_scores))
     term2 = np.mean(negative_log_sigmoid(-spoof_scores))
-    cllr = 0.5 * (term1 + term2) / np.log(2)  # log base 2 normalization
+    
+    # log base 2 normalization
+    cllr = (term1 + term2) * 0.5 / np.log(2)  
 
     return {"CLLR": cllr}
