@@ -92,5 +92,5 @@ def build_dataloader(config):
         ds,
         batch_size=batch_size,
         shuffle=shuffle,
-        collate_fn=lambda b: collate_fn(b, max_pad=config["max_len"]),
+        collate_fn=lambda b: collate_fn(b, max_pad=config.get("max_len", None)),
     )
