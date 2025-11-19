@@ -13,15 +13,19 @@ data:
       "/netscratch/yelkheir/DeepFense/DeepFense/tests/train.parquet",
       ]
     
-    base_transform:
-      - type: "pad"
-        max_len: 64600
-        random_pad: False
-        pad_type: "repeat"
+    batch_size: 1
+    shuffle: True
+    max_len: 64600 # this is in case of zero padding, if not precised, it will take max_length wihtin the batch
 
-    augment_transform:
-      - type: "simple_aug"
-        noise_ratio: 6
+    # base_transform:
+    #   - type: "pad"
+    #     max_len: 64600
+    #     random_pad: False
+    #     pad_type: "repeat"
+
+    # augment_transform:
+    #   - type: "simple_aug"
+    #     noise_ratio: 6
 
 
   val:
@@ -30,6 +34,8 @@ data:
     parquet_files: [
       "/netscratch/yelkheir/DeepFense/DeepFense/tests/test.parquet",
       ]
+
+    batch_size: 1
 
     base_transform:
       - type: "pad"
@@ -120,8 +126,5 @@ trainer:
   config_type: "StandardConfig"
   params:
     device: "cuda"
-    batch_size: 2
     num_workers: 4
-    batch_log_interval: 1
-    eval_every_steps: 1
     monitor_metric: "EER"

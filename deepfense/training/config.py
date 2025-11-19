@@ -14,7 +14,7 @@ class StandardConfig:
     eval_every_steps: Optional[int] = None
     eval_every_epochs: Optional[int] = 1
     save_every_epochs: Optional[int] = 1
-    batch_log_interval: int = 50
+    batch_log_interval: int = None
     seed: Optional[int] = None
     use_amp: bool = False
     wandb: bool = False

@@ -69,7 +69,7 @@ class StandardDataset(BaseDataset):
             x = self.base_transform(x)
         if self.augment_transform:
             x = self.augment_transform(x)
-        
+
         return {
             "ID": row["ID"],
             "x": torch.tensor(x, dtype=torch.float32),
