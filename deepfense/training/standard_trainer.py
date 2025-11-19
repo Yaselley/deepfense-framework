@@ -112,7 +112,7 @@ class StandardTrainer(BaseTrainer):
                 epoch_train_losses.append(loss)
 
                 # Log
-                if batch_idx % self.config.batch_log_interval == 0:
+                if self.config.batch_log_interval is not None and batch_idx != 0 and batch_idx % self.config.batch_log_interval == 0:
                     lr = self._current_lr()
                     running_avg_loss = epoch_loss_sum / (batch_idx + 1)
                     
