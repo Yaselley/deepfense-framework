@@ -1,6 +1,7 @@
 import numpy as np
 from deepfense.training.evaluations.registry import EVAL_REGISTRY
 
+
 class Evaluator:
     """
     Evaluates a set of metrics defined in a configuration dictionary.
@@ -17,19 +18,19 @@ class Evaluator:
     def __init__(self, config):
         self.config = config or {}
         self.metrics = self._load_metrics()
-        
+
     def _clean_value(self, v):
-            """Helper to convert numpy types to python types."""
-            if isinstance(v, np.generic):
-                # .item() converts np.float64 -> float, np.int32 -> int, etc.
-                return v.item()
-            return v
+        """Helper to convert numpy types to python types."""
+        if isinstance(v, np.generic):
+            # .item() converts np.float64 -> float, np.int32 -> int, etc.
+            return v.item()
+        return v
 
     def _load_metrics(self):
         """Load all metric functions from the global EVAL_REGISTRY."""
         metrics = {}
         for name in self.config:
-            if name != "loss": # skip loss
+            if name != "loss":  # skip loss
                 metric_fn = EVAL_REGISTRY.get(name)
                 if metric_fn is None:
                     raise ValueError(f"Unknown metric: '{name}' (not in EVAL_REGISTRY)")
@@ -40,7 +41,7 @@ class Evaluator:
         """
         Evaluate all registered metrics.
         Each metric is called with its own parameters + shared kwargs.
-        
+
         Example:
             evaluator.evaluate(bonafide_scores=bona, spoof_scores=spoof)
         """
@@ -48,12 +49,11 @@ class Evaluator:
         for name, metric_fn in self.metrics.items():
             params = self.config.get(name, {})
             params["loss"] = self.config.get("loss")
-            
+
             try:
                 metric_result = metric_fn(labels, scores, params)
                 if isinstance(metric_result, dict):
                     for k, v in metric_result.items():
-
                         v = self._clean_value(v)
 
                         if "threshold" not in k.lower():

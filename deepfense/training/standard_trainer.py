@@ -17,11 +17,13 @@ from deepfense.training.optimizers.registry import OPTIMIZER_REGISTRY
 from deepfense.training.schedulers.registry import SCHEDULER_REGISTRY
 from deepfense.training.evaluations.evaluator import Evaluator
 
+
 @register_trainer("StandardTrainer")
 class StandardTrainer(BaseTrainer):
     """
     Standard supervised trainer (your original Trainer), built on top of BaseTrainer.
     """
+
     def __init__(
         self,
         model: nn.Module,
@@ -39,7 +41,11 @@ class StandardTrainer(BaseTrainer):
 
         # optimizers / schedulers
         self.optimizer = self._build_optimizer(optimizer_config)
-        self.scheduler = self._build_scheduler(self.optimizer, scheduler_config) if scheduler_config else None
+        self.scheduler = (
+            self._build_scheduler(self.optimizer, scheduler_config)
+            if scheduler_config
+            else None
+        )
 
         # evaluator
         metrics_config
@@ -56,6 +62,7 @@ class StandardTrainer(BaseTrainer):
         # wandb
         if config.wandb:
             import wandb
+
             self.wandb = wandb
             wandb.init(project=config.wandb_project, config=config.__dict__)
         else:
@@ -82,7 +89,7 @@ class StandardTrainer(BaseTrainer):
 
         if sched_name is None or sched_name == "":
             return None
-        
+
         scheduler_class = SCHEDULER_REGISTRY[sched_name]
         return scheduler_class(optim, sched_cfg.get("params", {}))
 
@@ -98,9 +105,11 @@ class StandardTrainer(BaseTrainer):
         for epoch in range(self.start_epoch, self.config.epochs):
             # epoch is 0-indexed, so we use (epoch + 1) for logging
             current_epoch = epoch + 1
-            
-            loop = tqdm(self.train_loader, desc=f"Epoch {current_epoch}/{self.config.epochs}")
-            
+
+            loop = tqdm(
+                self.train_loader, desc=f"Epoch {current_epoch}/{self.config.epochs}"
+            )
+
             epoch_loss_sum = 0.0
             epoch_train_losses = []
 
@@ -112,19 +121,36 @@ class StandardTrainer(BaseTrainer):
                 epoch_train_losses.append(loss)
 
                 # Logging
-                if self.config.batch_log_interval is not None and batch_idx != 0 and batch_idx % self.config.batch_log_interval == 0:
+                if (
+                    self.config.batch_log_interval is not None
+                    and batch_idx != 0
+                    and batch_idx % self.config.batch_log_interval == 0
+                ):
                     lr = self._current_lr()
                     running_avg_loss = epoch_loss_sum / (batch_idx + 1)
-                    
+
                     # --- MODIFIED: Use 1-indexed epoch ---
-                    self.logger.info(f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}")
+                    self.logger.info(
+                        f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}"
+                    )
                     if self.wandb:
-                        self.wandb.log({"train/running_avg_loss": running_avg_loss, "lr": lr, "step": self.global_step})
+                        self.wandb.log(
+                            {
+                                "train/running_avg_loss": running_avg_loss,
+                                "lr": lr,
+                                "step": self.global_step,
+                            }
+                        )
 
                 # Step-based eval
-                if self.config.eval_every_steps and self.global_step % self.config.eval_every_steps == 0:
+                if (
+                    self.config.eval_every_steps
+                    and self.global_step % self.config.eval_every_steps == 0
+                ):
                     # --- MODIFIED: Pass 1-indexed epoch and reason ---
-                    metrics = self.evaluate(current_epoch, self.global_step, eval_reason="step")
+                    metrics = self.evaluate(
+                        current_epoch, self.global_step, eval_reason="step"
+                    )
                     self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
                 if self.config.max_steps and self.global_step >= self.config.max_steps:
@@ -136,19 +162,25 @@ class StandardTrainer(BaseTrainer):
             self.logger.info(f"--- Epoch {current_epoch} Summary ---")
             self.logger.info(f"Average Train Loss: {avg_epoch_loss:.4f}")
             if self.wandb:
-                self.wandb.log({
-                    "train/epoch_loss": avg_epoch_loss, 
-                    "epoch": current_epoch
-                }, step=self.global_step) 
+                self.wandb.log(
+                    {"train/epoch_loss": avg_epoch_loss, "epoch": current_epoch},
+                    step=self.global_step,
+                )
 
             # Per-epoch eval
-            if self.config.eval_every_epochs and (current_epoch % self.config.eval_every_epochs == 0):
+            if self.config.eval_every_epochs and (
+                current_epoch % self.config.eval_every_epochs == 0
+            ):
                 # --- MODIFIED: Pass 1-indexed epoch and reason ---
-                metrics = self.evaluate(current_epoch, self.global_step, eval_reason="epoch")
+                metrics = self.evaluate(
+                    current_epoch, self.global_step, eval_reason="epoch"
+                )
                 self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
             # Scheduler (except OneCycle)
-            if self.scheduler and not isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR):
+            if self.scheduler and not isinstance(
+                self.scheduler, torch.optim.lr_scheduler.OneCycleLR
+            ):
                 self.scheduler.step()
 
     # ------------------------------
@@ -159,7 +191,7 @@ class StandardTrainer(BaseTrainer):
         Training step for batches with:
             batch["x"], batch["label"], batch["mask"], batch["dataset_name"]
         """
-        x = batch["x"].to(self.device)          # waveform or features
+        x = batch["x"].to(self.device)  # waveform or features
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
         if mask is not None:
@@ -179,7 +211,6 @@ class StandardTrainer(BaseTrainer):
 
         return loss.item()
 
-
     # ------------------------------
     # Evaluation
     # ------------------------------
@@ -194,8 +225,10 @@ class StandardTrainer(BaseTrainer):
                 mask = batch.get("mask", None)
                 names = batch["dataset_name"]
 
-                outputs = self.model(x, mask=mask) if mask is not None else self.model(x)
-                scores = outputs["scores"] 
+                outputs = (
+                    self.model(x, mask=mask) if mask is not None else self.model(x)
+                )
+                scores = outputs["scores"]
 
                 batch_loss = self.model.compute_loss(outputs, labels)
                 all_losses.append(batch_loss.detach().cpu().item())
@@ -209,9 +242,8 @@ class StandardTrainer(BaseTrainer):
                 all_scores.append(scores)
                 all_names.extend(names)
 
-
         labels = np.concatenate(all_labels, axis=0)
-        scores = np.concatenate(all_scores, axis=0)        
+        scores = np.concatenate(all_scores, axis=0)
         names = np.array(all_names)
 
         results = {}
@@ -221,7 +253,7 @@ class StandardTrainer(BaseTrainer):
         if isinstance(average_metrics, dict):
             results.update(average_metrics)
         else:
-            results["average"] = average_metrics # Fallback
+            results["average"] = average_metrics  # Fallback
 
         for ds in np.unique(names):
             mask_ds = names == ds
@@ -234,44 +266,52 @@ class StandardTrainer(BaseTrainer):
             title = f"--- 🏁 End-of-Epoch Validation (Epoch {epoch}) ---"
         else:
             title = f"--- Validation Results (Epoch {epoch}, Step {step}) ---"
-            
+
         self.logger.info(title)
-        
+
         top_level_metrics = {}
         per_dataset_metrics = {}
-        
+
         for ds_name, metric_values in results.items():
             if isinstance(metric_values, dict):
                 per_dataset_metrics[ds_name] = metric_values
             else:
                 top_level_metrics[ds_name] = metric_values
 
-        avg_metrics_str = ", ".join([
-            f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" 
-            for k, v in top_level_metrics.items()
-        ])
+        avg_metrics_str = ", ".join(
+            [
+                f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}"
+                for k, v in top_level_metrics.items()
+            ]
+        )
         self.logger.info(f"📈 Average Metrics: {avg_metrics_str}")
 
         for ds_name, metrics_dict in per_dataset_metrics.items():
-            ds_metrics_str = ", ".join([
-                f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" 
-                for k, v in metrics_dict.items()
-            ])
+            ds_metrics_str = ", ".join(
+                [
+                    f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}"
+                    for k, v in metrics_dict.items()
+                ]
+            )
             self.logger.info(f"📊 Dataset '{ds_name}': {ds_metrics_str}")
         self.logger.info("--------------------------------------------------")
 
         # Save metrics JSON
-        json_path = os.path.join(self.results_dir, f"metrics_epoch{epoch}_step{step}.json")
+        json_path = os.path.join(
+            self.results_dir, f"metrics_epoch{epoch}_step{step}.json"
+        )
         with open(json_path, "w") as f:
             json.dump(results, f, indent=2)
 
         if self.wandb:
             # Log top-level metrics (loss, EER, etc.)
             self.wandb.log(top_level_metrics, step=step)
-            
+
             # Log per-dataset metrics with a prefix (e.g., "ASVSpoof19/EER")
             for ds_name, metrics_dict in per_dataset_metrics.items():
-                 self.wandb.log({f"{ds_name}/{k}": v for k, v in metrics_dict.items()}, step=step)
+                self.wandb.log(
+                    {f"{ds_name}/{k}": v for k, v in metrics_dict.items()}, step=step
+                )
 
         self.model.train()
         return results
@@ -288,20 +328,26 @@ class StandardTrainer(BaseTrainer):
         return results
 
     def _maybe_checkpoint(self, metrics: Dict, epoch: int, step: int):
-            metric = metrics
-            try:
-                for key in self.config.monitor_metric.split('.'):
-                    metric = metric[key]
-            except (KeyError, TypeError):
-                self.logger.error(f"Could not find monitor_metric '{self.config.monitor_metric}' in metrics dict.")
-                self.logger.error(f"Available metrics: {json.dumps(metrics, indent=2)}")
-                return # Don't checkpoint if metric is missing
+        metric = metrics
+        try:
+            for key in self.config.monitor_metric.split("."):
+                metric = metric[key]
+        except (KeyError, TypeError):
+            self.logger.error(
+                f"Could not find monitor_metric '{self.config.monitor_metric}' in metrics dict."
+            )
+            self.logger.error(f"Available metrics: {json.dumps(metrics, indent=2)}")
+            return  # Don't checkpoint if metric is missing
 
-            better = (metric > self.best_metric) if self.config.monitor_mode == "max" else (metric < self.best_metric)
-            if better:
-                self.best_metric = metric
-                self.save_checkpoint(epoch, step, is_best=True)
-                
+        better = (
+            (metric > self.best_metric)
+            if self.config.monitor_mode == "max"
+            else (metric < self.best_metric)
+        )
+        if better:
+            self.best_metric = metric
+            self.save_checkpoint(epoch, step, is_best=True)
+
     def _current_lr(self):
         opt = self.optimizer
         return opt.param_groups[0]["lr"]

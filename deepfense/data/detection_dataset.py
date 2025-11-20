@@ -7,6 +7,7 @@ from deepfense.data.base_dataset import BaseDataset
 from deepfense.data.registry import register_dataset
 from deepfense.data.transforms.registry import build_transforms_from_config
 
+
 @register_dataset("StandardDataset")
 class StandardDataset(BaseDataset):
     """
@@ -29,13 +30,17 @@ class StandardDataset(BaseDataset):
         self.augment_transform_cfg = self.config_data.get("augment_transform", None)
 
         self.base_transform = build_transforms_from_config(self.base_transform_cfg)
-        self.augment_transform = build_transforms_from_config(self.augment_transform_cfg)
+        self.augment_transform = build_transforms_from_config(
+            self.augment_transform_cfg
+        )
 
         # Load and concatenate Parquet metadata
         self.data = []
         for i, p_file in enumerate(self.parquet_files):
             df = pd.read_parquet(p_file)
-            df["dataset_name"] = self.dataset_names[i] if i < len(self.dataset_names) else f"dataset_{i}"
+            df["dataset_name"] = (
+                self.dataset_names[i] if i < len(self.dataset_names) else f"dataset_{i}"
+            )
             self.data.append(df)
         self.data = pd.concat(self.data, ignore_index=True)
 
@@ -62,7 +67,7 @@ class StandardDataset(BaseDataset):
         x = load_audio(
             path=row["path"],
             target_sr=self.config_data.get("target_sr", 16000),
-            mono=self.config_data.get("mono", True)
+            mono=self.config_data.get("mono", True),
         )
 
         if self.base_transform:
@@ -74,7 +79,5 @@ class StandardDataset(BaseDataset):
             "ID": row["ID"],
             "x": torch.tensor(x, dtype=torch.float32),
             "label": torch.tensor(row["label"], dtype=torch.long),
-            "dataset_name": row["dataset_name"]
+            "dataset_name": row["dataset_name"],
         }
-
-        

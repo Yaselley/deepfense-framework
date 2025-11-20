@@ -1,7 +1,9 @@
 # deepfense/utils/registry.py
 
+
 class Registry:
     """Simple registry to map string keys to classes or callables."""
+
     def __init__(self, name):
         self._name = name
         self._registry = {}
@@ -12,6 +14,7 @@ class Registry:
                 raise KeyError(f"{name} already registered in {self._name}")
             self._registry[name] = obj
             return obj
+
         return decorator
 
     def get(self, name):
@@ -25,6 +28,7 @@ class Registry:
 
     def list(self):
         return list(self._registry.keys())
+
 
 # Instantiate global registries
 MODEL_REGISTRY = Registry("Model")

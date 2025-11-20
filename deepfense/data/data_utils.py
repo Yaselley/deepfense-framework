@@ -25,7 +25,7 @@ def collate_fn(batch, max_pad=None):
     max_len = max(x.shape[0] for x in xs)
     if max_pad is not None:
         max_len = max(max_len, max_pad)
-    
+
     padded_xs = []
     masks = []
 
@@ -35,8 +35,12 @@ def collate_fn(batch, max_pad=None):
         if seq_len < max_len:
             pad_shape = (max_len - seq_len, *x.shape[1:])
             x = torch.cat([x, torch.zeros(pad_shape, dtype=x.dtype)], dim=0)
-            mask = torch.cat([torch.ones(seq_len, dtype=torch.float32),
-                                torch.zeros(max_len - seq_len, dtype=torch.float32)])
+            mask = torch.cat(
+                [
+                    torch.ones(seq_len, dtype=torch.float32),
+                    torch.zeros(max_len - seq_len, dtype=torch.float32),
+                ]
+            )
         else:
             mask = torch.ones(max_len, dtype=torch.float32)
 
@@ -52,9 +56,8 @@ def collate_fn(batch, max_pad=None):
         "label": label,
         "dataset_name": dataset_names,
         "mask": mask,
-        "ID": ids
+        "ID": ids,
     }
-
 
 
 def build_dataloader(config):
@@ -78,14 +81,12 @@ def build_dataloader(config):
     dataset_name = config["dataset_type"]
     # Fetch dataset class from registry
     DatasetClass = get_dataset_class(dataset_name)
-    
+
     batch_size = config.get("batch_size", 8)
     shuffle = config.get("shuffle", False)
 
     # Initialize dataset
-    ds = DatasetClass(
-        cfg=config
-    )
+    ds = DatasetClass(cfg=config)
 
     # Return DataLoader
     return DataLoader(

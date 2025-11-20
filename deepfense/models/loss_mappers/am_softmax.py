@@ -2,7 +2,7 @@
 """
 additive margin softmax layers
 
-Wang, F., Cheng, J., Liu, W. & Liu, H. 
+Wang, F., Cheng, J., Liu, W. & Liu, H.
 Additive margin softmax for face verification. IEEE Signal Process. Lett. 2018
 
 """
@@ -13,31 +13,32 @@ from torch.nn import Parameter
 from deepfense.models.loss_mappers.registry import register_loss
 from deepfense.models.loss_mappers.registry import register_mapper
 
+
 @register_mapper("AMSoftmaxMapper")
 class AMAngleLayer(nn.Module):
-    """ Output layer to produce activation for Angular softmax layer
+    """Output layer to produce activation for Angular softmax layer
     AMAngleLayer(in_dim, output_dim, s=20, m=0.9):
 
     in_dim:     dimension of input feature vectors
-    output_dim: dimension of output feature vectors 
+    output_dim: dimension of output feature vectors
                 (i.e., number of classes)
     s:          scaler
     m:          margin
-    
+
     Method: (|x|cos, phi) = forward(x)
-    
+
       x: (batchsize, input_dim)
-    
+
       cos: (batchsize, output_dim)
       phi: (batchsize, output_dim)
-    
+
     Note:
       cos[i, j]: cos(\theta) where \theta is the angle between
                  input feature vector x[i, :] and weight vector w[j, :]
       phi[i, j]: -1^k cos(m \theta) - 2k
-    
-    
-    Usage example:  
+
+
+    Usage example:
       batchsize = 64
       input_dim = 10
       class_num = 2
@@ -55,6 +56,7 @@ class AMAngleLayer(nn.Module):
 
       loss.backward()
     """
+
     def __init__(self, config):
         super(AMAngleLayer, self).__init__()
 
@@ -65,17 +67,17 @@ class AMAngleLayer(nn.Module):
 
         self.in_planes = in_planes
         self.out_planes = out_planes
-        
+
         self.weight = Parameter(torch.Tensor(in_planes, out_planes))
-        self.weight.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
-        
+        self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
+
         self.m = m
         self.s = s
 
     def forward(self, input, flag_angle_only=False):
         """
         Compute am-softmax activations
-        
+
         input:
         ------
         input tensor (batchsize, input_dim)
@@ -101,16 +103,17 @@ class AMAngleLayer(nn.Module):
         # cos_theta (batchsize, output_dim)
         cos_theta = inner_wx / x_modulus.view(-1, 1)
         cos_theta = cos_theta.clamp(-1, 1)
-                
+
         if flag_angle_only:
             cos_x = cos_theta
             phi_x = cos_theta
         else:
             cos_x = self.s * cos_theta
-            phi_x = self.s * (cos_theta - self.m) 
+            phi_x = self.s * (cos_theta - self.m)
 
         # ((batchsize, output_dim), (batchsie, output_dim))
         return cos_x, phi_x
+
 
 @register_loss("AMSoftmax")
 class AMSoftmaxWithLoss(nn.Module):
@@ -118,23 +121,24 @@ class AMSoftmaxWithLoss(nn.Module):
     AMSoftmaxWithLoss()
     See usage in __doc__ of AMAngleLayer
     """
+
     def __init__(self, config):
         super(AMSoftmaxWithLoss, self).__init__()
-  
+
         class_weights = config.get("class_weights", [0.5, 0.5])
         reduction = config.get("reduction", "mean")
         if class_weights is not None:
             class_weights = torch.tensor(class_weights, dtype=torch.float)
-            
+
         self.m_loss = nn.CrossEntropyLoss(weight=class_weights, reduction=reduction)
 
     def forward(self, input, target):
-        """ 
+        """
         input:
         ------
           input: tuple of tensors ((batchsie, out_dim), (batchsie, out_dim))
                  output from AMAngleLayer
-        
+
           target: tensor (batchsize)
                  tensor of target index
         output:
@@ -142,25 +146,24 @@ class AMSoftmaxWithLoss(nn.Module):
           loss: scalar
         """
         # target (batchsize)
-        target = target.long() #.view(-1, 1)
-        
-        
+        target = target.long()  # .view(-1, 1)
+
         # create an index matrix, i.e., one-hot vectors
         with torch.no_grad():
             index = torch.zeros_like(input[0])
             # index[i][target[i][j]] = 1
             index.scatter_(1, target.data.view(-1, 1), 1)
             index = index.bool()
-        
+
         # use the one-hot vector as index to select
         # input[0] -> cos
         # input[1] -> phi
         # if target_i = j, ouput[i][j] = phi[i][j], otherwise cos[i][j]
-        # 
+        #
         output = input[0] * 1.0
         output[index] -= input[0][index] * 1.0
         output[index] += input[1][index] * 1.0
-        
+
         # cross entropy loss
         loss = self.m_loss(output, target)
 

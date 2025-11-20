@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.metrics import f1_score, accuracy_score
 from deepfense.training.evaluations.registry import register_eval
 
+
 @register_eval("F1_SCORE")
 def compute_f1(labels, scores, params):
     """
@@ -18,15 +19,18 @@ def compute_f1(labels, scores, params):
         # (score > 0 means class 1)
         predictions = (scores > 0).astype(int)
 
-    macro_f1 = f1_score(labels, predictions, average=params.get("f1_average", "macro"), zero_division=0)
+    macro_f1 = f1_score(
+        labels, predictions, average=params.get("f1_average", "macro"), zero_division=0
+    )
     return {"F1_SCORE": macro_f1}
+
 
 @register_eval("ACC")
 def compute_accuracy(labels, scores, params):
     """
     Computes Accuracy from raw scores.
     Handles 1D (binary) or 2D [N, C] (multi-class) scores.
-    
+
     (params is unused but kept for consistent signature)
     """
     if scores.ndim == 2:
@@ -35,6 +39,6 @@ def compute_accuracy(labels, scores, params):
     else:
         # Binary: 1D scores -> threshold at 0
         predictions = (scores > 0).astype(int)
-    
+
     acc = accuracy_score(labels, predictions)
     return {"ACC": acc}

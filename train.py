@@ -9,9 +9,11 @@ from deepfense.data.data_utils import build_dataloader
 from deepfense.models.registry import DETECTOR
 from deepfense.training.registry import TRAINER_REGISTRY, TRAINER_CONFIG_REGISTRY
 
+
 def load_config(config_path):
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
+
 
 def setup_logging(output_dir, exp_name):
     """Setup structured logging and clean folder creation."""
@@ -23,7 +25,7 @@ def setup_logging(output_dir, exp_name):
     # Paths
     log_file = os.path.join(exp_dir, "train.log")
     # config_out path is no longer needed here
-    
+
     log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
     datefmt = "%Y-%m-%d %H:%M:%S"
     formatter = logging.Formatter(log_format, datefmt)
@@ -41,19 +43,22 @@ def setup_logging(output_dir, exp_name):
     file_handler = logging.FileHandler(log_file, mode="w")
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
-    
-    logger = logging.getLogger("train") # Matches what you use in main()
-    
+
+    logger = logging.getLogger("train")  # Matches what you use in main()
+
     logger.info(f"Experiment directory: {exp_dir}")
     # Removed config log message
     logger.info(f"Logging re-configured successfully. All logs saving to {log_file}\n")
 
     return exp_dir
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to YAML config")
-    parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint")
+    parser.add_argument(
+        "--resume", type=str, default=None, help="Resume from checkpoint"
+    )
     args = parser.parse_args()
 
     # Load config
@@ -62,7 +67,7 @@ def main():
     # Setup experiment directory + logging
     base_output_dir = cfg["output_dir"]
     exp_name = cfg.get("exp_name", "default_exp")
-    
+
     # --- MODIFIED: Call new setup_logging ---
     output_dir = setup_logging(base_output_dir, exp_name)
 
@@ -71,12 +76,14 @@ def main():
     logger.info(f"Experiment directory: {output_dir}")
 
     # --- MODIFICATIONS: Apply all config overrides ---
-    cfg["trainer"]["params"]["output_dir"] = output_dir  # override with exp-specific path
+    cfg["trainer"]["params"]["output_dir"] = (
+        output_dir  # override with exp-specific path
+    )
 
     # add the labels to the config for dataset initialization
     cfg["data"]["train"]["label_map"] = cfg["data"]["label_map"]
     cfg["data"]["val"]["label_map"] = cfg["data"]["label_map"]
-    
+
     # add sampling_rate to the config for dataset initialization
     cfg["data"]["train"]["sampling_rate"] = cfg["data"]["sampling_rate"]
     cfg["data"]["val"]["sampling_rate"] = cfg["data"]["sampling_rate"]
@@ -89,7 +96,6 @@ def main():
         logger.info(f"Final configuration saved to: {config_out}")
     except Exception as e:
         logger.error(f"Failed to save final config: {e}")
-
 
     # set seed
     set_seed(cfg["seed"])

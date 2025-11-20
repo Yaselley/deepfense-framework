@@ -9,9 +9,11 @@ def register_dataset(name):
         class DetectionDataset(BaseDataset):
             ...
     """
+
     def decorator(cls):
         DATASET_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 

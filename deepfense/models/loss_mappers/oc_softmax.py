@@ -12,9 +12,10 @@ from torch.nn import Parameter
 from deepfense.models.loss_mappers.registry import register_loss
 from deepfense.models.loss_mappers.registry import register_mapper
 
+
 @register_mapper("OCSoftmaxMapper")
 class OCAngleLayer(nn.Module):
-    """ Output layer to produce activation for one-class softmax
+    """Output layer to produce activation for one-class softmax
 
     Usage example:
      batchsize = 64
@@ -33,6 +34,7 @@ class OCAngleLayer(nn.Module):
 
      loss.backward()
     """
+
     def __init__(self, config):
         super(OCAngleLayer, self).__init__()
         in_planes = config["in_planes"]
@@ -44,18 +46,18 @@ class OCAngleLayer(nn.Module):
         self.w_posi = w_posi
         self.w_nega = w_nega
         self.out_planes = 1
-        
+
         self.weight = Parameter(torch.Tensor(in_planes, self.out_planes))
-        #self.weight.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
+        # self.weight.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         nn.init.kaiming_uniform_(self.weight, 0.25)
-        self.weight.data.renorm_(2,1,1e-5).mul_(1e5)
+        self.weight.data.renorm_(2, 1, 1e-5).mul_(1e5)
 
         self.alpha = alpha
 
     def forward(self, input, flag_angle_only=False):
         """
         Compute oc-softmax activations
-        
+
         input:
         ------
           input tensor (batchsize, input_dim)
@@ -79,29 +81,31 @@ class OCAngleLayer(nn.Module):
         # cos_theta (batchsize, output_dim)
         cos_theta = inner_wx / x_modulus.view(-1, 1)
         cos_theta = cos_theta.clamp(-1, 1)
-                
+
         if flag_angle_only:
             pos_score = cos_theta
             neg_score = cos_theta
         else:
             pos_score = self.alpha * (self.w_posi - cos_theta)
             neg_score = -1 * self.alpha * (self.w_nega - cos_theta)
-        
+
         #
         return pos_score, neg_score
+
 
 @register_loss("OCSoftmax")
 class OCSoftmaxWithLoss(nn.Module):
     """
     OCSoftmaxWithLoss()
-    
+
     """
+
     def __init__(self, config):
         super(OCSoftmaxWithLoss, self).__init__()
         self.m_loss = nn.Softplus()
 
     def forward(self, inputs, target):
-        """ 
+        """
         input:
         ------
           input: tuple of tensors ((batchsie, out_dim), (batchsie, out_dim))
@@ -115,12 +119,11 @@ class OCSoftmaxWithLoss(nn.Module):
           loss: scalar
         """
         # Assume target is binary, positive = 1, negaitve = 0
-        # 
+        #
         # Equivalent to select the scores using if-elese
         # if target = 1, use inputs[0]
         # else, use inputs[1]
-        output = inputs[0] * target.view(-1, 1) + \
-                 inputs[1] * (1-target.view(-1, 1))
+        output = inputs[0] * target.view(-1, 1) + inputs[1] * (1 - target.view(-1, 1))
         loss = self.m_loss(output).mean()
 
         return loss

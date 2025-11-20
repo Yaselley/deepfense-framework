@@ -2,10 +2,20 @@ import os
 import sys
 import copy
 import numpy as np
+from pathlib import Path
+import soundfile as sf
+import torchaudio
+import librosa
+import random
+import torch
 from scipy import signal
 from pathlib import Path
 from pydub import AudioSegment
 from deepfense.data.transforms.registry import register_transform
+from deepfense.data.transforms.RawBoost.data_utils_rawboost import (
+    process_Rawboost_feature,
+    get_default_args,
+)
 
 
 @register_transform("simple_aug")
@@ -16,28 +26,25 @@ def sample_aug_func(x, noise_ratio):
 # TODO: We might need try except to catch the exceptions in case
 # augmentation failed (e.g., failed to load the rir due to some network issue)
 @register_transform("rir")
-def rir(
-    x: dict,
-    noise_ratio: float = 0.3,
-) -> np.ndarray:
+def rir(x: dict, noise_ratio: float = 0.3) -> np.ndarray:
     """
-    apply rir augmentation to monochannel audio 
+    apply rir augmentation to monochannel audio
     - rir_path: directory containing .wav RIR files
     """
     if np.random.random() > noise_ratio:
         return audio
-    audio = x['audio']
-    rir_audio = x['noise']
+    audio = x["audio"]
+    rir_audio = x["noise"]
 
-    audio_power = float((audio ** 2).mean())
+    audio_power = float((audio**2).mean())
     if audio_power < 1e-10:
         return audio
 
-    #rir, sample_rate = audio_util.get_audio(rir_path)  # assume mono, no trim
+    # rir, sample_rate = audio_util.get_audio(rir_path)  # assume mono, no trim
 
     augmented = signal.convolve(audio, rir_audio, mode="full")[: audio.shape[0]]
 
-    augment_power = float((augmented ** 2).mean())
+    augment_power = float((augmented**2).mean())
     if augment_power > 1e-10:
         scale = float(np.sqrt(audio_power / augment_power))
         augmented = scale * augmented
@@ -45,19 +52,15 @@ def rir(
     return augmented
 
 
-from deepfense.data.transforms.RawBoost.data_utils_rawboost import process_Rawboost_feature, get_default_args
 @register_transform("rawboost")
-def rawboost(
-    x: dict,
-    noise_ratio: float = 0.5,
-) -> np.ndarray:
+def rawboost(x: dict, noise_ratio: float = 0.5, algo=5) -> np.ndarray:
     """
-    apply RawBoost augmentation to mono audio 
+    apply RawBoost augmentation to mono audio
     """
     if np.random.random() > noise_ratio:
         return audio
-    
-    audio: np.ndarray = x['audio']
+
+    audio: np.ndarray = x["audio"]
     sample_rate = 16000
 
     parameters = get_default_args()
@@ -67,30 +70,25 @@ def rawboost(
             feature=audio,
             sr=sample_rate,
             args=parameters,
-            algo=5,
+            algo=algo,
         )
     except Exception as e:
         print(f"Warning: RawBoost augmentation failed, returning original audio: {e}")
         return audio
 
 
-import torchaudio
-import random
-import torch
 @register_transform("codec")
-def codec(
-    x: dict,
-    noise_ratio: float) -> np.ndarray:
+def codec(x: dict, noise_ratio: float) -> np.ndarray:
     """
-    Apply codec augmentation on mono audio. 
+    Apply codec augmentation on mono audio.
     Implementation adapted from speechbrain.
     """
     if np.random.random() > noise_ratio:
         return audio
-    
-    audio: np.ndarray = x['audio']
+
+    audio: np.ndarray = x["audio"]
     sample_rate: int = 16000
-    #formats = [("wav", "pcm_mulaw"), ("mp3", None), ("g722", None)]
+    # formats = [("wav", "pcm_mulaw"), ("mp3", None), ("g722", None)]
     # TODO: add more formats
     formats = [("wav", "pcm_mulaw"), ("g722", None)]
     fmt, enc = random.choice(formats)
@@ -118,17 +116,17 @@ def morph(
     """
     if np.random.rand() > noise_ratio:
         return audio
-    audio: np.ndarray = x['audio']
-    noise: np.ndarray = x['noise']
-    noise_db_low: float = 5,
-    noise_db_high: float = 20,
+    audio: np.ndarray = x["audio"]
+    noise: np.ndarray = x["noise"]
+    noise_db_low: float = (5,)
+    noise_db_high: float = (20,)
 
     audio_power = float((audio**2).mean())
     noise_db = np.random.uniform(noise_db_low, noise_db_high)
 
     audio_nsamples = audio.shape[0]
     noise_nsamples = noise.shape[0]
-    
+
     # align noise and audio such that they have the same length
     if audio_nsamples == noise_nsamples:
         pass
@@ -141,29 +139,26 @@ def morph(
         )
     else:
         offset = np.random.randint(0, noise_nsamples - audio_nsamples)
-        noise = noise[offset:offset + audio_nsamples]
+        noise = noise[offset : offset + audio_nsamples]
 
-    noise_power = float((noise ** 2).mean())
+    noise_power = float((noise**2).mean())
     scale = (
-            10 ** (-noise_db / 20) 
-            * np.sqrt(audio_power)
-            / np.sqrt(np.maximum(noise_power, 1e-10))
-        )
+        10 ** (-noise_db / 20)
+        * np.sqrt(audio_power)
+        / np.sqrt(np.maximum(noise_power, 1e-10))
+    )
     audio = audio + scale * noise
     return audio
 
+
 if __name__ == "__main__":
     print("Waveform augmentation tools loaded")
-    
-    import os, sys, numpy as np, soundfile as sf
-    from pathlib import Path
-    import librosa
 
     audio_path = Path(sys.argv[1])
     outdir = Path(sys.argv[2])
     outdir.mkdir(parents=True, exist_ok=True)
 
-    x, sr = librosa.load(audio_path, sr=16000, mono=True) 
+    x, sr = librosa.load(audio_path, sr=16000, mono=True)
 
     rir_len = min(len(x), 4096)
     t = np.arange(rir_len)
@@ -171,10 +166,7 @@ if __name__ == "__main__":
 
     noise = np.random.randn(len(x))
 
-    input_dict = {
-        'audio': x,
-        'noise': rir_audio
-    }
+    input_dict = {"audio": x, "noise": rir_audio}
     y_rir = rir(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_rir.wav", y_rir, sr)
 
@@ -184,6 +176,6 @@ if __name__ == "__main__":
     y_codec = codec(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_codec.wav", y_codec, sr)
 
-    input_dict['noise'] = noise
+    input_dict["noise"] = noise
     y_morph = morph(input_dict, noise_ratio=1.0)
     sf.write(outdir / f"{audio_path.stem}_morph.wav", y_morph, sr)

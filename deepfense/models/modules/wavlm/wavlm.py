@@ -72,8 +72,7 @@ def compute_mask_indices(
 
     all_num_mask = int(
         # add a random number for probabilistic rounding
-        mask_prob * all_sz / float(mask_length)
-        + np.random.rand()
+        mask_prob * all_sz / float(mask_length) + np.random.rand()
     )
 
     all_num_mask = max(min_masks, all_num_mask)
@@ -84,8 +83,7 @@ def compute_mask_indices(
             sz = all_sz - padding_mask[i].long().sum().item()
             num_mask = int(
                 # add a random number for probabilistic rounding
-                mask_prob * sz / float(mask_length)
-                + np.random.rand()
+                mask_prob * sz / float(mask_length) + np.random.rand()
             )
             num_mask = max(min_masks, num_mask)
         else:
@@ -165,54 +163,82 @@ def compute_mask_indices(
 
 class WavLMConfig:
     def __init__(self, cfg=None):
-        self.extractor_mode: str = "default"     # mode for feature extractor. default has a single group norm with d groups in the first conv block, whereas layer_norm has layer norms in every block (meant to use with normalize=True)
-        self.encoder_layers: int = 12     # num encoder layers in the transformer
+        self.extractor_mode: str = "default"  # mode for feature extractor. default has a single group norm with d groups in the first conv block, whereas layer_norm has layer norms in every block (meant to use with normalize=True)
+        self.encoder_layers: int = 12  # num encoder layers in the transformer
 
-        self.encoder_embed_dim: int = 768     # encoder embedding dimension
-        self.encoder_ffn_embed_dim: int = 3072     # encoder embedding dimension for FFN
-        self.encoder_attention_heads: int = 12     # num encoder attention heads
-        self.activation_fn: str = "gelu"     # activation function to use
+        self.encoder_embed_dim: int = 768  # encoder embedding dimension
+        self.encoder_ffn_embed_dim: int = 3072  # encoder embedding dimension for FFN
+        self.encoder_attention_heads: int = 12  # num encoder attention heads
+        self.activation_fn: str = "gelu"  # activation function to use
 
-        self.layer_norm_first: bool = False     # apply layernorm first in the transformer
-        self.conv_feature_layers: str = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"     # string describing convolutional feature extraction layers in form of a python list that contains [(dim, kernel_size, stride), ...]
-        self.conv_bias: bool = False     # include bias in conv encoder
-        self.feature_grad_mult: float = 1.0     # multiply feature extractor var grads by this
+        self.layer_norm_first: bool = False  # apply layernorm first in the transformer
+        self.conv_feature_layers: str = "[(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2"  # string describing convolutional feature extraction layers in form of a python list that contains [(dim, kernel_size, stride), ...]
+        self.conv_bias: bool = False  # include bias in conv encoder
+        self.feature_grad_mult: float = (
+            1.0  # multiply feature extractor var grads by this
+        )
 
-        self.normalize: bool = False  # normalize input to have 0 mean and unit variance during training
+        self.normalize: bool = (
+            False  # normalize input to have 0 mean and unit variance during training
+        )
 
         # dropouts
-        self.dropout: float = 0.1     # dropout probability for the transformer
-        self.attention_dropout: float = 0.1     # dropout probability for attention weights
-        self.activation_dropout: float = 0.0     # dropout probability after activation in FFN
-        self.encoder_layerdrop: float = 0.0     # probability of dropping a tarnsformer layer
-        self.dropout_input: float = 0.0     # dropout to apply to the input (after feat extr)
-        self.dropout_features: float = 0.0     # dropout to apply to the features (after feat extr)
+        self.dropout: float = 0.1  # dropout probability for the transformer
+        self.attention_dropout: float = 0.1  # dropout probability for attention weights
+        self.activation_dropout: float = (
+            0.0  # dropout probability after activation in FFN
+        )
+        self.encoder_layerdrop: float = (
+            0.0  # probability of dropping a tarnsformer layer
+        )
+        self.dropout_input: float = (
+            0.0  # dropout to apply to the input (after feat extr)
+        )
+        self.dropout_features: float = (
+            0.0  # dropout to apply to the features (after feat extr)
+        )
 
         # masking
-        self.mask_length: int = 10     # mask length
-        self.mask_prob: float = 0.65     # probability of replacing a token with mask
-        self.mask_selection: str = "static"     # how to choose mask length
-        self.mask_other: float = 0     # secondary mask argument (used for more complex distributions), see help in compute_mask_indicesh
-        self.no_mask_overlap: bool = False     # whether to allow masks to overlap
-        self.mask_min_space: int = 1     # min space between spans (if no overlap is enabled)
+        self.mask_length: int = 10  # mask length
+        self.mask_prob: float = 0.65  # probability of replacing a token with mask
+        self.mask_selection: str = "static"  # how to choose mask length
+        self.mask_other: float = 0  # secondary mask argument (used for more complex distributions), see help in compute_mask_indicesh
+        self.no_mask_overlap: bool = False  # whether to allow masks to overlap
+        self.mask_min_space: int = (
+            1  # min space between spans (if no overlap is enabled)
+        )
 
         # channel masking
-        self.mask_channel_length: int = 10     # length of the mask for features (channels)
-        self.mask_channel_prob: float = 0.0     # probability of replacing a feature with 0
-        self.mask_channel_selection: str = "static"     # how to choose mask length for channel masking
-        self.mask_channel_other: float = 0     # secondary mask argument (used for more complex distributions), see help in compute_mask_indices
-        self.no_mask_channel_overlap: bool = False     # whether to allow channel masks to overlap
-        self.mask_channel_min_space: int = 1     # min space between spans (if no overlap is enabled)
+        self.mask_channel_length: int = 10  # length of the mask for features (channels)
+        self.mask_channel_prob: float = 0.0  # probability of replacing a feature with 0
+        self.mask_channel_selection: str = (
+            "static"  # how to choose mask length for channel masking
+        )
+        self.mask_channel_other: float = 0  # secondary mask argument (used for more complex distributions), see help in compute_mask_indices
+        self.no_mask_channel_overlap: bool = (
+            False  # whether to allow channel masks to overlap
+        )
+        self.mask_channel_min_space: int = (
+            1  # min space between spans (if no overlap is enabled)
+        )
 
         # positional embeddings
-        self.conv_pos: int = 128     # number of filters for convolutional positional embeddings
-        self.conv_pos_groups: int = 16     # number of groups for convolutional positional embedding
+        self.conv_pos: int = (
+            128  # number of filters for convolutional positional embeddings
+        )
+        self.conv_pos_groups: int = (
+            16  # number of groups for convolutional positional embedding
+        )
 
         # relative position embedding
-        self.relative_position_embedding: bool = False     # apply relative position embedding
-        self.num_buckets: int = 320     # number of buckets for relative position embedding
-        self.max_distance: int = 1280     # maximum distance for relative position embedding
-        self.gru_rel_pos: bool = False     # apply gated relative position embedding
+        self.relative_position_embedding: bool = (
+            False  # apply relative position embedding
+        )
+        self.num_buckets: int = 320  # number of buckets for relative position embedding
+        self.max_distance: int = (
+            1280  # maximum distance for relative position embedding
+        )
+        self.gru_rel_pos: bool = False  # apply gated relative position embedding
 
         if cfg is not None:
             self.update(cfg)
@@ -313,14 +339,14 @@ class WavLM(nn.Module):
         return x, mask_indices
 
     def forward_padding_mask(
-            self, features: torch.Tensor, padding_mask: torch.Tensor,
+        self,
+        features: torch.Tensor,
+        padding_mask: torch.Tensor,
     ) -> torch.Tensor:
         extra = padding_mask.size(1) % features.size(1)
         if extra > 0:
             padding_mask = padding_mask[:, :-extra]
-        padding_mask = padding_mask.view(
-            padding_mask.size(0), features.size(1), -1
-        )
+        padding_mask = padding_mask.view(padding_mask.size(0), features.size(1), -1)
         padding_mask = padding_mask.all(-1)
         return padding_mask
 
@@ -333,7 +359,6 @@ class WavLM(nn.Module):
         output_layer: Optional[int] = None,
         ret_layer_results: bool = False,
     ):
-
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
@@ -354,9 +379,7 @@ class WavLM(nn.Module):
         features = self.dropout_input(features)
 
         if mask:
-            x, mask_indices = self.apply_mask(
-                features, padding_mask
-            )
+            x, mask_indices = self.apply_mask(features, padding_mask)
         else:
             x = features
 
@@ -368,10 +391,15 @@ class WavLM(nn.Module):
         x, layer_results = self.encoder(
             x,
             padding_mask=padding_mask,
-            layer=None if output_layer is None else output_layer - 1
+            layer=None if output_layer is None else output_layer - 1,
         )
 
-        res = {"x": x, "padding_mask": padding_mask, "features": features, "layer_results": layer_results}
+        res = {
+            "x": x,
+            "padding_mask": padding_mask,
+            "features": features,
+            "layer_results": layer_results,
+        }
 
         feature = res["features"] if ret_conv else res["x"]
         if ret_layer_results:
@@ -381,34 +409,34 @@ class WavLM(nn.Module):
 
 class ConvFeatureExtractionModel(nn.Module):
     def __init__(
-            self,
-            conv_layers: List[Tuple[int, int, int]],
-            dropout: float = 0.0,
-            mode: str = "default",
-            conv_bias: bool = False,
-            conv_type: str = "default"
+        self,
+        conv_layers: List[Tuple[int, int, int]],
+        dropout: float = 0.0,
+        mode: str = "default",
+        conv_bias: bool = False,
+        conv_type: str = "default",
     ):
         super().__init__()
 
         assert mode in {"default", "layer_norm"}
 
         def block(
-                n_in,
-                n_out,
-                k,
-                stride,
-                is_layer_norm=False,
-                is_group_norm=False,
-                conv_bias=False,
+            n_in,
+            n_out,
+            k,
+            stride,
+            is_layer_norm=False,
+            is_group_norm=False,
+            conv_bias=False,
         ):
             def make_conv():
                 conv = nn.Conv1d(n_in, n_out, k, stride=stride, bias=conv_bias)
                 nn.init.kaiming_normal_(conv.weight)
                 return conv
 
-            assert (
-                           is_layer_norm and is_group_norm
-                   ) == False, "layer norm and group norm are exclusive"
+            assert (is_layer_norm and is_group_norm) == False, (
+                "layer norm and group norm are exclusive"
+            )
 
             if is_layer_norm:
                 return nn.Sequential(
@@ -458,9 +486,7 @@ class ConvFeatureExtractionModel(nn.Module):
                 assert len(cl) == 3
                 (dim, k, stride) = cl
 
-                self.conv_layers.append(
-                    torch.nn.Conv2d(in_d, dim, k, stride)
-                )
+                self.conv_layers.append(torch.nn.Conv2d(in_d, dim, k, stride))
                 self.conv_layers.append(torch.nn.ReLU())
                 in_d = dim
         elif self.conv_type == "custom":
@@ -473,9 +499,7 @@ class ConvFeatureExtractionModel(nn.Module):
                 self.conv_layers.append(
                     torch.nn.Conv2d(in_d, dim, k, stride, padding=1)
                 )
-                self.conv_layers.append(
-                    torch.nn.LayerNorm([dim, idim])
-                )
+                self.conv_layers.append(torch.nn.LayerNorm([dim, idim]))
                 self.conv_layers.append(torch.nn.ReLU())
                 in_d = dim
                 if (i + 1) % 2 == 0:
@@ -487,7 +511,6 @@ class ConvFeatureExtractionModel(nn.Module):
             pass
 
     def forward(self, x, mask=None):
-
         # BxT -> BxCxT
         x = x.unsqueeze(1)
         if self.conv_type == "custom":
@@ -550,7 +573,9 @@ class TransformerEncoder(nn.Module):
                     activation_dropout=args.activation_dropout,
                     activation_fn=args.activation_fn,
                     layer_norm_first=args.layer_norm_first,
-                    has_relative_attention_bias=(self.relative_position_embedding and i == 0),
+                    has_relative_attention_bias=(
+                        self.relative_position_embedding and i == 0
+                    ),
                     num_buckets=self.num_buckets,
                     max_distance=self.max_distance,
                     gru_rel_pos=args.gru_rel_pos,
@@ -573,7 +598,9 @@ class TransformerEncoder(nn.Module):
 
         return x, layer_results
 
-    def extract_features(self, x, padding_mask=None, streaming_mask=None, tgt_layer=None):
+    def extract_features(
+        self, x, padding_mask=None, streaming_mask=None, tgt_layer=None
+    ):
         tgt_layer = None
         if padding_mask is not None:
             x[padding_mask] = 0
@@ -599,8 +626,13 @@ class TransformerEncoder(nn.Module):
         for i, layer in enumerate(self.layers):
             dropout_probability = np.random.random()
             if not self.training or (dropout_probability > self.layerdrop):
-                x, z, pos_bias = layer(x, self_attn_padding_mask=padding_mask, need_weights=False,
-                                       self_attn_mask=streaming_mask, pos_bias=pos_bias)
+                x, z, pos_bias = layer(
+                    x,
+                    self_attn_padding_mask=padding_mask,
+                    need_weights=False,
+                    self_attn_mask=streaming_mask,
+                    pos_bias=pos_bias,
+                )
             if tgt_layer is None:
                 layer_results.append(x)
             if i == tgt_layer:
@@ -623,22 +655,21 @@ class TransformerSentenceEncoderLayer(nn.Module):
     """
 
     def __init__(
-            self,
-            embedding_dim: float = 768,
-            ffn_embedding_dim: float = 3072,
-            num_attention_heads: float = 8,
-            dropout: float = 0.1,
-            attention_dropout: float = 0.1,
-            activation_dropout: float = 0.1,
-            activation_fn: str = "relu",
-            layer_norm_first: bool = False,
-            has_relative_attention_bias: bool = False,
-            num_buckets: int = 0,
-            max_distance: int = 0,
-            rescale_init: bool = False,
-            gru_rel_pos: bool = False,
+        self,
+        embedding_dim: float = 768,
+        ffn_embedding_dim: float = 3072,
+        num_attention_heads: float = 8,
+        dropout: float = 0.1,
+        attention_dropout: float = 0.1,
+        activation_dropout: float = 0.1,
+        activation_fn: str = "relu",
+        layer_norm_first: bool = False,
+        has_relative_attention_bias: bool = False,
+        num_buckets: int = 0,
+        max_distance: int = 0,
+        rescale_init: bool = False,
+        gru_rel_pos: bool = False,
     ) -> None:
-
         super().__init__()
         # Initialize parameters
         self.embedding_dim = embedding_dim
@@ -679,12 +710,12 @@ class TransformerSentenceEncoderLayer(nn.Module):
         self.final_layer_norm = LayerNorm(self.embedding_dim)
 
     def forward(
-            self,
-            x: torch.Tensor,
-            self_attn_mask: torch.Tensor = None,
-            self_attn_padding_mask: torch.Tensor = None,
-            need_weights: bool = False,
-            pos_bias=None
+        self,
+        x: torch.Tensor,
+        self_attn_mask: torch.Tensor = None,
+        self_attn_padding_mask: torch.Tensor = None,
+        need_weights: bool = False,
+        pos_bias=None,
     ):
         """
         LayerNorm is applied either before or after the self-attention/ffn
@@ -701,7 +732,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
                 key_padding_mask=self_attn_padding_mask,
                 need_weights=False,
                 attn_mask=self_attn_mask,
-                position_bias=pos_bias
+                position_bias=pos_bias,
             )
             x = self.dropout1(x)
             x = residual + x
@@ -724,7 +755,7 @@ class TransformerSentenceEncoderLayer(nn.Module):
                 key_padding_mask=self_attn_padding_mask,
                 need_weights=need_weights,
                 attn_mask=self_attn_mask,
-                position_bias=pos_bias
+                position_bias=pos_bias,
             )
 
             x = self.dropout1(x)

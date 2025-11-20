@@ -4,13 +4,14 @@ import numpy as np
 from deepfense.training.evaluations.registry import register_eval
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
+
 @register_eval("CLLR")
 def calculate_CLLR(labels, scores, params):
     """
     Compute the log-likelihood ratio cost (CLLR).
 
     Args:
-        labels (np.ndarray): Binary ground-truth labels 
+        labels (np.ndarray): Binary ground-truth labels
                              (1 = bonafide, 0 = spoof by default)
         scores (np.ndarray): Raw [N, C] model output scores (LLRs).
         params (dict):
@@ -21,7 +22,7 @@ def calculate_CLLR(labels, scores, params):
     Returns:
         {"CLLR": cllr}
     """
-    
+
     # --- 1. ADD THIS LINE ---
     # Convert raw [N, C] scores to 1D based on the loss_type in params
     scores = _metric_get_1d_scores(scores, params)
@@ -29,7 +30,7 @@ def calculate_CLLR(labels, scores, params):
 
     # ---- Validate input ----
     labels = np.asarray(labels).astype(int)
-    scores = np.asarray(scores).astype(float) # scores is now 1D
+    scores = np.asarray(scores).astype(float)  # scores is now 1D
 
     if labels.shape != scores.shape:
         print(labels.shape, scores.shape)
@@ -46,10 +47,10 @@ def calculate_CLLR(labels, scores, params):
         # Don't raise an error, just return NaN or a high value if no samples
         # Or log a warning. Let's log and return nan.
         import logging
+
         logger = logging.getLogger("CLLR")
         logger.warning("CLLR calculation failed: missing bonafide or spoof samples.")
         return {"CLLR": np.nan}
-
 
     # ---- Helper: negative log sigmoid ----
     def negative_log_sigmoid(x):
@@ -59,8 +60,8 @@ def calculate_CLLR(labels, scores, params):
     # ---- Compute CLLR ----
     term1 = np.mean(negative_log_sigmoid(bona_scores))
     term2 = np.mean(negative_log_sigmoid(-spoof_scores))
-    
+
     # log base 2 normalization
-    cllr = (term1 + term2) * 0.5 / np.log(2)  
+    cllr = (term1 + term2) * 0.5 / np.log(2)
 
     return {"CLLR": cllr}

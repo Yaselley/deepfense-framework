@@ -1,5 +1,6 @@
 TRANSFORM_REGISTRY = {}
 
+
 def register_transform(name):
     """
     Decorator to register a transform function or class under a given name.
@@ -9,10 +10,13 @@ def register_transform(name):
         def normalize(x, mean=0.0, std=1.0):
             ...
     """
+
     def decorator(fn):
         TRANSFORM_REGISTRY[name] = fn
         return fn
+
     return decorator
+
 
 def get_transform(name):
     """
@@ -21,6 +25,7 @@ def get_transform(name):
     if name not in TRANSFORM_REGISTRY:
         raise ValueError(f"Transform '{name}' is not registered.")
     return TRANSFORM_REGISTRY[name]
+
 
 def build_transform(config):
     """
@@ -34,11 +39,12 @@ def build_transform(config):
     transform_fn = get_transform(transform_type)
     return lambda x: transform_fn(x, **config)
 
+
 def build_transforms_from_config(config_list):
     """
     Build a pipeline of transforms from a list of configs.
     Returns a function that applies them sequentially.
-    
+
     Example:
         configs = [
             {"type": "normalize", "mean": 0.0, "std": 1.0},

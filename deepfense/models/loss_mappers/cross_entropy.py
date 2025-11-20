@@ -3,9 +3,11 @@ import torch.nn as nn
 from deepfense.models.loss_mappers.registry import register_loss
 from deepfense.models.loss_mappers.registry import register_mapper
 
+
 @register_mapper("CrossEntropyMapper")
 class CrossEntropyMapper(nn.Module):
     """Simple linear mapper for standard softmax classification."""
+
     def __init__(self, config):
         super().__init__()
         in_dim = config["embedding_dim"]
@@ -15,6 +17,7 @@ class CrossEntropyMapper(nn.Module):
 
     def forward(self, x):
         return self.fc(x)  # logits
+
 
 @register_loss("CrossEntropy")
 class CrossEntropy(nn.Module):

@@ -8,6 +8,7 @@ from deepfense.training.evaluations.utils import _metric_get_1d_scores
 # Get a logger for this module
 logger = logging.getLogger(__name__)
 
+
 def compute_det_curve(labels, scores, bonafide_label=1):
     """
     Compute the DET curve values.
@@ -26,12 +27,14 @@ def compute_det_curve(labels, scores, bonafide_label=1):
 
     spoof_label = 1 - bonafide_label
 
-    target_scores = scores[labels == bonafide_label]   # bona/truth trials
-    nontarget_scores = scores[labels == spoof_label]   # spoof/fake trials
+    target_scores = scores[labels == bonafide_label]  # bona/truth trials
+    nontarget_scores = scores[labels == spoof_label]  # spoof/fake trials
 
     if target_scores.size == 0 or nontarget_scores.size == 0:
         # --- MODIFICATION: Log a warning instead of crashing ---
-        logger.warning("DET curve calculation failed: missing bonafide or spoof samples.")
+        logger.warning(
+            "DET curve calculation failed: missing bonafide or spoof samples."
+        )
         # Return sensible defaults to avoid crashing EER calculation
         return np.array([0.0]), np.array([1.0]), np.array([0.0])
         # --- END MODIFICATION ---
@@ -43,7 +46,7 @@ def compute_det_curve(labels, scores, bonafide_label=1):
     )
 
     # Sort labels by ascending score (important for DET consistency)
-    indices = np.argsort(all_scores, kind='mergesort')
+    indices = np.argsort(all_scores, kind="mergesort")
     sorted_labels = all_labels[indices]
 
     # Cumulative sums
@@ -55,9 +58,7 @@ def compute_det_curve(labels, scores, bonafide_label=1):
     # Compute FRR (miss rate) and FAR (false acceptance rate)
     frr = np.concatenate(([0.0], tar_trial_sums / target_scores.size))
     far = np.concatenate(([1.0], nontarget_trial_sums / nontarget_scores.size))
-    thresholds = np.concatenate(
-        ([all_scores[indices[0]] - 1e-6], all_scores[indices])
-    )
+    thresholds = np.concatenate(([all_scores[indices[0]] - 1e-6], all_scores[indices]))
 
     return frr, far, thresholds
 
@@ -79,12 +80,12 @@ def compute_eer(labels, scores, params, precise=False):
     Returns:
         dict: { "EER": ... }
     """
-    
+
     # Convert raw [N, C] scores to 1D based on the loss_type in params
     scores_1d = _metric_get_1d_scores(scores, params)
 
     bonafide_label = params.get("bonafide_label", 1)
-    
+
     frr, far, thresholds = compute_det_curve(labels, scores_1d, bonafide_label)
 
     abs_diffs = np.abs(frr - far)

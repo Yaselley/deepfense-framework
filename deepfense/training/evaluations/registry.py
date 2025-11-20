@@ -1,11 +1,15 @@
 EVAL_REGISTRY = {}
 
+
 def register_eval(name):
     """Register a eval class under a given name."""
+
     def decorator(cls):
         EVAL_REGISTRY[name] = cls
         return cls
+
     return decorator
+
 
 def build_loss(config):
     """Build loss from config dictionary"""

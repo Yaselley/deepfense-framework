@@ -3,9 +3,9 @@ import torch.nn as nn
 from deepfense.models.modules.wavlm.wavlm import WavLM, WavLMConfig
 from deepfense.models.frontends.registry import register_frontend
 
+
 @register_frontend("wavlm")
 class WavLMWrapper(nn.Module):
-
     def __init__(self, config):
         super().__init__()
 
@@ -17,8 +17,9 @@ class WavLMWrapper(nn.Module):
         self.model.load_state_dict(checkpoint["model"], strict=False)
 
     def forward(self, input_data):
-
-        x, layers = self.model.extract_features(input_data, mask=False, ret_layer_results=True)[0]
-        layer_results = torch.stack(layers, dim=1).permute(2,1,0,3).contiguous()
+        x, layers = self.model.extract_features(
+            input_data, mask=False, ret_layer_results=True
+        )[0]
+        layer_results = torch.stack(layers, dim=1).permute(2, 1, 0, 3).contiguous()
 
         return x

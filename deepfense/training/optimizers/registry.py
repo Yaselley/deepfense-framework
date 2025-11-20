@@ -1,11 +1,15 @@
 OPTIMIZER_REGISTRY = {}
 
+
 def register_optimizer(name):
     """Register a optimizer class under a given name."""
+
     def decorator(cls):
         OPTIMIZER_REGISTRY[name] = cls
         return cls
+
     return decorator
+
 
 def build_optimizer(config):
     """Build loss from config dictionary"""

@@ -4,12 +4,9 @@ import librosa
 
 from deepfense.data.transforms.registry import register_transform
 
+
 @register_transform("load_audio")
-def load_audio(
-        path: str, 
-        target_sr: int = 16000, 
-        mono: bool = True
-    ):
+def load_audio(path: str, target_sr: int = 16000, mono: bool = True):
     # Read the audio file
     x, sr = sf.read(path, always_2d=False)
 
@@ -23,13 +20,14 @@ def load_audio(
 
     return x
 
+
 @register_transform("pad")
 def pad_combined(
-        x: np.ndarray, 
-        max_len: int = 64000, 
-        random_pad: bool = False, 
-        pad_type: str = "repeat"  # "repeat"
-    ):
+    x: np.ndarray,
+    max_len: int = 64000,
+    random_pad: bool = False,
+    pad_type: str = "repeat",  # "repeat"
+):
     """
     Pad or truncate a waveform to a fixed length.
 
@@ -48,7 +46,7 @@ def pad_combined(
     if x_len > max_len:
         if random_pad:
             start = np.random.randint(0, x_len - max_len)
-            return x[start:start + max_len]
+            return x[start : start + max_len]
         else:
             return x[:max_len]
 
@@ -57,6 +55,8 @@ def pad_combined(
         repeats = int(np.ceil(max_len / x_len))
         padded = np.tile(x, repeats)[:max_len]
     else:
-        raise ValueError(f"Unknown pad_type: {pad_type}. Only 'repeat' is supported for now.")
+        raise ValueError(
+            f"Unknown pad_type: {pad_type}. Only 'repeat' is supported for now."
+        )
 
     return padded
