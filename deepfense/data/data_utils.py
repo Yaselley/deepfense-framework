@@ -3,9 +3,9 @@ from torch.utils.data import DataLoader
 from deepfense.data.registry import get_dataset_class
 
 
-def collate_fn(batch, max_pad=None, pad_strategy="zero"):
+def collate_fn(batch, max_pad=None):
     """
-    Collate a batch of dicts {"x", "label", "dataset_name"}.
+    Collate a batch of dicts {"ID", "x", "label", "dataset_name"}.
 
     Returns a dict:
         {
@@ -25,7 +25,7 @@ def collate_fn(batch, max_pad=None, pad_strategy="zero"):
     max_len = max(x.shape[0] for x in xs)
     if max_pad is not None:
         max_len = max(max_len, max_pad)
-
+    
     padded_xs = []
     masks = []
 
@@ -33,18 +33,10 @@ def collate_fn(batch, max_pad=None, pad_strategy="zero"):
         seq_len = x.shape[0]
 
         if seq_len < max_len:
-            if pad_strategy == "replicate":
-                repeat_times = (max_len + seq_len - 1) // seq_len
-                x_repeated = x.repeat(repeat_times, *([1] * (x.dim() - 1)))
-                x = x_repeated[:max_len]
-                mask = torch.ones(max_len, dtype=torch.float32)
-            elif pad_strategy == "zero":
-                pad_shape = (max_len - seq_len, *x.shape[1:])
-                x = torch.cat([x, torch.zeros(pad_shape, dtype=x.dtype)], dim=0)
-                mask = torch.cat([torch.ones(seq_len, dtype=torch.float32),
-                                  torch.zeros(max_len - seq_len, dtype=torch.float32)])
-            else:
-                raise ValueError(f"Unknown pad_strategy: {pad_strategy}")
+            pad_shape = (max_len - seq_len, *x.shape[1:])
+            x = torch.cat([x, torch.zeros(pad_shape, dtype=x.dtype)], dim=0)
+            mask = torch.cat([torch.ones(seq_len, dtype=torch.float32),
+                                torch.zeros(max_len - seq_len, dtype=torch.float32)])
         else:
             mask = torch.ones(max_len, dtype=torch.float32)
 
@@ -65,7 +57,7 @@ def collate_fn(batch, max_pad=None, pad_strategy="zero"):
 
 
 
-def build_dataloader(config, split="train"):
+def build_dataloader(config):
     """
     Builds a DataLoader given a dataset name and configuration.
     Example expected config:
@@ -88,8 +80,7 @@ def build_dataloader(config, split="train"):
     DatasetClass = get_dataset_class(dataset_name)
     
     batch_size = config.get("batch_size", 8)
-    shuffle = True if split == "train" else False
-    pad_strategy = config.get("pad_strategy", "zero")
+    shuffle = config.get("shuffle", False)
 
     # Initialize dataset
     ds = DatasetClass(
@@ -101,5 +92,5 @@ def build_dataloader(config, split="train"):
         ds,
         batch_size=batch_size,
         shuffle=shuffle,
-        collate_fn=lambda b: collate_fn(b, pad_strategy=pad_strategy),
+        collate_fn=lambda b: collate_fn(b, max_pad=config.get("max_len", None)),
     )
