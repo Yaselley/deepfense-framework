@@ -30,6 +30,9 @@ DeepFense relies on Fairseq for feature extraction and SSL model integration.
 Navigate to the modules directory:
 
 ```bash
+cd deepfense/models/
+mkdir modules
+cd modules
 git clone https://github.com/facebookresearch/fairseq
 cd fairseq
 git checkout 3d262bb

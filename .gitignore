@@ -69,3 +69,9 @@ outputs/
 
 # Ignore all __pycache__ anywhere
 **/__pycache__/
+
+# Ignore Pycharm files
+.idea/
+
+#Arnab's adhoc scripts
+not_to_checkin/

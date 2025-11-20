@@ -111,16 +111,15 @@ class StandardTrainer(BaseTrainer):
                 epoch_loss_sum += loss
                 epoch_train_losses.append(loss)
 
-                # Log
-                if self.config.batch_log_interval:
-                    if batch_idx % self.config.batch_log_interval == 0:
-                        lr = self._current_lr()
-                        running_avg_loss = epoch_loss_sum / (batch_idx + 1)
-                        
-                        # --- MODIFIED: Use 1-indexed epoch ---
-                        self.logger.info(f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}")
-                        if self.wandb:
-                            self.wandb.log({"train/running_avg_loss": running_avg_loss, "lr": lr, "step": self.global_step})
+                # Logging
+                if self.config.batch_log_interval is not None and batch_idx != 0 and batch_idx % self.config.batch_log_interval == 0:
+                    lr = self._current_lr()
+                    running_avg_loss = epoch_loss_sum / (batch_idx + 1)
+                    
+                    # --- MODIFIED: Use 1-indexed epoch ---
+                    self.logger.info(f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}")
+                    if self.wandb:
+                        self.wandb.log({"train/running_avg_loss": running_avg_loss, "lr": lr, "step": self.global_step})
 
                 # Step-based eval
                 if self.config.eval_every_steps and self.global_step % self.config.eval_every_steps == 0:
