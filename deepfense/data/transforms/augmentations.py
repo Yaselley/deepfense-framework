@@ -10,7 +10,6 @@ import random
 import torch
 from scipy import signal
 from pathlib import Path
-from pydub import AudioSegment
 from deepfense.data.transforms.registry import register_transform
 from deepfense.data.transforms.RawBoost.data_utils_rawboost import (
     process_Rawboost_feature,
@@ -26,20 +25,21 @@ def sample_aug_func(x, noise_ratio):
 # TODO: We might need try except to catch the exceptions in case
 # augmentation failed (e.g., failed to load the rir due to some network issue)
 @register_transform("rir")
-def rir(x: dict, noise_ratio: float = 0.3) -> np.ndarray:
+def rir(x, noise_ratio, csv_file) -> np.ndarray:
     """
     apply rir augmentation to monochannel audio
     - rir_path: directory containing .wav RIR files
     """
     if np.random.random() > noise_ratio:
         return audio
-    audio = x["audio"]
-    rir_audio = x["noise"]
+    audio = x
+    rir_audio = noise_ratio
 
     audio_power = float((audio**2).mean())
     if audio_power < 1e-10:
         return audio
 
+    # one path should be read randmoly from the csv file
     # rir, sample_rate = audio_util.get_audio(rir_path)  # assume mono, no trim
 
     augmented = signal.convolve(audio, rir_audio, mode="full")[: audio.shape[0]]
@@ -53,14 +53,18 @@ def rir(x: dict, noise_ratio: float = 0.3) -> np.ndarray:
 
 
 @register_transform("rawboost")
-def rawboost(x: dict, noise_ratio: float = 0.5, algo=5) -> np.ndarray:
+def rawboost(x, noise_ratio, param2, param3) -> np.ndarray:
     """
     apply RawBoost augmentation to mono audio
     """
-    if np.random.random() > noise_ratio:
-        return audio
 
-    audio: np.ndarray = x["audio"]
+    algo = 5
+
+    audio = x
+
+    # if np.random.random() > noise_ratio:
+    #     return audio
+
     sample_rate = 16000
 
     parameters = get_default_args()

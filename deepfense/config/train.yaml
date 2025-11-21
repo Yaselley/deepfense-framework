@@ -15,18 +15,21 @@ data:
     
     batch_size: 1
     shuffle: True
-    max_len: 64600 # this is in case of zero padding, if not precised, it will take max_length wihtin the batch
 
-    # base_transform:
-    #   - type: "pad"
-    #     max_len: 64600
-    #     random_pad: False
-    #     pad_type: "repeat"
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+        random_pad: False
+        pad_type: "repeat"
 
-    # augment_transform:
-    #   - type: "simple_aug"
-    #     noise_ratio: 6
+    augment_transform:
+      - type: "rawboost"
+        noise_ratio: 0.4
+        param2: 3
+        param3: 10
 
+      # - type: "rir"
+      #   csv_file: path to RIR
 
   val:
     dataset_type: "StandardDataset"

@@ -56,7 +56,7 @@ class ModularDetector(nn.Module):
             else:
                 self.mappers.append(None)
 
-    def forward(self, x):
+    def forward(self, x, mask):
         """
         Runs the forward pass.
 

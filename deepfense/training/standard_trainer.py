@@ -200,7 +200,7 @@ class StandardTrainer(BaseTrainer):
         self.optimizer.zero_grad()
 
         # Forward pass through the detector
-        outputs = self.model(x, mask=mask) if mask is not None else self.model(x)
+        outputs = self.model(x, mask) if mask is not None else self.model(x)
 
         # Compute total loss using ModularDetector's compute_loss
         loss = self.model.compute_loss(outputs, labels)
