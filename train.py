@@ -46,7 +46,7 @@ def setup_logging(output_dir, exp_name):
 
     logger = logging.getLogger("train")  # Matches what you use in main()
 
-    logger.info(f"Experiment directory: {exp_dir}")
+    # logger.info(f"Experiment directory: {exp_dir}")
     # Removed config log message
     logger.info(f"Logging re-configured successfully. All logs saving to {log_file}\n")
 

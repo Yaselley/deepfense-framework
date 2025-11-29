@@ -36,8 +36,14 @@ def build_transform(config):
     """
     config = config.copy()  # avoid modifying original
     transform_type = config.pop("type")
-    transform_fn = get_transform(transform_type)
-    return lambda x: transform_fn(x, **config)
+    transform_cls_or_fn = get_transform(transform_type)
+
+    # If it's a class, instantiate it with the config parameters
+    if isinstance(transform_cls_or_fn, type):
+        return transform_cls_or_fn(**config)
+    else:
+        # If it's a function, return a lambda that calls it with the config parameters
+        return lambda x: transform_cls_or_fn(x, **config)
 
 
 def build_transforms_from_config(config_list):
