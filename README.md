@@ -32,10 +32,10 @@ The documentation is organized as follows:
 
 ### 🧩 Components
 Detailed reference for each module type:
+*   **[Data & Augmentations](docs/components/data_pipeline.md)**: Parquet format, Augmentation pipelines (RawBoost, RIR, Codec, etc.).
 *   **[Frontends](docs/components/frontends.md)**: Wav2Vec2, WavLM, HuBERT, MERT, EAT (Efficient Audio Transformer).
 *   **[Backends](docs/components/backends.md)**: AASIST, ECAPA-TDNN, RawNet2, MLP, Nes2Net.
 *   **[Loss Functions](docs/components/losses.md)**: AM-Softmax, A-Softmax, OC-Softmax, CrossEntropy.
-*   **[Data & Augmentations](docs/components/data_pipeline.md)**: Parquet format, Augmentation pipelines (RawBoost, RIR, Codec, etc.).
 
 ## 🛠️ Installation
 
