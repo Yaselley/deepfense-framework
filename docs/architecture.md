@@ -1,60 +1,83 @@
-# Architecture Overview
+# DeepFense Architecture
 
-DeepFense uses a **Modular Architecture** designed for flexibility and rapid experimentation.
+This document provides a detailed overview of the DeepFense framework's architecture, explaining how data flows from input audio to the final detection score.
 
-## The `ModularDetector`
+## 🏗️ System Skeleton
 
-The core of the framework is the `ModularDetector` class (`deepfense/models/detector.py`). It acts as a container that wires together three interchangeable parts:
+DeepFense is built on a modular design pattern where every major component (Frontend, Backend, Loss) is interchangeable via configuration.
 
-1.  **Frontend**: Audio $\to$ Features (inherits `BaseFrontend`)
-2.  **Backend**: Features $\to$ Embeddings (inherits `BaseBackend`)
-3.  **Unified Loss**: Embeddings $\to$ Loss & Scores (inherits `BaseLoss`)
+### High-Level Data Flow
 
 ```mermaid
-graph LR
-    A[Raw Audio] --> B(Frontend);
-    B --> C(Backend);
-    C --> D{Unified Loss};
-    D -- Training --> E[Loss Value];
-    D -- Validation --> F[Scores / Logits];
+graph TD
+    subgraph Data Pipeline
+        A[Raw Audio] -->|Load & Resample| B(Waveform)
+        B -->|Augmentations| C{Augmentation Pipeline}
+        C -->|RawBoost/Noise/etc| D[Augmented Waveform]
+    end
+
+    subgraph Model Architecture
+        D -->|Input| E[Frontend]
+        E -->|Extract Features| F[Features]
+        F -->|Input| G[Backend]
+        G -->|Process| H[Embeddings]
+        H -->|Input| I[Loss Module]
+        I -->|Calculate| J(Loss Value)
+        I -->|Calculate| K(Score/Logits)
+    end
+
+    subgraph Training Loop
+        J -->|Backprop| L[Optimizer]
+        K -->|Validation| M[Metrics EER/minDCF]
+    end
 ```
 
-### Key Design Decisions
+### Component Responsibilities
 
-1.  **Registry System**:
-    *   Instead of hardcoding imports, we use a registry (`deepfense.utils.registry`).
-    *   You define a component type in YAML (e.g., `type: "AASIST"`), and the registry finds the corresponding class.
+#### 1. Data Pipeline (`deepfense/data`)
+*   **StandardDataset**: Reads metadata from Parquet files. It handles label mapping (Bonafide/Spoof -> 1/0).
+*   **AugmentationPipeline**: A flexible system that can run augmentations in:
+    *   **Sequential**: Apply A, then B, then C.
+    *   **Parallel (OneOf)**: Randomly pick one from [A, B, C].
+    *   **Concat**: Produce multiple versions of the same audio (Original + Aug1 + Aug2) to train on all simultaneously.
+*   **CollateFn**: Handles padding of audio to `max_len` or the longest in the batch, and creates boolean masks (1 for valid, 0 for padding).
 
-2.  **Unified Loss Modules**:
-    *   In many frameworks, the "projection layer" (Linear, ArcFace, etc.) is separate from the "Loss function" (CrossEntropy).
-    *   In DeepFense, we **merge** them. The `AMSoftmax` module contains *both* the `AMAngleLayer` (projection) and the `CrossEntropy` logic.
-    *   **Benefit**: This simplifies the main model code. The Detector just produces embeddings, and the Loss module handles the rest.
+#### 2. The Detector (`deepfense/models/detector.py`)
+The `StandardDetector` is the central `nn.Module`. It doesn't implement logic itself but acts as a container/orchestrator.
+*   **Input**: Batch of audio `[B, T]`
+*   **Frontend**: Converts Audio `[B, T]` -> Features `[B, C, F, T']` (e.g., Wav2Vec2, MelSpectrogram).
+*   **Backend**: Converts Features `[B, C, F, T']` -> Fixed-size Embedding `[B, D]` (e.g., AASIST, ResNet, MLP).
+*   **Loss**: Takes Embeddings `[B, D]` and Labels `[B]` -> Computes Loss and Scores.
 
-3.  **Loss-Dependent Scoring**:
-    *   Different losses require different scoring logic for evaluation (e.g., EER).
-    *   **CrossEntropy**: Score = Logit(Bonafide).
-    *   **AMSoftmax**: Score = Logit(Bonafide) - Logit(Spoof).
-    *   **OCSoftmax**: Score = Cosine Similarity.
-    *   DeepFense automatically detects the loss type and adjusts the scoring metric accordingly.
+#### 3. The Trainer (`deepfense/training`)
+*   **StandardTrainer**: Manages the training loop, checkpointing, logging (WandB/Console), and evaluation.
+*   **Evaluator**: Computes EER (Equal Error Rate) and minDCF (Minimum Detection Cost Function) at the end of epochs.
 
-## Data Flow
+---
 
-1.  **Input**: A batch of audio samples `x` and labels `y`.
-2.  **Forward Pass**:
-    *   `feat = frontend(x)`
-    *   `emb = backend(feat)`
-    *   `outputs = {"embeddings": emb}`
-    *   **Validation Only**: `outputs["scores"] = loss_module.get_logits(emb)`
-3.  **Loss Computation**:
-    *   `loss = loss_module(emb, y)`
-4.  **Optimization**:
-    *   Standard backpropagation on `loss`.
+## 🧩 Directory Structure Explained
 
-## Visualization & Monitoring
-
-DeepFense includes a streamlined visualization system (`deepfense/utils/visualization.py`) integrated into the `StandardTrainer`.
-
-*   **Automatic Trend Plotting**: The trainer automatically tracks all scalar metrics defined in your configuration (ACC, EER, Loss, etc.).
-*   **Unified History**: Metrics are stored in a history dictionary for both Training and Validation splits.
-*   **Output**: At the end of each validation epoch/step, plots are generated in `outputs/<experiment>/plots/` (e.g., `trend_loss.png`, `trend_EER.png`).
-*   **Focus**: The system focuses on **metric evolution** over time rather than expensive, heavy static plots like t-SNE or DET curves (though these can be computed if needed, the default is efficient trend tracking).
+```text
+DeepFense/
+├── deepfense/
+│   ├── config/           # ⚙️ YAML Configuration
+│   │   ├── train.yaml    # The "Main" config file users interact with
+│   │   └── ...
+│   ├── data/             # 💾 Data Handling
+│   │   ├── detection_dataset.py  # Dataset implementation
+│   │   └── transforms/           # Augmentation logic (RawBoost, etc.)
+│   ├── models/           # 🧠 Neural Networks
+│   │   ├── detector.py   # The main wrapper class
+│   │   ├── frontends/    # wav2vec2.py, wavlm.py (Feature Extractors)
+│   │   ├── backends/     # aasist.py, mlp.py (Classifiers)
+│   │   └── losses/       # am_softmax.py, cross_entropy.py
+│   ├── training/         # 🏋️ Loop Logic
+│   │   ├── standard_trainer.py # Training loop implementation
+│   │   └── evaluations/  # EER/minDCF calculation code
+│   └── utils/            # 🛠️ Registry & Helpers
+│       └── registry.py   # Decorators that make the config magic work
+├── docs/                 # 📚 You are here
+├── outputs/              # 📂 Results (Logs, Checkpoints, Plots)
+├── train.py              # 🚀 Entry point for training
+└── test.py               # 🧪 Entry point for inference
+```

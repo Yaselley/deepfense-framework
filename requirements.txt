@@ -28,3 +28,4 @@ wandb>=0.12,<1.0
 einops>=0.7,<1.0
 matplotlib>=3.7,<4.0
 seaborn>=0.12,<0.14
+timm

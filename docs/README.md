@@ -4,26 +4,19 @@ Welcome to the DeepFense framework documentation.
 
 ## Contents
 
-1.  **[Architecture Overview](architecture.md)**
-    *   Understand the ModularDetector, Registry, and Unified Loss design.
-2.  **[Component Reference](components.md)**
-    *   Detailed list of available Frontends, Backends, Losses, and Metrics.
-3.  **[Configuration Guide](configuration.md)**
-    *   How to structure your YAML experiment files.
-4.  **[Extending DeepFense](extending.md)**
-    *   **Base Classes** and guidelines for creating new Frontends, Backends, and Losses.
-5.  **[Tutorials](tutorials.md)**
-    *   Step-by-step guides for common tasks.
+### 1. Core Concepts
+*   **[Architecture Overview](architecture.md)**
+    *   Understand the ModularDetector, Registry, data flow diagrams, and project skeleton.
 
-## Quick Start
+### 2. Tutorials
+*   **[Getting Started & Configuration](tutorials/getting_started.md)**
+    *   How to train your first model and a detailed explanation of all YAML parameters.
+*   **[Extending DeepFense](tutorials/extending.md)**
+    *   How to add new Frontends, Backends, Losses, and Datasets using the Registry system.
 
-**Train a model:**
-```bash
-python train.py --config deepfense/config/train.yaml
-```
-
-**Project Structure:**
-*   `deepfense/models/`: Frontends, Backends, Detectors, Losses.
-*   `deepfense/data/`: Datasets, Transforms.
-*   `deepfense/training/`: Trainer loops, Evaluators, Metrics.
-*   `deepfense/utils/`: Registry, logging, etc.
+### 3. Component Reference
+*   **[Frontends](components/frontends.md)**: Wav2Vec2, WavLM, HuBERT, MelSpectrogram.
+*   **[Backends](components/backends.md)**: AASIST, MLP, Res2Net.
+*   **[Loss Functions](components/losses.md)**: AM-Softmax, CrossEntropy, OC-Softmax, A-Softmax.
+*   **[Data & Augmentations](components/data_pipeline.md)**: Parquet datasets, Augmentation pipelines (RawBoost, SpeedPerturb, etc.).
+*   **[Optimizers & Schedulers](components/optimizers_schedulers.md)**: Adam, SGD, CosineAnnealing, StepLR.

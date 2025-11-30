@@ -1,166 +1,39 @@
 # DeepFense Framework
 
-**DeepFense** is a modular, extensible, and research-friendly framework for Deepfake Audio Detection (ASV Spoofing). It allows you to easily mix and match Frontends, Backends, and Loss functions using a simple configuration system.
-
-## 🚀 Features
-
-*   **Modular Architecture**: Decouples **Frontends** (Wav2Vec2, WavLM, HuBERT), **Backends** (AASIST, Nes2Net, TCM, MLP), and **Losses**.
-*   **Unified Registry System**: Easily register and call components via YAML strings (e.g., `type: "wavlm"`).
-*   **Unified Loss Modules**: "Mappers" (projection layers) and Loss functions are combined into single modules for cleaner code.
-*   **Base Classes**: Standardized `BaseFrontend`, `BaseBackend`, and `BaseLoss` classes guide extension and ensure consistency.
-*   **Loss-Dependent Scoring**: Automatically handles scoring logic (Logits vs. Cosine Similarity vs. LLR) for correct EER/minDCF calculation.
-*   **Configurable**: Powered by `OmegaConf` and YAML for hierarchical configuration.
-*   **Advanced Visualization**: Automatically tracks and plots trends for Loss and any user-specified metrics (ACC, EER, minDCF) directly in the `outputs/plots` directory.
+**DeepFense** is a modular, extensible framework for Deepfake Audio Detection (ASV Spoofing). It allows researchers to easily plug-and-play Frontends, Backends, and Loss functions.
 
 ## 📚 Documentation
 
-Detailed documentation is available in the `docs/` folder:
+The documentation is organized as follows:
 
-1.  **[Architecture Overview](docs/architecture.md)**: High-level design and data flow.
-2.  **[Project Structure](STRUCTURE.md)**: Detailed file tree and component breakdown.
-3.  **[Component Reference](docs/components.md)**: List of available models, losses, and transforms.
-4.  **[Configuration Guide](docs/configuration.md)**: How to write your experiment YAMLs.
-5.  **[Tutorials](docs/tutorials.md)**: Step-by-step guides to adding new components.
-6.  **[Extending DeepFense](docs/extending.md)**: Deep dive into Base Classes and API.
+### 🏠 Core
+*   **[Architecture Overview](docs/architecture.md)**: **START HERE**. Explains the system skeleton, diagrams, and data flow.
+*   **[Project Structure](docs/architecture.md#directory-structure-explained)**: Explanation of the file tree.
 
-## 🛠️ Installation
+### 🎓 Tutorials
+*   **[Getting Started & Training](docs/tutorials/getting_started.md)**: How to run training and a detailed guide to `config.yaml` parameters.
+*   **[Extending DeepFense](docs/tutorials/extending.md)**: How to add new Losses, Frontends, Backends, and Datasets.
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/your-repo/DeepFense.git
-    cd DeepFense
-    ```
+### 🧩 Components
+Detailed reference for each module type:
+*   **[Frontends](docs/components/frontends.md)** (Wav2Vec2, WavLM, HuBERT, etc.)
+*   **[Backends](docs/components/backends.md)** (AASIST, MLP, etc.)
+*   **[Loss Functions](docs/components/losses.md)** (AM-Softmax, CrossEntropy, etc.)
+*   **[Data & Augmentations](docs/components/data_pipeline.md)** (Parquet format, Augmentation pipelines).
 
-2.  **Install dependencies**:
-    It is recommended to use a virtual environment (Conda or venv).
-    
-    **Step A: Install core requirements**
+## 🚀 Quick Start
+
+1.  **Install Requirements**
     ```bash
     pip install -r requirements.txt
     ```
 
-    **Step B: Downgrade pip**
-    Some dependencies require an older pip version to build correctly.
+2.  **Train a Model**
     ```bash
-    pip install "pip<=24.0"
+    python train.py --config deepfense/config/train.yaml
     ```
 
-    **Step C: Build Fairseq**
-    DeepFense relies on Fairseq for SSL model integration.
+3.  **Evaluate/Test**
     ```bash
-    mkdir -p deepfense/models/modules
-    cd deepfense/models/modules
-    git clone https://github.com/facebookresearch/fairseq
-    cd fairseq
-    git checkout 3d262bb
-    pip install --editable ./
-    
-    # Optional: Upgrade pip back if needed
-    # pip install --upgrade pip
-    cd ../../../..
+    python test.py --config deepfense/config/train.yaml --checkpoint outputs/.../best_model.pth
     ```
-
-## 📊 Data Preparation
-
-DeepFense uses **Parquet** files for efficient data loading. Your dataset should be a `.parquet` file with the following columns:
-
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `path` | `string` | Absolute path to the audio file (e.g., `/data/audio/sample1.flac`). |
-| `label` | `int` | **1** for Bonafide (Real), **0** for Spoof (Fake). |
-| `ID` | `string` | Unique identifier for the sample (e.g., `LA_E_1234`). |
-| `dataset_name` | `string` | (Optional) Name of the dataset split (e.g., "ASVSpoof19_LA_Eval"). |
-| `duration` | `float` | (Optional) Duration in seconds. |
-
-**Example Dataframe:**
-
-| ID | path | label | dataset_name |
-| :--- | :--- | :--- | :--- |
-| `LA_T_001` | `/data/train/LA_T_001.flac` | `1` | `Train` |
-| `LA_T_002` | `/data/train/LA_T_002.flac` | `0` | `Train` |
-
-## 🚦 Quick Start
-
-### 1. Training
-
-To start a training experiment, use the `train.py` script with a configuration file.
-
-```bash
-python train.py --config deepfense/config/train.yaml
-```
-
-**Key Config Sections:**
-*   **`model`**: Defines the architecture (Frontend + Backend + Loss).
-*   **`data`**: Defines training/validation datasets and augmentations.
-*   **`training`**: Defines optimizer, scheduler, and evaluation metrics.
-
-### 2. Testing / Inference
-
-To evaluate a trained checkpoint:
-
-```bash
-python test.py --config deepfense/config/train.yaml --checkpoint outputs/ExperimentName/checkpoints/best_model.pt
-```
-
-This will generate a `results.json` and prediction files in the output directory.
-
-## 📂 Project Structure
-
-```text
-DeepFense/
-├── deepfense/
-│   ├── config/           # YAML Configuration files
-│   ├── data/             # Datasets and Transforms
-│   ├── models/           # Core Model Components
-│   │   ├── backends/     # (aasist.py, mlp.py, etc.)
-│   │   ├── frontends/    # (wavlm.py, hubert.py, etc.)
-│   │   ├── losses/       # (am_softmax.py, cross_entropy.py, etc.)
-│   │   ├── detector.py   # Main ModularDetector class
-│   │   └── base_model.py # Abstract Base Classes
-│   ├── training/         # Trainer, Evaluator, Metrics
-│   └── utils/            # Registry, Logging, Helper functions
-├── docs/                 # Documentation
-├── outputs/              # Experiment logs and checkpoints
-├── train.py              # Training entry point
-├── test.py               # Testing entry point
-└── requirements.txt      # Dependencies
-```
-
-## 🧩 Example Configuration
-
-Here is a minimal example of a model definition in `train.yaml`:
-
-```yaml
-model:
-  type: "StandardDetector"
-  
-  # 1. Frontend (Audio -> Features)
-  frontend:
-    type: "wavlm"
-    args:
-      ckpt_path: "/path/to/wavlm.pt"
-
-  # 2. Backend (Features -> Embedding)
-  backend:
-    type: "AASIST"
-    args:
-      filts: [[1, 32], [32, 32]]
-      gat_dims: [64, 32]
-
-  # 3. Loss (Embedding -> Loss & Score)
-  loss:
-    - type: "AMSoftmax"
-      weight: 1.0
-      embedding_dim: 128
-      n_classes: 2
-      m: 0.3
-      s: 30
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Please refer to the **[Tutorials](docs/tutorials.md)** to see how to easily add new Frontends, Backends, or Metrics using our standardized Base Classes.
-
-## 📄 License
-
-[License Information Here]
