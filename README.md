@@ -1,6 +1,22 @@
+<div align="center">
+  <img src="docs/logo/logo.png" alt="DeepFense Logo" width="400">
+</div>
+
+<div align="center">
+
 # DeepFense Framework
 
-**DeepFense** is a modular, extensible framework for Deepfake Audio Detection (ASV Spoofing). It allows researchers to easily plug-and-play Frontends, Backends, and Loss functions.
+**A Modular, Extensible Framework for Deepfake Audio Detection (ASV Spoofing)**
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-navy.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-navy.svg)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-navy.svg)](https://pytorch.org/)
+
+</div>
+
+---
+
+**DeepFense** is designed for researchers and developers to easily plug-and-play **Frontends** (Wav2Vec2, WavLM, EAT, MERT), **Backends** (AASIST, ECAPA-TDNN, RawNet2), and **Loss Functions** to build state-of-the-art deepfake detection systems.
 
 ## 📚 Documentation
 
@@ -16,10 +32,10 @@ The documentation is organized as follows:
 
 ### 🧩 Components
 Detailed reference for each module type:
-*   **[Frontends](docs/components/frontends.md)** (Wav2Vec2, WavLM, HuBERT, etc.)
-*   **[Backends](docs/components/backends.md)** (AASIST, MLP, etc.)
-*   **[Loss Functions](docs/components/losses.md)** (AM-Softmax, CrossEntropy, etc.)
-*   **[Data & Augmentations](docs/components/data_pipeline.md)** (Parquet format, Augmentation pipelines).
+*   **[Frontends](docs/components/frontends.md)**: Wav2Vec2, WavLM, HuBERT, MERT, EAT (Efficient Audio Transformer).
+*   **[Backends](docs/components/backends.md)**: AASIST, ECAPA-TDNN, RawNet2, MLP, Nes2Net.
+*   **[Loss Functions](docs/components/losses.md)**: AM-Softmax, A-Softmax, OC-Softmax, CrossEntropy.
+*   **[Data & Augmentations](docs/components/data_pipeline.md)**: Parquet format, Augmentation pipelines (RawBoost, RIR, Codec, etc.).
 
 ## 🚀 Quick Start
 
@@ -37,3 +53,11 @@ Detailed reference for each module type:
     ```bash
     python test.py --config deepfense/config/train.yaml --checkpoint outputs/.../best_model.pth
     ```
+
+## 🎨 Contributing
+
+We welcome contributions! Please see [Extending DeepFense](docs/tutorials/extending.md) for guidelines on how to add new components.
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.

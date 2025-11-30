@@ -57,12 +57,12 @@ model:
     #   freeze: True
 
   backend: 
-    type: "MLP" # MLP works on [B, T, D], pools to [B, D]
+    type: "ECAPA_TDNN" # MLP works on [B, T, D], pools to [B, D]
     args:
       input_dim: 1024 # WavLM dim
       projection: [128]
       pooling_type: "asp" 
-  loss: [{type: "CrossEntropy", embedding_dim: 256, n_classes: 2}]
+  loss: [{type: "CrossEntropy", embedding_dim: 192, n_classes: 2}]
 
 training:
   trainer: "StandardTrainer"
