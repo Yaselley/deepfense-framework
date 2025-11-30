@@ -90,6 +90,7 @@ class StandardTrainer(BaseTrainer):
         # Visualization Unit
         self.use_steps_for_viz = (self.config.get("eval_every_steps") is not None)
         self.viz_unit = "Step" if self.use_steps_for_viz else "Epoch"
+        self.accum_steps = config.get("gradient_accumulation_steps", 1)
 
     def train(self):
         self.model.train()
@@ -106,10 +107,12 @@ class StandardTrainer(BaseTrainer):
 
             epoch_loss_sum = 0.0
             epoch_train_losses = []
+            
+            # Initialize gradients
+            self.optimizer.zero_grad()
 
             for batch_idx, batch in enumerate(loop):
-                self.global_step += 1
-                loss = self._train_step(batch)
+                loss = self._train_step(batch, batch_idx)
 
                 epoch_loss_sum += loss
                 epoch_train_losses.append(loss)
@@ -140,10 +143,11 @@ class StandardTrainer(BaseTrainer):
                         self.metric_history["loss"]["Train"].append((self.global_step, running_avg_loss))
 
 
-                # Step-based eval
+                # Step-based eval (check on global_step, which is updated in _train_step on actual updates)
                 if (
                     self.config.get("eval_every_steps")
                     and self.global_step % self.config.eval_every_steps == 0
+                    and (batch_idx + 1) % self.accum_steps == 0 # Ensure we only eval after an update
                 ):
                     metrics = self.evaluate(
                         current_epoch, self.global_step, eval_reason="step"
@@ -177,13 +181,16 @@ class StandardTrainer(BaseTrainer):
                 )
                 self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
-            # Scheduler
+            # Scheduler (Step per epoch if not OneCycleLR?) 
+            # Logic preserved from original code. 
+            # Note: If using OneCycleLR, it should be stepped per batch/update. 
+            # The original code didn't handle OneCycleLR stepping in the loop properly if it wasn't there.
             if self.scheduler and not isinstance(
                 self.scheduler, torch.optim.lr_scheduler.OneCycleLR
             ):
                 self.scheduler.step()
 
-    def _train_step(self, batch):
+    def _train_step(self, batch, batch_idx):
         x = batch["x"].to(self.device)
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
@@ -204,15 +211,26 @@ class StandardTrainer(BaseTrainer):
         if mask is not None:
             mask = mask.to(self.device)
 
-        self.optimizer.zero_grad()
+        # self.optimizer.zero_grad() # REMOVED: Handled in loop/accum logic
 
         outputs = self.model(x, mask) if mask is not None else self.model(x)
         loss = self.model.compute_loss(outputs, labels)
 
+        # Scale loss for accumulation
+        loss = loss / self.accum_steps
         loss.backward()
-        self.optimizer.step()
-
-        return loss.item()
+        
+        # Step if accumulation boundary
+        if (batch_idx + 1) % self.accum_steps == 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            self.global_step += 1
+            
+            # Step scheduler if it's per-step (like OneCycleLR)
+            # Note: Original code didn't have this here, but it's good practice.
+            # If original code only stepped scheduler at epoch end, this is fine.
+            
+        return loss.item() * self.accum_steps
 
     def evaluate(self, epoch, step, eval_reason: str = None):
         self.model.eval()

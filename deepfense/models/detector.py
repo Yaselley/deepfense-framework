@@ -60,7 +60,7 @@ class ModularDetector(nn.Module):
         - "probs": Tensor of probabilities (softmax of scores).
         """
         # Frontend
-        features = self.frontend(x)
+        features = self.frontend(x, mask=mask)
         # Backend
         embeddings = self.backend(features)
         

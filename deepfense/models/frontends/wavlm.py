@@ -16,7 +16,8 @@ class WavLMWrapper(BaseFrontend):
         self.model = WavLM(cfg)
         self.model.load_state_dict(checkpoint["model"], strict=False)
 
-    def forward(self, input_data):
+    def forward(self, input_data, mask=None):
+
         x, layers = self.model.extract_features(
             input_data, mask=False, ret_layer_results=True
         )[0]

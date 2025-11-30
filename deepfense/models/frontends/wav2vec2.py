@@ -17,7 +17,7 @@ class Wav2VecWrapper(BaseFrontend):
         self.model = models[0]
         return
 
-    def forward(self, input_data):
+    def forward(self, input_data, mask=None):
         emb = self.model(input_data, mask=False, features_only=True)
 
         x, layer_results = emb["x"], emb["layer_results"]
