@@ -467,7 +467,7 @@ class AugmentationPipeline:
                 k_select = min(self.k, len(self.loaded_transforms))
                 selected = random.sample(self.loaded_transforms, k_select)
         else:
-             # Default fallback (should not happen if config is correct)
+             # Default fallback
              selected = self.loaded_transforms
 
         # 2. Execution Phase
@@ -488,19 +488,10 @@ class AugmentationPipeline:
             if self.concat_original:
                 final_list = [x] + augmented_results
             else:
-                # If independent application but NO concat?
-                # Usually means return list of augmentations?
-                # Or just the first one? 
-                # If we return a stack of just augmentations:
                 final_list = augmented_results
                 
-            # If only 1 result and NOT stacking, return it directly (avoid dimension change)
-            # But "independent" usually implies multiple outputs or branching.
-            # If k=1 and independent, it's same as chain.
-            # If we have multiple results, we MUST stack.
-            if len(final_list) == 1 and not self.concat_original: 
-                 return final_list[0]
-            
+            # Note: This returns a numpy stack, effectively increasing batch size dim 
+            # if collate_fn handles it (it does in deepfense/data/data_utils.py)
             return np.stack(final_list)
 
         else: # execution == "chain"
@@ -508,10 +499,6 @@ class AugmentationPipeline:
             out = x.copy()
             for t in selected:
                 out = t(out)
-                # Note: intermediate transforms might change length (SpeedPerturb).
-                # If we chain, we let it change.
-                # BUT if we concat with original at the end, we might need alignment?
-                # Yes, if returning [Original, Augmented], they must match size for stacking.
             
             if self.concat_original:
                 if len(out) != target_len:

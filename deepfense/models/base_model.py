@@ -50,7 +50,7 @@ class BaseBackend(nn.Module, ABC):
     @property
     def input_dim(self) -> int:
         """Return the expected input dimension."""
-        return self.config.get("input_dim", 0)
+        return self.config.get("input_dim", 1024)
 
 
 class BaseLoss(nn.Module, ABC):

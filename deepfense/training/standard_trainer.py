@@ -92,6 +92,11 @@ class StandardTrainer(BaseTrainer):
         self.viz_unit = "Step" if self.use_steps_for_viz else "Epoch"
         self.accum_steps = config.get("gradient_accumulation_steps", 1)
 
+        # Early Stopping
+        self.early_stopping_patience = config.get("early_stopping_patience", None)
+        self.early_stopping_counter = 0
+        self.best_metric_val = None # Separate from self.best_metric which is tracked for saving best model
+
     def train(self):
         self.model.train()
 
@@ -175,16 +180,21 @@ class StandardTrainer(BaseTrainer):
 
             # Per-epoch eval
             eval_interval = self.config.get("eval_every_epochs", 1)
+            stop_training = False
             if current_epoch % eval_interval == 0:
                 metrics = self.evaluate(
                     current_epoch, self.global_step, eval_reason="epoch"
                 )
                 self._maybe_checkpoint(metrics, current_epoch, self.global_step)
+                
+                # Early Stopping Check
+                if self.early_stopping_patience is not None:
+                    stop_training = self._check_early_stopping(metrics)
 
-            # Scheduler (Step per epoch if not OneCycleLR?) 
-            # Logic preserved from original code. 
-            # Note: If using OneCycleLR, it should be stepped per batch/update. 
-            # The original code didn't handle OneCycleLR stepping in the loop properly if it wasn't there.
+            if stop_training:
+                self.logger.info(f"Early stopping triggered after {self.early_stopping_patience} epochs of no improvement.")
+                break
+
             if self.scheduler and not isinstance(
                 self.scheduler, torch.optim.lr_scheduler.OneCycleLR
             ):
@@ -198,10 +208,9 @@ class StandardTrainer(BaseTrainer):
         # Handle 'concat' augmentation (x: [B, N_aug, T])
         if x.ndim == 3 and labels.shape[0] == x.shape[0]:
              B, N, T = x.shape
-             
              x = x.view(B * N, T)
              labels = labels.repeat_interleave(N)
-             
+
              if mask is not None:
                  if mask.ndim == 3:
                      mask = mask.view(B * N, T)
@@ -210,8 +219,6 @@ class StandardTrainer(BaseTrainer):
 
         if mask is not None:
             mask = mask.to(self.device)
-
-        # self.optimizer.zero_grad() # REMOVED: Handled in loop/accum logic
 
         outputs = self.model(x, mask) if mask is not None else self.model(x)
         loss = self.model.compute_loss(outputs, labels)
@@ -297,15 +304,7 @@ class StandardTrainer(BaseTrainer):
         if "loss" in results:
              self.metric_history["loss"]["Val"].append((x_val, results["loss"]))
              
-        # 2. Metrics (Average and Per-Dataset)
-        # results structure example:
-        # {
-        #   "loss": 0.5,
-        #   "EER": 0.10 (Average),
-        #   "ASVSpoof": {"EER": 0.12, "ACC": 0.90},
-        #   "InTheWild": {"EER": 0.08, "ACC": 0.95}
-        # }
-        
+
         ignore_keys = ["loss", "average"] 
         
         for key, val in results.items():
@@ -431,6 +430,47 @@ class StandardTrainer(BaseTrainer):
         if better:
             self.best_metric = current_metric
             self.save_checkpoint(epoch, step, is_best=True)
+            
+    def _check_early_stopping(self, metrics: Dict):
+        """
+        Checks if training should stop based on early_stopping_patience.
+        Updates self.early_stopping_counter.
+        Returns True if should stop.
+        """
+        metric = metrics
+        monitor_metric = self.config.get("monitor_metric", "loss")
+        monitor_mode = self.config.get("monitor_mode", "min")
+
+        try:
+            current_metric = metric
+            for key in monitor_metric.split("."):
+                current_metric = current_metric[key]
+        except (KeyError, TypeError):
+            # If metric not found, don't stop, but log warning
+            return False
+
+        # Init best_metric_val if first time
+        if self.best_metric_val is None:
+            self.best_metric_val = current_metric
+            return False
+
+        better = (
+            (current_metric > self.best_metric_val)
+            if monitor_mode == "max"
+            else (current_metric < self.best_metric_val)
+        )
+
+        if better:
+            self.best_metric_val = current_metric
+            self.early_stopping_counter = 0
+        else:
+            self.early_stopping_counter += 1
+            self.logger.info(f"Early stopping counter: {self.early_stopping_counter}/{self.early_stopping_patience}")
+            
+        if self.early_stopping_counter >= self.early_stopping_patience:
+            return True
+            
+        return False
 
     def _current_lr(self):
         opt = self.optimizer

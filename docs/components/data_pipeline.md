@@ -33,18 +33,52 @@ Ensures all audio clips are exactly `max_len` samples long.
 
 Defined in `augment_transform`.
 
-### Structure
+### Structure & Configuration
 
-The `augmentation_pipeline` is a container that manages *how* augmentations are applied.
+The `augmentation_pipeline` is a flexible container that controls *how* multiple augmentations are selected and applied.
 
-*   **`mode`**:
-    *   `"sequential"`: Apply multiple augmentations in order. (e.g., RIR -> then Noise).
-    *   `"parallel"`: Pick **one** augmentation from the list randomly.
-*   **`execution`**:
-    *   `"chain"`: Modifies the *same* audio object sequentially.
-    *   `"independent"`: Creates copies of the audio for each transform (advanced use).
+*   **`mode`** (Selection Strategy):
+    *   `"sequential"`: Selects **ALL** transforms in the list (or `k` items if specified).
+    *   `"parallel"`: Selects exactly **ONE** transform from the list randomly (OneOf).
+*   **`execution`** (Application Strategy):
+    *   `"chain"`: Applies selected transforms **in sequence** to the *same* audio object (A -> B -> C).
+    *   `"independent"`: Applies each selected transform to a **fresh copy** of the original audio (Branching).
 *   **`concat_original`**:
-    *   If `True`, the batch size increases. It returns `[Original_Audio, Augmented_Audio]`.
+    *   If `True`, the original clean audio is preserved and prepended to the results.
+    *   **Note**: This effectively increases the batch size during training.
+
+### Common Configurations
+
+| Goal | Mode | Execution | Concat Orig | Output Size | Result |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Standard Augmentation** | `parallel` | `chain` | `False` | 1 | **[Augmented]** (Either A or B) |
+| **Data Expansion (1 extra)** | `parallel` | `chain` | `True` | 2 | **[Original, Augmented]** |
+| **Data Expansion (All variations)** | `sequential` | `independent` | `True` | N+1 | **[Original, Aug_A, Aug_B]** |
+| **Sequential Chain** | `sequential` | `chain` | `False` | 1 | **[Augmented]** (A applied, then B) |
+
+#### Example 1: Randomly apply ONE augmentation (RawBoost OR RIR) keeping the original
+```yaml
+type: augmentation_pipeline
+mode: parallel           # Pick 1
+concat_original: true    # Keep Original
+transforms:
+  - {type: rawboost, ...}
+  - {type: rir, ...}
+# Output: [Original, RawBoost_ver] OR [Original, RIR_ver]
+```
+
+#### Example 2: Generate separate versions for ALL augmentations (RawBoost AND RIR)
+```yaml
+type: augmentation_pipeline
+mode: sequential         # Pick All
+execution: independent   # Branching
+concat_original: true    # Keep Original
+transforms:
+  - {type: rawboost, ...}
+  - {type: rir, ...}
+# Output: [Original, RawBoost_ver, RIR_ver]
+```
+
 *   **`p`**: Probability of running the entire pipeline.
 
 ### Available Augmentations
