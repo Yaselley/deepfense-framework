@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepFense Framework</title>
+    <style>
+        :root {
+            --primary-dark: #0f172a;
+            --primary-blue: #2563eb;
+            --primary-light: #eff6ff;
+            --gradient-start: #1e40af;
+            --gradient-end: #60a5fa;
+            --text-main: #334155;
+            --text-light: #64748b;
+            --white: #ffffff;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--primary-light);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--gradient-start) 50%, var(--gradient-end) 100%);
+            color: var(--white);
+            padding: 5rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at top right, rgba(255,255,255,0.1) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            letter-spacing: -0.025em;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            max-width: 800px;
+            margin: 0 auto 2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--white);
+            color: var(--primary-blue);
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Features Grid */
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            color: var(--primary-dark);
+            margin-bottom: 3rem;
+            font-weight: 700;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-top: 4px solid var(--primary-blue);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .card h3 {
+            color: var(--primary-dark);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card p {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-link {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .card-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Docs Section */
+        .docs-section {
+            background-color: var(--white);
+            border-radius: 1.5rem;
+            padding: 3rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .doc-item {
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            background: var(--primary-light);
+            border-radius: 0.75rem;
+            text-decoration: none;
+            color: var(--primary-dark);
+            transition: background 0.2s;
+        }
+
+        .doc-item:hover {
+            background: #dbeafe; /* slightly darker blue */
+        }
+
+        .doc-item strong {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .doc-item span {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 4rem;
+            background: var(--white);
+        }
+
+        /* Utilities */
+        .icon {
+            font-size: 1.5rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="hero">
+        <span class="badge">v1.0 Modular Framework</span>
+        <h1>DeepFense</h1>
+        <p>A modular, extensible, and research-friendly framework for Deepfake Audio Detection (ASV Spoofing).</p>
+        <a href="README.md" class="btn">Read the Docs</a>
+    </div>
+
+    <div class="container">
+        
+        <h2 class="section-title">Core Capabilities</h2>
+        <div class="features-grid">
+            <!-- Feature 1 -->
+            <div class="card">
+                <h3><span class="icon">🧩</span> Modular Architecture</h3>
+                <p>Decouples Frontends, Backends, and Losses. Mix and match components like WavLM, AASIST, and AMSoftmax effortlessly via config.</p>
+                <a href="docs/architecture.md" class="card-link">View Architecture &rarr;</a>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="card">
+                <h3><span class="icon">⚙️</span> Config Driven</h3>
+                <p>Powered by OmegaConf and YAML. Define your entire experiment, including complex augmentation pipelines, in a single file.</p>
+                <a href="docs/configuration.md" class="card-link">View Configuration &rarr;</a>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="card">
+                <h3><span class="icon">📈</span> Advanced Viz</h3>
+                <p>Automatic trend plotting for ACC, EER, and Loss. Step-based or Epoch-based tracking with zero extra code.</p>
+                <a href="docs/components.md#5-metrics--visualization" class="card-link">View Visualization &rarr;</a>
+            </div>
+
+            <!-- Feature 4 -->
+            <div class="card">
+                <h3><span class="icon">🧱</span> Registry System</h3>
+                <p>Instantiate any component by string name. Easily extensible registry pattern for Models, Trainers, and Transforms.</p>
+                <a href="docs/extending.md" class="card-link">Learn to Extend &rarr;</a>
+            </div>
+        </div>
+
+        <h2 class="section-title">Documentation Hub</h2>
+        <div class="docs-section">
+            <div class="docs-grid">
+                <a href="docs/architecture.md" class="doc-item">
+                    <strong>🏗️ Architecture Overview</strong>
+                    <span>High-level design, data flow, and the ModularDetector.</span>
+                </a>
+                <a href="docs/components.md" class="doc-item">
+                    <strong>📚 Component Reference</strong>
+                    <span>Catalog of Frontends, Backends, Losses, and Transforms.</span>
+                </a>
+                <a href="docs/configuration.md" class="doc-item">
+                    <strong>📝 Configuration Guide</strong>
+                    <span>Detailed breakdown of YAML sections and parameters.</span>
+                </a>
+                <a href="docs/tutorials.md" class="doc-item">
+                    <strong>🎓 Tutorials</strong>
+                    <span>Step-by-step guides to adding new modules.</span>
+                </a>
+                <a href="STRUCTURE.md" class="doc-item">
+                    <strong>📂 Project Structure</strong>
+                    <span>File tree and directory organization.</span>
+                </a>
+                <a href="docs/extending.md" class="doc-item">
+                    <strong>🔌 Extending DeepFense</strong>
+                    <span>Deep dive into Base Classes and API.</span>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>DeepFense Framework &copy; 2025</p>
+        <p>Powered by PyTorch, Hydra/OmegaConf, and Seaborn.</p>
+    </footer>
+
+</body>
+</html>
+
