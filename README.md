@@ -33,9 +33,51 @@ Detailed documentation is available in the `docs/` folder:
 
 2.  **Install dependencies**:
     It is recommended to use a virtual environment (Conda or venv).
+    
+    **Step A: Install core requirements**
     ```bash
     pip install -r requirements.txt
     ```
+
+    **Step B: Downgrade pip**
+    Some dependencies require an older pip version to build correctly.
+    ```bash
+    pip install "pip<=24.0"
+    ```
+
+    **Step C: Build Fairseq**
+    DeepFense relies on Fairseq for SSL model integration.
+    ```bash
+    mkdir -p deepfense/models/modules
+    cd deepfense/models/modules
+    git clone https://github.com/facebookresearch/fairseq
+    cd fairseq
+    git checkout 3d262bb
+    pip install --editable ./
+    
+    # Optional: Upgrade pip back if needed
+    # pip install --upgrade pip
+    cd ../../../..
+    ```
+
+## 📊 Data Preparation
+
+DeepFense uses **Parquet** files for efficient data loading. Your dataset should be a `.parquet` file with the following columns:
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `path` | `string` | Absolute path to the audio file (e.g., `/data/audio/sample1.flac`). |
+| `label` | `int` | **1** for Bonafide (Real), **0** for Spoof (Fake). |
+| `ID` | `string` | Unique identifier for the sample (e.g., `LA_E_1234`). |
+| `dataset_name` | `string` | (Optional) Name of the dataset split (e.g., "ASVSpoof19_LA_Eval"). |
+| `duration` | `float` | (Optional) Duration in seconds. |
+
+**Example Dataframe:**
+
+| ID | path | label | dataset_name |
+| :--- | :--- | :--- | :--- |
+| `LA_T_001` | `/data/train/LA_T_001.flac` | `1` | `Train` |
+| `LA_T_002` | `/data/train/LA_T_002.flac` | `0` | `Train` |
 
 ## 🚦 Quick Start
 

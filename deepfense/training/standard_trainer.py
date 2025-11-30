@@ -279,17 +279,35 @@ class StandardTrainer(BaseTrainer):
         if "loss" in results:
              self.metric_history["loss"]["Val"].append((x_val, results["loss"]))
              
-        # 2. Other Scalar Metrics (Top-level only, representing Average)
+        # 2. Metrics (Average and Per-Dataset)
+        # results structure example:
+        # {
+        #   "loss": 0.5,
+        #   "EER": 0.10 (Average),
+        #   "ASVSpoof": {"EER": 0.12, "ACC": 0.90},
+        #   "InTheWild": {"EER": 0.08, "ACC": 0.95}
+        # }
+        
         ignore_keys = ["loss", "average"] 
         
         for key, val in results.items():
             if key in ignore_keys: 
                 continue
             
-            # Only track scalars (Averages)
-            # We skip dictionaries (per-dataset metrics) to avoid duplicate plots like 'Val_EER'
+            # A. Top-level Scalar = Weighted Average across all datasets
             if isinstance(val, (int, float, np.number)):
-                self.metric_history[key]["Val"].append((x_val, float(val)))
+                # Store under "Average" series for that metric
+                # key is metric name (e.g. "EER")
+                self.metric_history[key]["Average"].append((x_val, float(val)))
+            
+            # B. Nested Dict = Per-Dataset Metrics
+            elif isinstance(val, dict):
+                # key is Dataset Name (e.g. "ASVSpoof")
+                dataset_name = key
+                for metric_name, metric_val in val.items():
+                    if isinstance(metric_val, (int, float, np.number)):
+                        # Add this dataset's line to the metric's plot
+                        self.metric_history[metric_name][dataset_name].append((x_val, float(metric_val)))
 
     def _plot_metric_trends(self, x_val):
         # Plot each metric history (Train vs Val comparison supported)

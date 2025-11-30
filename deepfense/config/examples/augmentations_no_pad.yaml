@@ -30,8 +30,8 @@ data:
 
   val:
     dataset_type: "StandardDataset"
-    dataset_names: ["Val"]
-    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"]
+    dataset_names: ["Val", "Val2"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet", "/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"]
     batch_size: 16
     shuffle: False
     # No base_transform -> variable length evaluation 
