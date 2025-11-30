@@ -37,19 +37,51 @@ Detailed reference for each module type:
 *   **[Loss Functions](docs/components/losses.md)**: AM-Softmax, A-Softmax, OC-Softmax, CrossEntropy.
 *   **[Data & Augmentations](docs/components/data_pipeline.md)**: Parquet format, Augmentation pipelines (RawBoost, RIR, Codec, etc.).
 
-## 🚀 Quick Start
+## 🛠️ Installation
 
-1.  **Install Requirements**
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/Yaselley/deepfense-framework
+    cd DeepFense
+    ```
+
+2.  **Install dependencies**:
+    It is recommended to use a virtual environment (Conda or venv).
+    
+    **Step A: Install core requirements**
     ```bash
     pip install -r requirements.txt
     ```
 
-2.  **Train a Model**
+    **Step B: Downgrade pip (Required for Fairseq)**
+    Some dependencies require an older pip version to build correctly.
+    ```bash
+    pip install "pip<=24.0"
+    ```
+
+    **Step C: Build Fairseq**
+    DeepFense relies on Fairseq for SSL model integration.
+    ```bash
+    mkdir -p deepfense/models/modules
+    cd deepfense/models/modules
+    git clone https://github.com/facebookresearch/fairseq
+    cd fairseq
+    git checkout 3d262bb
+    pip install --editable ./
+    
+    # Optional: Upgrade pip back if needed
+    # pip install --upgrade pip
+    cd ../../../..
+    ```
+
+## 🚀 Quick Start
+
+1.  **Train a Model**
     ```bash
     python train.py --config deepfense/config/train.yaml
     ```
 
-3.  **Evaluate/Test**
+2.  **Evaluate/Test**
     ```bash
     python test.py --config deepfense/config/train.yaml --checkpoint outputs/.../best_model.pth
     ```
