@@ -42,7 +42,11 @@ def collate_fn(batch, max_pad=None):
                 ]
             )
         else:
-            mask = torch.ones(max_len, dtype=torch.float32)
+            if max_pad and seq_len > max_pad:
+                 x = x[:max_pad]
+                 mask = torch.ones(max_pad, dtype=torch.float32)
+            else:
+                 mask = torch.ones(max_len, dtype=torch.float32)
 
         padded_xs.append(x)
         masks.append(mask)

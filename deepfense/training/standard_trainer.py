@@ -183,6 +183,24 @@ class StandardTrainer(BaseTrainer):
         x = batch["x"].to(self.device)  # waveform or features
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
+
+        # Handle 'concat' augmentation (x: [B, N_aug, T])
+        # If we have [B, N, T] raw audio, flatten to [B*N, T] and repeat labels
+        if x.ndim == 3 and labels.shape[0] == x.shape[0]:
+             # Heuristic: x is [B, N, T] and labels is [B]
+             B, N, T = x.shape
+             
+             # Only flatten if T is large (likely audio) and N is small (augmentations)
+             # and we assume frontend expects [Batch, Time]
+             x = x.view(B * N, T)
+             labels = labels.repeat_interleave(N)
+             
+             if mask is not None:
+                 if mask.ndim == 3:
+                     mask = mask.view(B * N, T)
+                 elif mask.ndim == 2:
+                     mask = mask.repeat_interleave(N, dim=0)
+
         if mask is not None:
             mask = mask.to(self.device)
 

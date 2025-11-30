@@ -15,6 +15,14 @@ A wrapper around the WavLM pre-trained model.
 *   **Input**: Raw audio waveform.
 *   **Output**: Feature sequence.
 
+### **Wav2Vec2** (`type: "wav2vec2"`)
+Wrapper for Wav2Vec2-based models (e.g., XLSR).
+
+*   **Source**: `deepfense/models/frontends/wav2vec2.py`
+*   **Config Arguments**:
+    *   `ckpt_path` (str): Path to `.pt` checkpoint.
+    *   `freeze` (bool): Whether to freeze the frontend weights.
+
 ---
 
 ## 2. Backends
@@ -31,11 +39,68 @@ The AASIST (Audio Anti-Spoofing using Integrated Spectro-Temporal Graph Attentio
     *   `pool_ratios` (list): Pooling ratios.
     *   `temperatures` (list): Temperatures for Softmax in attention.
     *   `pool` (tuple, optional): Final pooling kernel size (default: `(1, 1)`).
-*   **Output**: Embedding vector (dimension depends on `gat_dims` and concatenation logic, typically 160ish depending on config, but projected to 128 or similar inside).
+*   **Output**: Embedding vector.
+
+### **MLP** (`type: "MLP"`)
+A flexible Multi-Layer Perceptron backend with configurable pooling and normalization.
+
+*   **Source**: `deepfense/models/backends/mlp.py`
+*   **Config Arguments**:
+    *   `input_dim` (int): Dimension of input features (automatically handled if base class used).
+    *   `projection` (list[int]): List of hidden layer dimensions (e.g., `[512, 256]`).
+    *   `activation` (str): Activation function (`relu`, `selu`, `tanh`, `sigmoid`).
+    *   `norm_type` (str): Normalization type (`batch`, `layer`, or `none`).
+    *   `pooling_type` (str): Pooling strategy (`mean`, `tap`, `stats`, `asp`, `mha`).
+    *   `output_dim` (int, optional): Final output dimension. If specified, adds a final linear projection.
+
+### **Nes2Net** (`type: "Nes2Net"`)
+Backend using Nested Res2Net blocks.
+
+*   **Source**: `deepfense/models/backends/nes2net.py`
+*   **Config Arguments**:
+    *   `nes_ratio` (list[int]): Ratios for nested blocks (e.g., `[8, 8]`).
+    *   `dilation` (int): Dilation factor.
+    *   `se_ratio` (int): Squeeze-Excitation ratio.
+    *   `pooling_type` (str): Pooling strategy.
+
+### **TCM** (`type: "TCM"`)
+Transformer-Coupled Module (Conformer-based) backend.
+
+*   **Source**: `deepfense/models/backends/tcm.py`
+*   **Config Arguments**:
+    *   `emb_size` (int): Embedding size.
+    *   `heads` (int): Number of attention heads.
+    *   `num_encoders` (int): Number of Conformer blocks.
 
 ---
 
-## 3. Unified Losses
+## 3. Transforms (Augmentations)
+
+Augmentations are applied to the raw waveform during data loading.
+
+### **AugmentationPipeline** (`type: "augmentation_pipeline"`)
+A meta-transform that manages a list of other transforms with advanced selection strategies.
+
+*   **Source**: `deepfense/data/transforms/augmentations.py`
+*   **Config Arguments**:
+    *   `mode` (str): Strategy mode.
+        *   `"sequential"`: Applies augmentations in sequence (or random subset).
+        *   `"parallel"`: Applies exactly one randomly selected augmentation (`OneOf`).
+    *   `k` (int, optional): If mode is `sequential`, applies `k` randomly selected augmentations. If `None`, applies all.
+    *   `p` (float): Probability of applying the pipeline itself.
+    *   `transforms` (list): List of transform configurations to manage.
+
+### **Standard Transforms**
+*   **`rawboost`**: Applies RawBoost algorithms.
+*   **`rir`**: Convolves with Room Impulse Responses (requires CSV of RIR paths).
+*   **`add_noise`**: Adds additive noise (requires CSV of noise paths).
+*   **`speed_perturb`**: Resamples audio to change speed/pitch.
+*   **`do_clip`**: Clips signal amplitude.
+*   **`pad`**: Pads or crops signal to fixed length.
+
+---
+
+## 4. Unified Losses
 
 Losses in DeepFense now **combine** the projection/classification layer (formerly "Mapper") and the loss calculation.
 
@@ -72,7 +137,7 @@ One-Class Softmax loss, often used for generalized spoofing detection.
 
 ---
 
-## 4. Metrics
+## 5. Metrics
 
 Metrics are calculated using the `Evaluator` class.
 
@@ -81,4 +146,3 @@ Metrics are calculated using the `Evaluator` class.
 *   **actDCF**: Actual Detection Cost Function.
 *   **F1_SCORE**: Macro/Micro F1 score.
 *   **ACC**: Accuracy.
-

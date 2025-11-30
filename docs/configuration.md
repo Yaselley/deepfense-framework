@@ -22,9 +22,20 @@ data:
     base_transform:
       - type: "pad"
         max_len: 64000
+        
     augment_transform:
-      - type: "rawboost"
-        noise_ratio: 0.5
+      # Use AugmentationPipeline for advanced control
+      - type: "augmentation_pipeline"
+        mode: "sequential" # or "parallel"
+        k: 2               # Apply 2 random transforms from the list (if sequential)
+        p: 1.0             # Probability to apply pipeline
+        transforms:
+          - type: "rawboost"
+            noise_ratio: 1.0 # Always apply if selected by pipeline
+            algo: 5
+          - type: "rir"
+            noise_ratio: 1.0
+            csv_file: "/path/to/rirs.csv"
 
   val:
     dataset_type: "StandardDataset"
@@ -50,6 +61,13 @@ model:
       filts: [ [1, 32], [32, 32], ... ]
       gat_dims: [64, 32]
       # ... specific backend args ...
+  
+  # Or use MLP
+  # backend:
+  #   type: "MLP"
+  #   args:
+  #     projection: [512, 256]
+  #     output_dim: 128
 
   loss:
     # List of losses (Unified Loss Modules)
@@ -91,4 +109,3 @@ training:
       Cmiss: 1
       Cfa: 1
 ```
-

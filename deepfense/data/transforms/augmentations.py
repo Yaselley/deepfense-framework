@@ -470,4 +470,32 @@ class AugmentationPipeline:
                 x = t(x)
             return x
             
+        elif self.mode == "concat":
+            # Concat Strategy: Apply K transforms separately and stack them with original
+            # Result: [K+1, T] array
+            # If K is None, use all.
+            
+            # Capture input length to enforce consistency
+            target_len = x.shape[0]
+            results = [x]
+            
+            if self.k is None:
+                selected = self.loaded_transforms
+            else:
+                # Random K
+                k_select = min(self.k, len(self.loaded_transforms))
+                selected = random.sample(self.loaded_transforms, k_select)
+            
+            for t in selected:
+                # Apply to copy of x
+                res = t(x.copy())
+                
+                # Enforce target length (handle speed perturb etc)
+                if len(res) != target_len:
+                    res = align_waveform(res, target_len, pad_noise=False)
+                
+                results.append(res)
+
+            return np.stack(results)
+
         return x
