@@ -1,0 +1,70 @@
+exp_name: "Augmentations_No_Pad"
+output_dir: "./outputs/Augmentations_No_Pad/"
+seed: 1234
+
+data:
+  sampling_rate: 16000
+  label_map: {bonafide: 1, spoof: 0}
+
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Train"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"]
+    batch_size: 5
+    shuffle: True
+    
+    # No base_transform (no padding)
+    base_transform: [] 
+
+    augment_transform:
+      - type: "augmentation_pipeline"
+        mode: "sequential"
+        k: 2
+        execution: "chain"
+        concat_original: False
+        transforms:
+          - type: "rawboost"
+            noise_ratio: 1.0
+          - type: "speed_perturb" # Changes length
+            noise_ratio: 1.0
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Val"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"]
+    batch_size: 16
+    shuffle: False
+    # No base_transform -> variable length evaluation 
+
+model:
+  type: "StandardDetector"
+  # WavLM handles variable length
+  frontend:
+    type: "wav2vec2"
+    args:
+      ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
+      freeze: True
+
+  backend: 
+    type: "MLP" # MLP works on [B, T, D], pools to [B, D]
+    args:
+      input_dim: 1024 # WavLM dim
+      projection: [128]
+      pooling_type: "asp" 
+  loss: [{type: "CrossEntropy", embedding_dim: 256, n_classes: 2}]
+
+training:
+  trainer: "StandardTrainer"
+  # Step-based training configuration
+  epochs: 10            # Set high so max_steps controls termination
+  max_steps: 5000          # Total training steps
+  eval_every_steps: 1    # Validation interval in steps
+  batch_log_interval: 1  # Loggig interval
+  device: "cuda"
+  optimizer: {type: "adam", lr: 0.0001}
+  metrics:
+    EER: {}
+    minDCF:
+      Pspoof: 0.05
+      Cmiss: 1
+      Cfa: 1

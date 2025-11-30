@@ -1,0 +1,58 @@
+exp_name: "Augmentations_Parallel_OneOf"
+output_dir: "./outputs/Augmentations_Parallel/"
+seed: 1234
+
+data:
+  sampling_rate: 16000
+  label_map: {bonafide: 1, spoof: 0}
+
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Train"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"]
+    batch_size: 16
+    shuffle: True
+    
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+
+    augment_transform:
+      - type: "augmentation_pipeline"
+        mode: "parallel"         # Select EXACTLY 1 transform randomly (OneOf)
+        execution: "chain"       # Just apply it
+        concat_original: False   # Replace original
+        p: 1.0
+        transforms:
+          - type: "rawboost"
+            noise_ratio: 1.0
+            algo: 5
+          - type: "rir"
+            noise_ratio: 1.0
+            csv_file: "/netscratch/yelkheir/DeepFense/DeepFense/rirs.csv"
+          - type: "add_noise"
+            noise_ratio: 1.0
+            csv_file: "/netscratch/yelkheir/DeepFense/DeepFense/rirs.csv"
+          - type: "speed_perturb"
+            noise_ratio: 1.0
+            speeds: [90, 110]
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Val"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"]
+    batch_size: 16
+    base_transform: [{type: "pad", max_len: 64600}]
+
+model:
+  type: "StandardDetector"
+  frontend: {type: "wavlm", args: {ckpt_path: "..."}}
+  backend: {type: "AASIST"}
+  loss: [{type: "AMSoftmax", embedding_dim: 160, n_classes: 2}]
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 50
+  device: "cuda"
+  optimizer: {type: "adam", lr: 0.0001}
+

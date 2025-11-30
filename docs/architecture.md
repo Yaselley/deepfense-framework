@@ -50,3 +50,11 @@ graph LR
 4.  **Optimization**:
     *   Standard backpropagation on `loss`.
 
+## Visualization & Monitoring
+
+DeepFense includes a streamlined visualization system (`deepfense/utils/visualization.py`) integrated into the `StandardTrainer`.
+
+*   **Automatic Trend Plotting**: The trainer automatically tracks all scalar metrics defined in your configuration (ACC, EER, Loss, etc.).
+*   **Unified History**: Metrics are stored in a history dictionary for both Training and Validation splits.
+*   **Output**: At the end of each validation epoch/step, plots are generated in `outputs/<experiment>/plots/` (e.g., `trend_loss.png`, `trend_EER.png`).
+*   **Focus**: The system focuses on **metric evolution** over time rather than expensive, heavy static plots like t-SNE or DET curves (though these can be computed if needed, the default is efficient trend tracking).

@@ -141,8 +141,9 @@ One-Class Softmax loss, often used for generalized spoofing detection.
 
 ---
 
-## 5. Metrics
+## 5. Metrics & Visualization
 
+### **Metrics**
 Metrics are calculated using the `Evaluator` class.
 
 *   **EER**: Equal Error Rate.
@@ -150,3 +151,9 @@ Metrics are calculated using the `Evaluator` class.
 *   **actDCF**: Actual Detection Cost Function.
 *   **F1_SCORE**: Macro/Micro F1 score.
 *   **ACC**: Accuracy.
+
+### **Visualization** (`deepfense/utils/visualization.py`)
+The visualization module provides simple, effective trend plotting for all tracked metrics.
+*   **Automatic**: No extra config flags needed; just list metrics in the `metrics` section.
+*   **Plots**: Generates `trend_{MetricName}.png` (e.g., `trend_EER.png`) in the experiment output folder.
+*   **Comparison**: Automatically overlays "Train" and "Val" lines where applicable (e.g., Loss).

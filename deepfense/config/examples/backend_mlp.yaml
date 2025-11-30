@@ -1,0 +1,69 @@
+exp_name: "Wav2Vec2_MLP_Baseline"
+output_dir: "./outputs/MLP_Baseline/"
+seed: 42
+
+data:
+  sampling_rate: 16000
+  label_map: {"bonafide": 1, "spoof": 0}
+  
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Train"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"]
+    batch_size: 32
+    shuffle: True
+    base_transform: [{type: "pad", max_len: 64000}]
+    augment_transform: [] # No augmentation for baseline
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Val"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"]
+    batch_size: 32
+    base_transform: [{type: "pad", max_len: 64000}]
+
+model:
+  type: "StandardDetector"
+  
+  frontend:
+    type: "wav2vec2"
+    args:
+      ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
+
+  backend:
+    type: "MLP"
+    args:
+      # Frontend output dim -> hidden -> output
+      # Wav2Vec2 Base is 768, Large is 1024. Assuming XLSR is 1024.
+      # BaseBackend handles input_dim automatically if frontend provides output_dim
+      input_dim: 1024
+      projection: [512, 256] # Projection dimensions 1024 -> 512 -> 256
+      dropout: 0.3
+
+  loss:
+    - type: "CrossEntropy"
+      weight: 1.0
+      embedding_dim: 256
+      n_classes: 2
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 20
+  device: "cuda"
+  eval_every_steps: 500
+  monitor_metric: "ACC"
+  monitor_mode: "max"
+
+  optimizer:
+    type: "adam"
+    lr: 0.0005
+  
+  scheduler:
+    type: "step_lr"
+    step_size: 10
+    gamma: 0.1
+
+  metrics:
+    ACC: {}
+    EER: {}
+

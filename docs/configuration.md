@@ -104,10 +104,22 @@ training:
     type: "cosine"
     T_max: 50
 
+  # Metrics to track and plot
   metrics:
     EER: {}
     minDCF:
       Pspoof: 0.05
       Cmiss: 1
       Cfa: 1
+    ACC: {}
+    F1_SCORE: {}
 ```
+
+### Visualization & Plots
+Any metric listed under `metrics` (e.g., EER, ACC, minDCF) is automatically:
+1.  Calculated during validation.
+2.  Tracked in the training history.
+3.  Plotted as a trend line (Epoch vs Metric) in `outputs/<ExpName>/plots/`.
+4.  Logged to WandB (if enabled).
+
+There is no need to enable specific flags for basic trend plots; simply including the metric in the config is sufficient.

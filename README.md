@@ -10,16 +10,18 @@
 *   **Base Classes**: Standardized `BaseFrontend`, `BaseBackend`, and `BaseLoss` classes guide extension and ensure consistency.
 *   **Loss-Dependent Scoring**: Automatically handles scoring logic (Logits vs. Cosine Similarity vs. LLR) for correct EER/minDCF calculation.
 *   **Configurable**: Powered by `OmegaConf` and YAML for hierarchical configuration.
+*   **Advanced Visualization**: Automatically tracks and plots trends for Loss and any user-specified metrics (ACC, EER, minDCF) directly in the `outputs/plots` directory.
 
 ## 📚 Documentation
 
 Detailed documentation is available in the `docs/` folder:
 
 1.  **[Architecture Overview](docs/architecture.md)**: High-level design and data flow.
-2.  **[Component Reference](docs/components.md)**: List of available models and losses.
-3.  **[Configuration Guide](docs/configuration.md)**: How to write your experiment YAMLs.
-4.  **[Tutorials](docs/tutorials.md)**: Step-by-step guides to adding new components.
-5.  **[Extending DeepFense](docs/extending.md)**: Deep dive into Base Classes and API.
+2.  **[Project Structure](STRUCTURE.md)**: Detailed file tree and component breakdown.
+3.  **[Component Reference](docs/components.md)**: List of available models, losses, and transforms.
+4.  **[Configuration Guide](docs/configuration.md)**: How to write your experiment YAMLs.
+5.  **[Tutorials](docs/tutorials.md)**: Step-by-step guides to adding new components.
+6.  **[Extending DeepFense](docs/extending.md)**: Deep dive into Base Classes and API.
 
 ## 🛠️ Installation
 

@@ -17,7 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 from deepfense.training.base_trainer import BaseTrainer
 from deepfense.utils.registry import register_trainer
 from deepfense.training.evaluations.evaluator import Evaluator
-from deepfense.utils.visualization import plot_det_curve, plot_score_hist, plot_tsne
+from deepfense.utils.visualization import plot_metric_trend
 
 
 @register_trainer("StandardTrainer")
@@ -69,7 +69,8 @@ class StandardTrainer(BaseTrainer):
         self.evaluator = Evaluator(metrics_config) if metrics_config else None
 
         # History tracking
-        self.metric_history = collections.defaultdict(list)
+        # Structure: self.metric_history[metric_name][split_name] = [(epoch, val), ...]
+        self.metric_history = collections.defaultdict(lambda: collections.defaultdict(list))
 
         # WandB
         if self.config.get("wandb", False):
@@ -85,6 +86,10 @@ class StandardTrainer(BaseTrainer):
             self.wandb = None
 
         self.logger = logging.getLogger("trainer")
+        
+        # Visualization Unit
+        self.use_steps_for_viz = (self.config.get("eval_every_steps") is not None)
+        self.viz_unit = "Step" if self.use_steps_for_viz else "Epoch"
 
     def train(self):
         self.model.train()
@@ -129,6 +134,11 @@ class StandardTrainer(BaseTrainer):
                                 "step": self.global_step,
                             }
                         )
+                    
+                    # If in Step-based mode, record Train Loss here for finer granularity
+                    if self.use_steps_for_viz:
+                        self.metric_history["loss"]["Train"].append((self.global_step, running_avg_loss))
+
 
                 # Step-based eval
                 if (
@@ -148,6 +158,11 @@ class StandardTrainer(BaseTrainer):
             avg_epoch_loss = np.mean(epoch_train_losses)
             self.logger.info(f"--- Epoch {current_epoch} Summary ---")
             self.logger.info(f"Average Train Loss: {avg_epoch_loss:.4f}")
+            
+            # Track Train Loss (Only if in Epoch mode to avoid double tracking or mixed scales)
+            if not self.use_steps_for_viz:
+                self.metric_history["loss"]["Train"].append((current_epoch, avg_epoch_loss))
+            
             if self.wandb:
                 self.wandb.log(
                     {"train/epoch_loss": avg_epoch_loss, "epoch": current_epoch},
@@ -205,10 +220,6 @@ class StandardTrainer(BaseTrainer):
     def evaluate(self, epoch, step, eval_reason: str = None):
         self.model.eval()
         all_labels, all_scores, all_names, all_losses = [], [], [], []
-        all_embeddings = []
-        
-        # Flag to determine if we should collect embeddings
-        do_viz = self.config.get("visualize", False)
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluating", leave=False):
@@ -222,9 +233,6 @@ class StandardTrainer(BaseTrainer):
                 )
                 scores = outputs["scores"]
                 
-                if do_viz and "embeddings" in outputs:
-                    all_embeddings.append(outputs["embeddings"].detach().cpu().numpy())
-
                 batch_loss = self.model.compute_loss(outputs, labels)
                 all_losses.append(batch_loss.detach().cpu().item())
 
@@ -255,12 +263,10 @@ class StandardTrainer(BaseTrainer):
             results[str(ds)] = self._compute_metrics(labels[mask_ds], scores[mask_ds])
 
         # --- History Tracking & Trend Plotting ---
-        self._update_history(epoch, results)
-        self._plot_metric_trends(epoch)
-
-        # --- Visualization (Local & WandB) ---
-        if do_viz:
-            self._generate_visualizations(epoch, step, labels, scores, all_embeddings)
+        # Use Step or Epoch as x-axis
+        x_val = step if self.use_steps_for_viz else epoch
+        self._update_history(x_val, results)
+        self._plot_metric_trends(x_val)
 
         # Logging to Console & JSON
         self._log_results(epoch, step, eval_reason, results)
@@ -271,70 +277,38 @@ class StandardTrainer(BaseTrainer):
         self.model.train()
         return results
 
-    def _update_history(self, epoch, results):
-        # Flatten results to scalar metrics
-        for key, val in results.items():
-            if isinstance(val, (int, float)):
-                self.metric_history[key].append((epoch, val))
-            elif isinstance(val, dict):
-                # Flatten nested metrics? (e.g. Dataset1/EER)
-                # Currently results structure is flat for avg, but has keys for datasets
-                pass
+    def _update_history(self, x_val, results):
+        # 1. Val Loss
+        if "loss" in results:
+             self.metric_history["loss"]["Val"].append((x_val, results["loss"]))
+             
+        # 2. Other Scalar Metrics (Top-level only, representing Average)
+        ignore_keys = ["loss", "average"] 
         
-        # If results has Dataset/Metric structure, flatten it
-        # results["Dataset1"]["EER"] -> key="Dataset1_EER"
         for key, val in results.items():
-            if isinstance(val, dict):
-                for subk, subv in val.items():
-                    if isinstance(subv, (int, float)):
-                        full_key = f"{key}_{subk}"
-                        self.metric_history[full_key].append((epoch, subv))
-
-    def _plot_metric_trends(self, epoch):
-        # Plot each metric history
-        for metric_name, history in self.metric_history.items():
-            if not history:
+            if key in ignore_keys: 
                 continue
-            epochs, values = zip(*history)
             
-            fig, ax = plt.subplots()
-            ax.plot(epochs, values, marker='o')
-            ax.set_title(f"{metric_name} Trend")
-            ax.set_xlabel("Epoch")
-            ax.set_ylabel(metric_name)
-            ax.grid(True)
+            # Only track scalars (Averages)
+            # We skip dictionaries (per-dataset metrics) to avoid duplicate plots like 'Val_EER'
+            if isinstance(val, (int, float, np.number)):
+                self.metric_history[key]["Val"].append((x_val, float(val)))
+
+    def _plot_metric_trends(self, x_val):
+        # Plot each metric history (Train vs Val comparison supported)
+        for metric_name, history_dict in self.metric_history.items():
+            if not history_dict:
+                continue
             
             # Save locally
             save_path = os.path.join(self.plots_dir, f"trend_{metric_name}.png")
-            fig.savefig(save_path)
-            plt.close(fig)
-
-    def _generate_visualizations(self, epoch, step, labels, scores, all_embeddings):
-        # 1. DET Curve
-        fig_det = plot_det_curve(labels, scores, title=f"DET Curve (Epoch {epoch})")
-        if fig_det:
-            fig_det.savefig(os.path.join(self.plots_dir, f"det_epoch{epoch}.png"))
+            
+            # Use updated visualization util that supports dict {Split: history}
+            plot_metric_trend(history_dict, metric_name, save_path, xlabel=self.viz_unit)
+            
+            # Log to WandB if enabled
             if self.wandb:
-                self.wandb.log({"val/det_curve": self.wandb.Image(fig_det)}, step=step)
-            plt.close(fig_det) # ensure closed if visualization.py didn't
-
-        # 2. Score Hist
-        fig_hist = plot_score_hist(labels, scores, title=f"Score Hist (Epoch {epoch})")
-        if fig_hist:
-            fig_hist.savefig(os.path.join(self.plots_dir, f"hist_epoch{epoch}.png"))
-            if self.wandb:
-                self.wandb.log({"val/score_hist": self.wandb.Image(fig_hist)}, step=step)
-            plt.close(fig_hist)
-
-        # 3. t-SNE
-        if len(all_embeddings) > 0:
-            full_embeddings = np.concatenate(all_embeddings, axis=0)
-            fig_tsne = plot_tsne(full_embeddings, labels, title=f"t-SNE (Epoch {epoch})")
-            if fig_tsne:
-                fig_tsne.savefig(os.path.join(self.plots_dir, f"tsne_epoch{epoch}.png"))
-                if self.wandb:
-                    self.wandb.log({"val/tsne": self.wandb.Image(fig_tsne)}, step=step)
-                plt.close(fig_tsne)
+                self.wandb.log({f"plots/{metric_name}": self.wandb.Image(save_path)}, step=self.global_step)
 
     def _log_results(self, epoch, step, eval_reason, results):
         if eval_reason == "step":
