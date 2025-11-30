@@ -365,18 +365,14 @@ class Residual_block(nn.Module):
         else:
             out = x
         out = self.conv1(x)
-
-        # print('out',out.shape)
         out = self.bn2(out)
         out = self.selu(out)
-        # print('out',out.shape)
         out = self.conv2(out)
-        # print('conv2 out',out.shape)
+
         if self.downsample:
             identity = self.conv_downsample(identity)
 
         out += identity
-        # out = self.mp(out)
         return out
 
 

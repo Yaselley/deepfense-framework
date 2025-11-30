@@ -49,9 +49,7 @@ class RIR:
         # Pre-load CSV for efficiency
         try:
             self.df = pd.read_csv(self.csv_file)
-            # Check if 'path' column exists
             if "path" not in self.df.columns:
-                 # Maybe it has no header? Assume first column.
                  self.df = pd.read_csv(self.csv_file, header=None, names=["path"])
         except Exception as e:
             logger.error(f"Failed to load RIR CSV {self.csv_file}: {e}")
@@ -94,7 +92,6 @@ class RawBoost:
         #     setattr(self.params, k, v)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
-        # Note: Original code commented out the random check
         if np.random.random() > self.noise_ratio:
             return x
         

@@ -106,14 +106,6 @@ def build_transforms_pipeline(config_list):
     """
     Build a pipeline of transforms from a list of configs.
     Returns a function that applies them sequentially.
-
-    Example:
-        configs = [
-            {"type": "pad", "max_len": 64000},
-            {"type": "augment", "noise_level": 0.01}
-        ]
-        pipeline = build_transforms_pipeline(configs)
-        x = pipeline(x)
     """
     if not config_list:
         return None
@@ -123,25 +115,14 @@ def build_transforms_pipeline(config_list):
     for cfg in config_list:
         cfg_copy = cfg.copy()
         t_type = cfg_copy.pop("type")
-        # We assume registered transforms are functions/classes 
-        # that we call with **kwargs to get the result OR to configure it.
-        # If the registered object is a FUNCTION that takes data as first arg (like pad(x, ...)),
-        # we need to return a lambda that calls it with fixed kwargs.
         t_obj = TRANSFORM_REGISTRY.get(t_type)
         
         if isinstance(t_obj, type):
-             # It's a class (e.g. RIRTransform). Instantiate it with config.
-             # We assume the instance is callable (implements __call__)
              try:
                  transforms.append(t_obj(**cfg_copy))
              except Exception as e:
-                 # Fallback: maybe it expects config as a dict?
-                 # Or maybe it's not a class designed this way?
-                 # For now assuming t_obj(**cfg_copy) works.
                  raise ValueError(f"Failed to instantiate transform {t_type}: {e}")
         elif callable(t_obj):
-            # It's a function (e.g. old style pad(x, ...)). 
-            # Create a closure to capture config
             def make_transform(func, kwargs):
                 return lambda x: func(x, **kwargs)
             transforms.append(make_transform(t_obj, cfg_copy))

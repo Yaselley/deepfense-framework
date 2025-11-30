@@ -191,10 +191,7 @@ class StandardTrainer(BaseTrainer):
         # Handle 'concat' augmentation (x: [B, N_aug, T])
         if x.ndim == 3 and labels.shape[0] == x.shape[0]:
              B, N, T = x.shape
-             # DEBUG PRINT
-             if self.global_step < 5:
-                 self.logger.info(f"[ConcatAug] Detected 3D input: {x.shape}. Expanding to ({B*N}, {T}).")
-
+             
              x = x.view(B * N, T)
              labels = labels.repeat_interleave(N)
              
