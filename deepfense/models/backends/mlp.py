@@ -2,18 +2,19 @@ import torch
 import torch.nn as nn
 import deepfense.models.modules.pool as pooling_modules
 from deepfense.utils.registry import register_backend
+from deepfense.models.base_model import BaseBackend
 
 
 @register_backend("Pool")
-class Pool(nn.Module):
+class Pool(BaseBackend):
     """
     A wrapper class that only performs Pooling (no projection).
     Useful if you just want to switch between TAP, ASP, MHA, etc.
     """
 
     def __init__(self, config):
-        super(Pool, self).__init__()
-        self.input_dim = getattr(config, "input_dim", 1024)
+        super().__init__(config)
+        # self.input_dim provided by BaseBackend
 
         # Initialize pooling layer via factory
         self.pool_layer = pooling_modules.get_pooling_layer(config, self.input_dim)
@@ -48,7 +49,7 @@ class TransposeBatchNorm1d(nn.Module):
 
 
 @register_backend("MLP")
-class MLP(nn.Module):
+class MLP(BaseBackend):
     """
     Flexible MLP Class with selectable Normalization:
     1. Projection (Linear -> Norm -> Activation) x N layers
@@ -56,9 +57,9 @@ class MLP(nn.Module):
     """
 
     def __init__(self, config):
-        super(MLP, self).__init__()
+        super().__init__(config)
 
-        self.input_dim = getattr(config, "input_dim", 1024)
+        # self.input_dim provided by BaseBackend
         self.projection_dims = getattr(config, "projection", [])
         self.activation_name = getattr(config, "activation", "relu").lower()
 

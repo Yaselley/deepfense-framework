@@ -1,14 +1,14 @@
 from deepfense.models.detector import ModularDetector
 from deepfense.models.frontends import (
-    HuBERT,
-    Wav2Vec2,
-    WavLM,
+    hubert,
+    wav2vec2,
+    wavlm,
 )
 from deepfense.models.backends import (
-    AASIST,
-    MLP,
-    Nes2Net,
-    TCM,
+    aasist,
+    mlp,
+    nes2net,
+    tcm,
 )
 from deepfense.models.losses import (
     cross_entropy,

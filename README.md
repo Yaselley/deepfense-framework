@@ -1,87 +1,122 @@
 # DeepFense Framework
 
-DeepFense is a modular and extensible framework for training and evaluating deepfake detection models. It supports various frontends (SSL models like Wav2Vec2, HuBERT, WavLM), backends (AASIST, Nes2Net, TCM, MLP), and loss functions (CrossEntropy, A-Softmax, AM-Softmax, OC-Softmax).
+**DeepFense** is a modular, extensible, and research-friendly framework for Deepfake Audio Detection (ASV Spoofing). It allows you to easily mix and match Frontends, Backends, and Loss functions using a simple configuration system.
 
-## Features
+## 🚀 Features
 
-*   **Modular Design**: Easily swap Frontends, Backends, and Losses via a config file.
-*   **Unified Registry**: Simple registration mechanism for new components.
-*   **Unified Loss/Mapper**: Loss functions handle their own projection layers (mappers), simplifying usage.
-*   **Structured Configuration**: Clean YAML-based configuration.
-*   **Extensible**: Easy to add new datasets, transforms, and metrics.
+*   **Modular Architecture**: Decouples **Frontends** (Wav2Vec2, WavLM, HuBERT), **Backends** (AASIST, Nes2Net, TCM, MLP), and **Losses**.
+*   **Unified Registry System**: Easily register and call components via YAML strings (e.g., `type: "wavlm"`).
+*   **Unified Loss Modules**: "Mappers" (projection layers) and Loss functions are combined into single modules for cleaner code.
+*   **Base Classes**: Standardized `BaseFrontend`, `BaseBackend`, and `BaseLoss` classes guide extension and ensure consistency.
+*   **Loss-Dependent Scoring**: Automatically handles scoring logic (Logits vs. Cosine Similarity vs. LLR) for correct EER/minDCF calculation.
+*   **Configurable**: Powered by `OmegaConf` and YAML for hierarchical configuration.
 
-## Installation
+## 📚 Documentation
+
+Detailed documentation is available in the `docs/` folder:
+
+1.  **[Architecture Overview](docs/architecture.md)**: High-level design and data flow.
+2.  **[Component Reference](docs/components.md)**: List of available models and losses.
+3.  **[Configuration Guide](docs/configuration.md)**: How to write your experiment YAMLs.
+4.  **[Tutorials](docs/tutorials.md)**: Step-by-step guides to adding new components.
+5.  **[Extending DeepFense](docs/extending.md)**: Deep dive into Base Classes and API.
+
+## 🛠️ Installation
+
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/your-repo/DeepFense.git
+    cd DeepFense
+    ```
+
+2.  **Install dependencies**:
+    It is recommended to use a virtual environment (Conda or venv).
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## 🚦 Quick Start
+
+### 1. Training
+
+To start a training experiment, use the `train.py` script with a configuration file.
 
 ```bash
-pip install -r requirements.txt
+python train.py --config deepfense/config/train.yaml
 ```
 
-## Directory Structure
+**Key Config Sections:**
+*   **`model`**: Defines the architecture (Frontend + Backend + Loss).
+*   **`data`**: Defines training/validation datasets and augmentations.
+*   **`training`**: Defines optimizer, scheduler, and evaluation metrics.
 
-*   `deepfense/models`: Contains Frontends, Backends, and Losses.
-    *   `frontends/`: Wav2Vec2, WavLM, HuBERT, etc.
-    *   `backends/`: AASIST, Nes2Net, TCM, etc.
-    *   `losses/`: CrossEntropy, AMSoftmax, OCSoftmax, etc.
-*   `deepfense/data`: Dataset and Transform logic.
-*   `deepfense/training`: Trainer, Optimizers, Evaluators.
-*   `deepfense/utils`: Registry and helpers.
-*   `configs/`: Example YAML configurations.
+### 2. Testing / Inference
 
-## Usage
-
-### Training
-
-To start training, use `train.py` with a configuration file:
+To evaluate a trained checkpoint:
 
 ```bash
-python train.py --config deepfense/config/your_config.yaml
+python test.py --config deepfense/config/train.yaml --checkpoint outputs/ExperimentName/checkpoints/best_model.pt
 ```
 
-### Configuration
+This will generate a `results.json` and prediction files in the output directory.
 
-The configuration file is divided into three main sections: `data`, `model`, and `training`.
+## 📂 Project Structure
+
+```text
+DeepFense/
+├── deepfense/
+│   ├── config/           # YAML Configuration files
+│   ├── data/             # Datasets and Transforms
+│   ├── models/           # Core Model Components
+│   │   ├── backends/     # (aasist.py, mlp.py, etc.)
+│   │   ├── frontends/    # (wavlm.py, hubert.py, etc.)
+│   │   ├── losses/       # (am_softmax.py, cross_entropy.py, etc.)
+│   │   ├── detector.py   # Main ModularDetector class
+│   │   └── base_model.py # Abstract Base Classes
+│   ├── training/         # Trainer, Evaluator, Metrics
+│   └── utils/            # Registry, Logging, Helper functions
+├── docs/                 # Documentation
+├── outputs/              # Experiment logs and checkpoints
+├── train.py              # Training entry point
+├── test.py               # Testing entry point
+└── requirements.txt      # Dependencies
+```
+
+## 🧩 Example Configuration
+
+Here is a minimal example of a model definition in `train.yaml`:
 
 ```yaml
-exp_name: "MyExperiment"
-output_dir: "./outputs/"
-seed: 42
-
-data:
-  sampling_rate: 16000
-  train: ...
-  val: ...
-
 model:
   type: "StandardDetector"
-  frontend: 
-    type: "wav2vec2"
-    args: { ckpt_path: "..." }
-  backend: 
-    type: "AASIST"
-    args: { ... }
-  loss:
-    type: "AMSoftmax"
-    embedding_dim: 160
-    n_classes: 2
-    m: 0.35
-    s: 30
+  
+  # 1. Frontend (Audio -> Features)
+  frontend:
+    type: "wavlm"
+    args:
+      ckpt_path: "/path/to/wavlm.pt"
 
-training:
-  trainer: "StandardTrainer"
-  epochs: 50
-  optimizer: { type: "adam", lr: 0.0001 }
-  device: "cuda"
+  # 2. Backend (Features -> Embedding)
+  backend:
+    type: "AASIST"
+    args:
+      filts: [[1, 32], [32, 32]]
+      gat_dims: [64, 32]
+
+  # 3. Loss (Embedding -> Loss & Score)
+  loss:
+    - type: "AMSoftmax"
+      weight: 1.0
+      embedding_dim: 128
+      n_classes: 2
+      m: 0.3
+      s: 30
 ```
 
-See `docs/config.md` for detailed configuration options.
+## 🤝 Contributing
 
-## Extending the Framework
+We welcome contributions! Please refer to the **[Tutorials](docs/tutorials.md)** to see how to easily add new Frontends, Backends, or Metrics using our standardized Base Classes.
 
-See `docs/adding_components.md` for guides on adding:
-*   New Models (Frontends/Backends)
-*   New Losses
-*   New Metrics
+## 📄 License
 
-## License
-
-[License Information]
+[License Information Here]

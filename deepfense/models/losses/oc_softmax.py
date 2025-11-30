@@ -60,14 +60,16 @@ class OCAngleLayer(nn.Module):
         return pos_score, neg_score
 
 
+from deepfense.models.base_model import BaseLoss
+
 @register_loss("OCSoftmax")
-class OCSoftmaxLoss(nn.Module):
+class OCSoftmaxLoss(BaseLoss):
     """
     Unified OCSoftmax Loss + AngleLayer.
     """
 
     def __init__(self, config):
-        super(OCSoftmaxLoss, self).__init__()
+        super().__init__(config)
         # Rename in_planes to embedding_dim for consistency if needed, 
         # but config usually comes with keys. 
         # The original code used 'in_planes' in config. 
@@ -99,10 +101,15 @@ class OCSoftmaxLoss(nn.Module):
 
         return loss
 
+    def get_score(self, embeddings):
+        """
+        Returns cos_theta (similarity to bonafide center).
+        """
+        cos_theta = self.get_logits(embeddings)
+        # cos_theta is [Batch, 1]. Squeeze to 1D [Batch]
+        return cos_theta.squeeze(1)
+
     def get_logits(self, embeddings):
-        """
-        Returns cos_theta.
-        In OC-Softmax, the decision is based on cos_theta.
-        """
+        """Returns full cos_theta [N, 1] for caching/loss."""
         cos_theta, _ = self.mapper(embeddings, flag_angle_only=True)
         return cos_theta

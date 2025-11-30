@@ -79,7 +79,6 @@ class RIR:
             scale = float(np.sqrt(audio_power / augment_power))
             augmented = scale * augmented
         
-        print(f"Augmented audio shape: {augmented.shape}")
         return augmented
 
 
@@ -96,8 +95,8 @@ class RawBoost:
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         # Note: Original code commented out the random check
-        # if np.random.random() > self.noise_ratio:
-        #     return x
+        if np.random.random() > self.noise_ratio:
+            return x
         
         audio = x
         try:

@@ -1,4 +1,4 @@
 # deepfense/models/frontends/__init__.py
-from . import HuBERT
-from . import Wav2Vec2
-from . import WavLM
+from . import hubert
+from . import wav2vec2
+from . import wavlm

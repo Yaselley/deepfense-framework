@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 from deepfense.models.modules.wavlm.wavlm import WavLM, WavLMConfig
 from deepfense.utils.registry import register_frontend
-
+from deepfense.models.base_model import BaseFrontend
 
 @register_frontend("wavlm")
-class WavLMWrapper(nn.Module):
+class WavLMWrapper(BaseFrontend):
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
 
         self.ckpt_path = config.get("ckpt_path", None)
         checkpoint = torch.load(self.ckpt_path)

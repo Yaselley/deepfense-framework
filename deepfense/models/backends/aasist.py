@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from deepfense.utils.registry import register_backend
+from deepfense.models.base_model import BaseBackend
 
 
 class GraphAttentionLayer(nn.Module):
@@ -380,9 +381,9 @@ class Residual_block(nn.Module):
 
 
 @register_backend("AASIST")
-class AASIST(nn.Module):
+class AASIST(BaseBackend):
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
 
         self.config = config
         filts = config["filts"]

@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 import deepfense.models.modules.pool as pooling_modules
 from deepfense.utils.registry import register_backend
+from deepfense.models.base_model import BaseBackend
 
 # --- Helpers (SEModule & Bottle2neck) ---
 
@@ -89,12 +90,11 @@ class Bottle2neck(nn.Module):
 
 
 @register_backend("Nes2Net")
-class Nes2Net(nn.Module):
+class Nes2Net(BaseBackend):
     def __init__(self, config):
-        super(Nes2Net, self).__init__()
+        super().__init__(config)
 
         # 1. Config Extraction
-        self.input_dim = getattr(config, "input_dim", 1024)
 
         # Nes_ratio is a list: [Outer_Scale, Inner_Scale]
         # Default [8, 8] based on your snippet

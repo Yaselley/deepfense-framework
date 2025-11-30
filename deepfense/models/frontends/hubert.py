@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import fairseq
 from deepfense.utils.registry import register_frontend
-
+from deepfense.models.base_model import BaseFrontend
 
 @register_frontend("hubert")
-class HubertWrapper(nn.Module):
+class HubertWrapper(BaseFrontend):
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
 
         self.ckpt_path = config.get("ckpt_path", None)
         models, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(

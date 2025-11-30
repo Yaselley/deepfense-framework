@@ -6,6 +6,7 @@ from torch.nn.modules.transformer import _get_clones
 
 from deepfense.models.modules.conformer.conformer import ConformerBlock
 from deepfense.utils.registry import register_backend
+from deepfense.models.base_model import BaseBackend
 
 
 def sinusoidal_embedding(n_channels, dim):
@@ -21,9 +22,9 @@ def sinusoidal_embedding(n_channels, dim):
 
 
 @register_backend("TCM")
-class TCM_Conformer(nn.Module):
+class TCM_Conformer(BaseBackend):
     def __init__(self, config):
-        super(TCM_Conformer, self).__init__()
+        super().__init__(config)
 
         # Extract configuration with defaults (based on your snippets)
         self.emb_size = getattr(config, "emb_size", 128)
@@ -34,7 +35,6 @@ class TCM_Conformer(nn.Module):
         self.n_encoders = getattr(
             config, "num_encoders", 1
         )  # Note: 'num_encoders' vs 'n_encoders'
-        self.input_dim = getattr(config, "input_dim", 1024)  # SSL output dim
 
         # Preprocessing Layers (Previously in Model class)
         # Projects 1024 (SSL) -> emb_size

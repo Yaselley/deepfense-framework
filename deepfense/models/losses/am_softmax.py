@@ -64,14 +64,16 @@ class AMAngleLayer(nn.Module):
         return cos_x, phi_x
 
 
+from deepfense.models.base_model import BaseLoss
+
 @register_loss("AMSoftmax")
-class AMSoftmaxLoss(nn.Module):
+class AMSoftmaxLoss(BaseLoss):
     """
     Unified AMSoftmax Loss + AngleLayer.
     """
 
     def __init__(self, config):
-        super(AMSoftmaxLoss, self).__init__()
+        super().__init__(config)
 
         self.mapper = AMAngleLayer(config)
 
@@ -124,7 +126,19 @@ class AMSoftmaxLoss(nn.Module):
 
         return loss
 
+    def get_score(self, embeddings):
+        """
+        Returns final scores for validation/inference.
+        If n_classes == 2, returns (cos_bonafide - cos_spoof).
+        Otherwise returns full cosine scores.
+        """
+        cos_x = self.get_logits(embeddings)
+        if cos_x.shape[1] == 2:
+             # Return difference based on configured labels
+             return cos_x[:, self.bonafide_label] - cos_x[:, self.spoof_label]
+        return cos_x
+
     def get_logits(self, embeddings):
-        """Returns cos_x as logits."""
+        """Returns full cosine scores [N, C] for caching/loss."""
         cos_x, _ = self.mapper(embeddings)
         return cos_x
