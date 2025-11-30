@@ -7,7 +7,7 @@ import librosa
 from torch.utils.data import Dataset
 from librosa import effects
 import random
-from .RawBoost import (
+from deepfense.data.transforms.RawBoost.RawBoost import (
     ISD_additive_noise,
     LnL_convolutive_noise,
     SSI_additive_noise,

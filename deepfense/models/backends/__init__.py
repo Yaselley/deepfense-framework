@@ -1,5 +1,5 @@
-from deepfense.models.backends.registry import BACKEND
-from deepfense.models.backends.AASIST import *
-from deepfense.models.backends.MLP import *
-from deepfense.models.backends.TCM import *
-from deepfense.models.backends.Nes2Net import *
+# deepfense/models/backends/__init__.py
+from . import AASIST
+from . import MLP
+from . import Nes2Net
+from . import TCM

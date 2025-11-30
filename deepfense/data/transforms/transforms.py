@@ -2,7 +2,7 @@ import numpy as np
 import soundfile as sf
 import librosa
 
-from deepfense.data.transforms.registry import register_transform
+from deepfense.utils.registry import register_transform
 
 
 @register_transform("load_audio")

@@ -1,12 +1,12 @@
 # https://github.com/asvspoof-challenge/asvspoof5/tree/main/evaluation-package
 
 import numpy as np
-from deepfense.training.evaluations.registry import register_eval
+from deepfense.utils.registry import register_metric
 from deepfense.training.evaluations.compute_eer import compute_eer
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
 
-@register_eval("minDCF")
+@register_metric("minDCF")
 def compute_mindcf(labels, scores, params):
     """
     Compute the minimum normalized Detection Cost Function (minDCF).

@@ -1,79 +1,87 @@
-# DeepFense: Deepfake Detection Framework
+# DeepFense Framework
 
-**DeepFense** is a research framework for training and evaluating deepfake detection models.  
-It supports flexible configuration, pretrained SSL model integration, and multilingual datasets.
+DeepFense is a modular and extensible framework for training and evaluating deepfake detection models. It supports various frontends (SSL models like Wav2Vec2, HuBERT, WavLM), backends (AASIST, Nes2Net, TCM, MLP), and loss functions (CrossEntropy, A-Softmax, AM-Softmax, OC-Softmax).
 
----
+## Features
 
-## 🧩 Environment Setup
+*   **Modular Design**: Easily swap Frontends, Backends, and Losses via a config file.
+*   **Unified Registry**: Simple registration mechanism for new components.
+*   **Unified Loss/Mapper**: Loss functions handle their own projection layers (mappers), simplifying usage.
+*   **Structured Configuration**: Clean YAML-based configuration.
+*   **Extensible**: Easy to add new datasets, transforms, and metrics.
 
-### 1. Create a Conda Environment
-```bash
-conda create -n deepfense python=3.10
-conda activate deepfense
-```
+## Installation
 
-### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Downgrade pip
-After installation, make sure to downgrade pip to version 24.0:
-```bash
-pip install "pip<=24.0"
-```
+## Directory Structure
 
-### 4. Build Fairseq
+*   `deepfense/models`: Contains Frontends, Backends, and Losses.
+    *   `frontends/`: Wav2Vec2, WavLM, HuBERT, etc.
+    *   `backends/`: AASIST, Nes2Net, TCM, etc.
+    *   `losses/`: CrossEntropy, AMSoftmax, OCSoftmax, etc.
+*   `deepfense/data`: Dataset and Transform logic.
+*   `deepfense/training`: Trainer, Optimizers, Evaluators.
+*   `deepfense/utils`: Registry and helpers.
+*   `configs/`: Example YAML configurations.
 
-DeepFense relies on Fairseq for feature extraction and SSL model integration.
-Navigate to the modules directory:
+## Usage
 
-```bash
-cd deepfense/models/
-mkdir modules
-cd modules
-git clone https://github.com/facebookresearch/fairseq
-cd fairseq
-git checkout 3d262bb
-pip install --editable ./
-pip install --upgrade pip
-```
+### Training
 
-### 5. Download Pretrained Weights
-To obtain XLSR or other pretrained SSL model weights:
+To start training, use `train.py` with a configuration file:
 
 ```bash
-cd deepfense/models/pretrained
-bash get_ckpts.sh
+python train.py --config deepfense/config/your_config.yaml
 ```
 
-### 6. Prepare Your Dataset
+### Configuration
 
-Create a parquet file containing the audio samples and their labels.
-Example format:
+The configuration file is divided into three main sections: `data`, `model`, and `training`.
 
-```python
-{
-  "path": "/path/to/audio.wav",
-  "label": "bonafide"  # or "spoof"
-}
+```yaml
+exp_name: "MyExperiment"
+output_dir: "./outputs/"
+seed: 42
+
+data:
+  sampling_rate: 16000
+  train: ...
+  val: ...
+
+model:
+  type: "StandardDetector"
+  frontend: 
+    type: "wav2vec2"
+    args: { ckpt_path: "..." }
+  backend: 
+    type: "AASIST"
+    args: { ... }
+  loss:
+    type: "AMSoftmax"
+    embedding_dim: 160
+    n_classes: 2
+    m: 0.35
+    s: 30
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 50
+  optimizer: { type: "adam", lr: 0.0001 }
+  device: "cuda"
 ```
 
-Ensure that all audio files are accessible and correctly referenced in the parquet file.
+See `docs/config.md` for detailed configuration options.
 
-### 7. Configure Training
-Edit the training configuration file to match your dataset and experiment setup:
+## Extending the Framework
 
-```bash
-deepfense/config/train.yaml
-```
+See `docs/adding_components.md` for guides on adding:
+*   New Models (Frontends/Backends)
+*   New Losses
+*   New Metrics
 
-### 8. Launch Training
-Once your environment and configuration are ready, start training:
+## License
 
-```bash
-python3 train.py --config config/train.yaml
-```
-All logs, checkpoints, and configuration snapshots will be saved in the designated output directory.
-
+[License Information]

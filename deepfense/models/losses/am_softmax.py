@@ -10,52 +10,11 @@ Additive margin softmax for face verification. IEEE Signal Process. Lett. 2018
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
-from deepfense.models.loss_mappers.registry import register_loss
-from deepfense.models.loss_mappers.registry import register_mapper
+from deepfense.utils.registry import register_loss
 
 
-@register_mapper("AMSoftmaxMapper")
 class AMAngleLayer(nn.Module):
-    """Output layer to produce activation for Angular softmax layer
-    AMAngleLayer(in_dim, output_dim, s=20, m=0.9):
-
-    in_dim:     dimension of input feature vectors
-    output_dim: dimension of output feature vectors
-                (i.e., number of classes)
-    s:          scaler
-    m:          margin
-
-    Method: (|x|cos, phi) = forward(x)
-
-      x: (batchsize, input_dim)
-
-      cos: (batchsize, output_dim)
-      phi: (batchsize, output_dim)
-
-    Note:
-      cos[i, j]: cos(\theta) where \theta is the angle between
-                 input feature vector x[i, :] and weight vector w[j, :]
-      phi[i, j]: -1^k cos(m \theta) - 2k
-
-
-    Usage example:
-      batchsize = 64
-      input_dim = 10
-      class_num = 2
-
-      l_layer = AMAngleLayer(input_dim, class_num)
-      l_loss = AMSoftmaxWithLoss()
-
-
-      data = torch.rand(batchsize, input_dim, requires_grad=True)
-      target = (torch.rand(batchsize) * class_num).clamp(0, class_num-1)
-      target = target.to(torch.long)
-
-      scores = l_layer(data)
-      loss = l_loss(scores, target)
-
-      loss.backward()
-    """
+    """Output layer to produce activation for Angular softmax layer"""
 
     def __init__(self, config):
         super(AMAngleLayer, self).__init__()
@@ -77,16 +36,6 @@ class AMAngleLayer(nn.Module):
     def forward(self, input, flag_angle_only=False):
         """
         Compute am-softmax activations
-
-        input:
-        ------
-        input tensor (batchsize, input_dim)
-        flag_angle_only: true:  return cos(\theta), phi(\theta)
-                         false: return |x|cos(\theta), |x|phi(\theta)
-                         default: false
-        output:
-        -------
-        tuple of tensor ((batchsize, output_dim), (batchsize, output_dim))
         """
         # w (feature_dim, output_dim)
         w = self.weight.renorm(2, 1, 1e-5).mul(1e5)
@@ -116,14 +65,15 @@ class AMAngleLayer(nn.Module):
 
 
 @register_loss("AMSoftmax")
-class AMSoftmaxWithLoss(nn.Module):
+class AMSoftmaxLoss(nn.Module):
     """
-    AMSoftmaxWithLoss()
-    See usage in __doc__ of AMAngleLayer
+    Unified AMSoftmax Loss + AngleLayer.
     """
 
     def __init__(self, config):
-        super(AMSoftmaxWithLoss, self).__init__()
+        super(AMSoftmaxLoss, self).__init__()
+
+        self.mapper = AMAngleLayer(config)
 
         class_weights = config.get("class_weights", [0.5, 0.5])
         reduction = config.get("reduction", "mean")
@@ -132,25 +82,30 @@ class AMSoftmaxWithLoss(nn.Module):
 
         self.m_loss = nn.CrossEntropyLoss(weight=class_weights, reduction=reduction)
 
-    def forward(self, input, target):
+    def forward(self, embeddings, target, logits=None):
         """
-        input:
-        ------
-          input: tuple of tensors ((batchsie, out_dim), (batchsie, out_dim))
-                 output from AMAngleLayer
-
-          target: tensor (batchsize)
-                 tensor of target index
-        output:
-        ------
-          loss: scalar
+        embeddings: (batch, dim)
+        target: (batch,)
+        logits: (optional) pre-computed tuple (cos_x, phi_x) from mapper
         """
+        if logits is not None:
+            # In AMSoftmax, get_logits returns cos_x, but we need (cos_x, phi_x) for training.
+            # If the passed 'logits' is just cos_x (from get_logits), we still need phi_x.
+            # So we might still need to run mapper if logits doesn't contain both.
+            # However, StandardDetector only gets 'scores' via get_logits() which returns cos_x.
+            # Re-running mapper is safer here unless we change get_logits to return full tuple.
+            # For now, we will NOT use the cached logits for AMSoftmax to avoid correctness issues,
+            # unless we change get_logits to return the full tuple (which we probably shouldn't for validation).
+            pass
+            
+        input_tuple = self.mapper(embeddings)
+        
         # target (batchsize)
-        target = target.long()  # .view(-1, 1)
+        target = target.long()
 
         # create an index matrix, i.e., one-hot vectors
         with torch.no_grad():
-            index = torch.zeros_like(input[0])
+            index = torch.zeros_like(input_tuple[0])
             # index[i][target[i][j]] = 1
             index.scatter_(1, target.data.view(-1, 1), 1)
             index = index.bool()
@@ -160,11 +115,16 @@ class AMSoftmaxWithLoss(nn.Module):
         # input[1] -> phi
         # if target_i = j, ouput[i][j] = phi[i][j], otherwise cos[i][j]
         #
-        output = input[0] * 1.0
-        output[index] -= input[0][index] * 1.0
-        output[index] += input[1][index] * 1.0
+        output = input_tuple[0] * 1.0
+        output[index] -= input_tuple[0][index] * 1.0
+        output[index] += input_tuple[1][index] * 1.0
 
         # cross entropy loss
         loss = self.m_loss(output, target)
 
         return loss
+
+    def get_logits(self, embeddings):
+        """Returns cos_x as logits."""
+        cos_x, _ = self.mapper(embeddings)
+        return cos_x

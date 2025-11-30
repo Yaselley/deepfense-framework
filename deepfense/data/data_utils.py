@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from deepfense.data.registry import get_dataset_class
+from deepfense.utils.registry import build_dataset
 
 
 def collate_fn(batch, max_pad=None):
@@ -63,30 +63,14 @@ def collate_fn(batch, max_pad=None):
 def build_dataloader(config):
     """
     Builds a DataLoader given a dataset name and configuration.
-    Example expected config:
-        config = {
-            "data": {
-                "dataset_type": "DetectionDataset",
-                "train": {
-                    "parquet_files": [...],
-                    "names": [...],
-                },
-                "label_map": {...}
-            }
-            "base_transform": {...},
-            "augment_transform": {...},
-        }
     """
 
     dataset_name = config["dataset_type"]
-    # Fetch dataset class from registry
-    DatasetClass = get_dataset_class(dataset_name)
+    # Build dataset using registry
+    ds = build_dataset(dataset_name, cfg=config)
 
     batch_size = config.get("batch_size", 8)
     shuffle = config.get("shuffle", False)
-
-    # Initialize dataset
-    ds = DatasetClass(cfg=config)
 
     # Return DataLoader
     return DataLoader(

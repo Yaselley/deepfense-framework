@@ -10,33 +10,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter
-from deepfense.models.loss_mappers.registry import register_loss
-from deepfense.models.loss_mappers.registry import register_mapper
+from deepfense.utils.registry import register_loss
 
 
-@register_mapper("ASoftmaxMapper")
 class AngleLayer(nn.Module):
-    """Output layer to produce activation for Angular softmax layer
-    AngleLayer(in_dim, output_dim, m=4):
-
-    in_dim:     dimension of input feature vectors
-    output_dim: dimension of output feature vectors
-                (i.e., number of classes)
-    m:          angular-softmax paramter
-
-
-    Method: (|x|cos, phi) = forward(x)
-
-    x: (batchsize, input_dim)
-
-    cos: (batchsize, output_dim)
-    phi: (batchsize, output_dim)
-
-    Note:
-    cos[i, j]: cos(\theta) where \theta is the angle between
-               input feature vector x[i, :] and weight vector w[j, :]
-    phi[i, j]: -1^k cos(m \theta) - 2k
-    """
+    """Output layer to produce activation for Angular softmax layer"""
 
     def __init__(self, config):
         super(AngleLayer, self).__init__()
@@ -63,16 +41,6 @@ class AngleLayer(nn.Module):
     def forward(self, input, flag_angle_only=False):
         """
         Compute a-softmax activations
-
-        input:
-        ------
-        input tensor (batchsize, input_dim)
-        flag_angle_only: true:  return cos(\theta), phi(\theta)
-                         false: return |x|cos(\theta), |x|phi(\theta)
-                         default: false
-        output:
-        -------
-        tuple of tensor ((batchsize, output_dim), (batchsize, output_dim))
         """
         # w (feature_dim, output_dim)
         w = self.weight.renorm(2, 1, 1e-5).mul(1e5)
@@ -117,24 +85,16 @@ class AngleLayer(nn.Module):
 
 
 @register_loss("ASoftmax")
-class AngularSoftmaxWithLoss(nn.Module):
+class ASoftmaxLoss(nn.Module):
     """
-    AngularSoftmaxWithLoss()
-    This is a loss function.
-
-    Method:
-    loss = forward(input, target)
-
-    input: a pair of cos(\theta) and phi(\theta),
-           calculated by AngularLinear
-           cos(\theta) and phi(\theta) shape: (batchsize, class_num)
-
-    target: target labels (batchsize)
-
+    Unified Angular Softmax Loss.
+    Includes the AngleLayer projection.
     """
 
     def __init__(self, config):
-        super(AngularSoftmaxWithLoss, self).__init__()
+        super(ASoftmaxLoss, self).__init__()
+
+        self.mapper = AngleLayer(config)
 
         self.gamma = config.get("gamma", 0.5)
         self.iter = config.get("iter", 0)
@@ -142,29 +102,30 @@ class AngularSoftmaxWithLoss(nn.Module):
         self.lambda_max = config.get("lambda_max", 1500)
         self.lamb = config.get("lamb", 1500)
 
-    def forward(self, input, target):
-        """ """
+    def forward(self, embeddings, target):
+        """
+        embeddings: (batchsize, embedding_dim)
+        target: (batchsize)
+        """
+        # Calculate cos_x and phi_x
+        cos_x, phi_x = self.mapper(embeddings)
+        input_tuple = (cos_x, phi_x)
+
         self.iter += 1
         # target (batchsize, 1)
         target = target.long().view(-1, 1)
 
         with torch.no_grad():
-            index = torch.zeros_like(input[0])
+            index = torch.zeros_like(input_tuple[0])
             # index[i][target[i][j]] = 1
             index.scatter_(1, target.data.view(-1, 1), 1)
             index = index.bool()
 
         # output (batchsize, output_dim)
-        # Tricks
-        # output(\theta_yi)
-        # = (lambda*cos(\theta_yi) + ((-1)**k * cos(m * \theta_yi) - 2*k))
-        #    /(1 + lambda)
-        # = cos(\theta_yi)
-        #   - cos(\theta_yi) / (1 + lambda) + Phi(\theta_yi) / (1 + lambda)
         self.lamb = max(self.lambda_min, self.lambda_max / (1 + 0.1 * self.iter))
-        output = input[0] * 1.0
-        output[index] -= input[0][index] * 1.0 / (1 + self.lamb)
-        output[index] += input[1][index] * 1.0 / (1 + self.lamb)
+        output = input_tuple[0] * 1.0
+        output[index] -= input_tuple[0][index] * 1.0 / (1 + self.lamb)
+        output[index] += input_tuple[1][index] * 1.0 / (1 + self.lamb)
 
         # softmax loss
         logit = F.log_softmax(output, dim=1)
@@ -176,3 +137,8 @@ class AngularSoftmaxWithLoss(nn.Module):
         loss = loss.mean()
 
         return loss
+
+    def get_logits(self, embeddings):
+        """Returns cos_x as scores/logits."""
+        cos_x, _ = self.mapper(embeddings)
+        return cos_x

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from deepfense.models.backends.registry import register_backend
+from deepfense.utils.registry import register_backend
 
 
 class GraphAttentionLayer(nn.Module):

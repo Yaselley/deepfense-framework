@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from deepfense.models.modules.wavlm.wavlm import WavLM, WavLMConfig
-from deepfense.models.frontends.registry import register_frontend
+from deepfense.utils.registry import register_frontend
 
 
 @register_frontend("wavlm")

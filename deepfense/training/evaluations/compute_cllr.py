@@ -1,11 +1,11 @@
 # https://github.com/asvspoof-challenge/asvspoof5/tree/main/evaluation-package
 
 import numpy as np
-from deepfense.training.evaluations.registry import register_eval
+from deepfense.utils.registry import register_metric
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
 
-@register_eval("CLLR")
+@register_metric("CLLR")
 def calculate_CLLR(labels, scores, params):
     """
     Compute the log-likelihood ratio cost (CLLR).

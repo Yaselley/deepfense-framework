@@ -1,5 +1,5 @@
 import torch
-from deepfense.training.schedulers.registry import register_scheduler
+from deepfense.utils.registry import register_scheduler
 
 
 @register_scheduler("step")

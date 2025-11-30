@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 import deepfense.models.modules.pool as pooling_modules
-from deepfense.models.backends.registry import register_backend
+from deepfense.utils.registry import register_backend
 
 # --- Helpers (SEModule & Bottle2neck) ---
 

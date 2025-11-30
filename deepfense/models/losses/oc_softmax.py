@@ -9,35 +9,15 @@ arXiv preprint arXiv:2010.13995
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
-from deepfense.models.loss_mappers.registry import register_loss
-from deepfense.models.loss_mappers.registry import register_mapper
+from deepfense.utils.registry import register_loss
 
 
-@register_mapper("OCSoftmaxMapper")
 class OCAngleLayer(nn.Module):
-    """Output layer to produce activation for one-class softmax
-
-    Usage example:
-     batchsize = 64
-     input_dim = 10
-     class_num = 2
-
-     l_layer = OCAngleLayer(input_dim)
-     l_loss = OCSoftmaxWithLoss()
-
-     data = torch.rand(batchsize, input_dim, requires_grad=True)
-     target = (torch.rand(batchsize) * class_num).clamp(0, class_num-1)
-     target = target.to(torch.long)
-
-     scores = l_layer(data)
-     loss = l_loss(scores, target)
-
-     loss.backward()
-    """
+    """Output layer to produce activation for one-class softmax"""
 
     def __init__(self, config):
         super(OCAngleLayer, self).__init__()
-        in_planes = config["in_planes"]
+        in_planes = config["embedding_dim"] # Renamed from in_planes to match config convention
         w_posi = config["w_posi"]
         w_nega = config["w_nega"]
         alpha = config["alpha"]
@@ -48,7 +28,6 @@ class OCAngleLayer(nn.Module):
         self.out_planes = 1
 
         self.weight = Parameter(torch.Tensor(in_planes, self.out_planes))
-        # self.weight.data.uniform_(-1, 1).renorm_(2,1,1e-5).mul_(1e5)
         nn.init.kaiming_uniform_(self.weight, 0.25)
         self.weight.data.renorm_(2, 1, 1e-5).mul_(1e5)
 
@@ -57,25 +36,13 @@ class OCAngleLayer(nn.Module):
     def forward(self, input, flag_angle_only=False):
         """
         Compute oc-softmax activations
-
-        input:
-        ------
-          input tensor (batchsize, input_dim)
-
-        output:
-        -------
-          tuple of tensor ((batchsize, output_dim), (batchsize, output_dim))
         """
         # w (feature_dim, output_dim)
         w = self.weight.renorm(2, 1, 1e-5).mul(1e5)
         # x_modulus (batchsize)
         # sum input -> x_modules in shape (batchsize)
         x_modulus = input.pow(2).sum(1).pow(0.5)
-        # w_modules (output_dim)
-        # w_moduls should be 1, since w has been normalized
-        # w_modulus = w.pow(2).sum(0).pow(0.5)
-
-        # W * x = ||W|| * ||x|| * cos())))))))
+        
         # inner_wx (batchsize, 1)
         inner_wx = input.mm(w)
         # cos_theta (batchsize, output_dim)
@@ -94,36 +61,48 @@ class OCAngleLayer(nn.Module):
 
 
 @register_loss("OCSoftmax")
-class OCSoftmaxWithLoss(nn.Module):
+class OCSoftmaxLoss(nn.Module):
     """
-    OCSoftmaxWithLoss()
-
+    Unified OCSoftmax Loss + AngleLayer.
     """
 
     def __init__(self, config):
-        super(OCSoftmaxWithLoss, self).__init__()
+        super(OCSoftmaxLoss, self).__init__()
+        # Rename in_planes to embedding_dim for consistency if needed, 
+        # but config usually comes with keys. 
+        # The original code used 'in_planes' in config. 
+        # I'll support both or expect embedding_dim.
+        if "in_planes" not in config and "embedding_dim" in config:
+             config["in_planes"] = config["embedding_dim"]
+             
+        self.mapper = OCAngleLayer(config)
         self.m_loss = nn.Softplus()
 
-    def forward(self, inputs, target):
+    def forward(self, embeddings, target, logits=None):
         """
-        input:
-        ------
-          input: tuple of tensors ((batchsie, out_dim), (batchsie, out_dim))
-                 output from OCAngle
-                 inputs[0]: positive class score
-                 inputs[1]: negative class score
-          target: tensor (batchsize)
-                 tensor of target index
-        output:
-        ------
-          loss: scalar
+        embeddings: (batch, dim)
+        target: (batch,)
+        logits: Optional pre-computed inputs tuple.
         """
+        if logits is not None and isinstance(logits, tuple):
+             inputs = logits
+        else:
+             # Similar to AMSoftmax, we need specific internal values, not just the final score.
+             # For OCSoftmax, mapper returns (pos_score, neg_score).
+             inputs = self.mapper(embeddings)
+        # inputs[0]: positive class score
+        # inputs[1]: negative class score
+        
         # Assume target is binary, positive = 1, negaitve = 0
-        #
-        # Equivalent to select the scores using if-elese
-        # if target = 1, use inputs[0]
-        # else, use inputs[1]
         output = inputs[0] * target.view(-1, 1) + inputs[1] * (1 - target.view(-1, 1))
         loss = self.m_loss(output).mean()
 
         return loss
+
+    def get_logits(self, embeddings):
+        """
+        Returns cos_theta.
+        In OC-Softmax, the decision is based on cos_theta.
+        """
+        cos_theta, _ = self.mapper(embeddings, flag_angle_only=True)
+        return cos_theta

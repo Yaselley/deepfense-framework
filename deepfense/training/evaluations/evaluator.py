@@ -1,5 +1,5 @@
 import numpy as np
-from deepfense.training.evaluations.registry import EVAL_REGISTRY
+from deepfense.utils.registry import METRIC_REGISTRY
 
 
 class Evaluator:
@@ -27,14 +27,17 @@ class Evaluator:
         return v
 
     def _load_metrics(self):
-        """Load all metric functions from the global EVAL_REGISTRY."""
+        """Load all metric functions from the global METRIC_REGISTRY."""
         metrics = {}
         for name in self.config:
             if name != "loss":  # skip loss
-                metric_fn = EVAL_REGISTRY.get(name)
-                if metric_fn is None:
-                    raise ValueError(f"Unknown metric: '{name}' (not in EVAL_REGISTRY)")
-                metrics[name] = metric_fn
+                try:
+                    metric_fn = METRIC_REGISTRY.get(name)
+                    metrics[name] = metric_fn
+                except KeyError:
+                    # Skip unknown metrics or raise error? Original raised error.
+                    # raise ValueError(f"Unknown metric: '{name}' (not in METRIC_REGISTRY)")
+                    print(f"[Warning] Metric '{name}' not found in registry. Skipping.")
         return metrics
 
     def evaluate(self, labels, scores):

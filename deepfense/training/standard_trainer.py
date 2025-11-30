@@ -10,18 +10,17 @@ from tqdm import tqdm
 
 import torch
 from torch import nn
+from omegaconf import DictConfig, OmegaConf
 
 from deepfense.training.base_trainer import BaseTrainer
-from deepfense.training.registry import register_trainer
-from deepfense.training.optimizers.registry import OPTIMIZER_REGISTRY
-from deepfense.training.schedulers.registry import SCHEDULER_REGISTRY
+from deepfense.utils.registry import register_trainer
 from deepfense.training.evaluations.evaluator import Evaluator
 
 
 @register_trainer("StandardTrainer")
 class StandardTrainer(BaseTrainer):
     """
-    Standard supervised trainer (your original Trainer), built on top of BaseTrainer.
+    Standard supervised trainer.
     """
 
     def __init__(
@@ -29,69 +28,63 @@ class StandardTrainer(BaseTrainer):
         model: nn.Module,
         train_loader,
         val_loader,
-        optimizer_config: Optional[dict],
-        scheduler_config: Optional[dict],
-        metrics_config: Optional[dict],
-        config,
+        config: DictConfig,
     ):
+        """
+        Args:
+            model: The ModularDetector model.
+            train_loader: Training dataloader.
+            val_loader: Validation dataloader.
+            config: The 'training' section of the config (DictConfig).
+        """
         super().__init__(model, config)
 
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-        # optimizers / schedulers
-        self.optimizer = self._build_optimizer(optimizer_config)
-        self.scheduler = (
-            self._build_scheduler(self.optimizer, scheduler_config)
-            if scheduler_config
-            else None
-        )
-
-        # evaluator
-        metrics_config
-        metrics_config["loss"] = self.model.main_loss.lower()
-        self.evaluator = Evaluator(metrics_config) if metrics_config else None
-
-        # output dirs
-        self.output_dir = config.output_dir
-        self.results_dir = os.path.join(config.output_dir, "results")
-        self.ckpts_dir = os.path.join(config.output_dir, "ckpts")
+        # Output dirs (inherited/setup in BaseTrainer, but specialized here)
+        self.results_dir = os.path.join(self.config.output_dir, "results")
+        self.ckpts_dir = os.path.join(self.config.output_dir, "ckpts")
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.ckpts_dir, exist_ok=True)
 
-        # wandb
-        if config.wandb:
+        # Optimizers / Schedulers
+        # Uses BaseTrainer's _build_* methods which now use unified registry
+        self.optimizer = self._build_optimizer(config.optimizer)
+        self.scheduler = (
+            self._build_scheduler(config.scheduler)
+            if config.get("scheduler")
+            else None
+        )
+
+        # Evaluator
+        metrics_config = config.get("metrics", None)
+        # If main_loss is available (it might not be if loss is hidden in detector.losses)
+        # ModularDetector handles loss internally now.
+        # We can try to guess the main loss name if needed for metrics, or just pass metrics config.
+        if metrics_config and hasattr(self.model, "main_loss_type"):
+             metrics_config["loss"] = self.model.main_loss_type
+             
+        self.evaluator = Evaluator(metrics_config) if metrics_config else None
+
+        # WandB
+        if self.config.get("wandb", False):
             import wandb
 
             self.wandb = wandb
-            wandb.init(project=config.wandb_project, config=config.__dict__)
+            # Convert full config for logging? 
+            # Ideally we'd like the full config, but here we only have 'training'.
+            # The caller might need to handle wandb init globally, or we pass full config.
+            # For now, logging the training config.
+            wandb_config = OmegaConf.to_container(config, resolve=True)
+            wandb.init(
+                project=self.config.get("wandb_project", "DeepFense"), 
+                config=wandb_config
+            )
         else:
             self.wandb = None
 
-        # logger
         self.logger = logging.getLogger("trainer")
-
-    # ------------------------------
-    # Optimizer Builder
-    # ------------------------------
-    def _build_optimizer(self, opt_cfg):
-        opt_name = opt_cfg.get("type", "adam").lower()
-        optimizer_class = OPTIMIZER_REGISTRY[opt_name]
-        params = self.model.parameters()
-        return optimizer_class(params, opt_cfg.get("params", {}))
-
-    # ------------------------------
-    # Scheduler Builder
-    # ------------------------------
-    def _build_scheduler(self, optim, sched_cfg):
-        sched_name = sched_cfg.get("type", "").lower()
-        opt = self.optimizer
-
-        if sched_name is None or sched_name == "":
-            return None
-
-        scheduler_class = SCHEDULER_REGISTRY[sched_name]
-        return scheduler_class(optim, sched_cfg.get("params", {}))
 
     # ------------------------------
     # Training Loop
@@ -103,7 +96,6 @@ class StandardTrainer(BaseTrainer):
         self.logger.info(f"Trainable parameters: {num_params:,}")
 
         for epoch in range(self.start_epoch, self.config.epochs):
-            # epoch is 0-indexed, so we use (epoch + 1) for logging
             current_epoch = epoch + 1
 
             loop = tqdm(
@@ -122,14 +114,13 @@ class StandardTrainer(BaseTrainer):
 
                 # Logging
                 if (
-                    self.config.batch_log_interval is not None
+                    self.config.get("batch_log_interval") is not None
                     and batch_idx != 0
                     and batch_idx % self.config.batch_log_interval == 0
                 ):
                     lr = self._current_lr()
                     running_avg_loss = epoch_loss_sum / (batch_idx + 1)
 
-                    # --- MODIFIED: Use 1-indexed epoch ---
                     self.logger.info(
                         f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}"
                     )
@@ -144,20 +135,19 @@ class StandardTrainer(BaseTrainer):
 
                 # Step-based eval
                 if (
-                    self.config.eval_every_steps
+                    self.config.get("eval_every_steps")
                     and self.global_step % self.config.eval_every_steps == 0
                 ):
-                    # --- MODIFIED: Pass 1-indexed epoch and reason ---
                     metrics = self.evaluate(
                         current_epoch, self.global_step, eval_reason="step"
                     )
                     self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
-                if self.config.max_steps and self.global_step >= self.config.max_steps:
+                if self.config.get("max_steps") and self.global_step >= self.config.max_steps:
                     self.logger.info("Reached max steps; exiting.")
                     return
 
-            # --- MODIFIED: Log with 1-indexed epoch ---
+            # Epoch Summary
             avg_epoch_loss = np.mean(epoch_train_losses)
             self.logger.info(f"--- Epoch {current_epoch} Summary ---")
             self.logger.info(f"Average Train Loss: {avg_epoch_loss:.4f}")
@@ -168,16 +158,15 @@ class StandardTrainer(BaseTrainer):
                 )
 
             # Per-epoch eval
-            if self.config.eval_every_epochs and (
-                current_epoch % self.config.eval_every_epochs == 0
-            ):
-                # --- MODIFIED: Pass 1-indexed epoch and reason ---
+            # Default to eval every epoch if not specified, or use 1
+            eval_interval = self.config.get("eval_every_epochs", 1)
+            if current_epoch % eval_interval == 0:
                 metrics = self.evaluate(
                     current_epoch, self.global_step, eval_reason="epoch"
                 )
                 self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
-            # Scheduler (except OneCycle)
+            # Scheduler
             if self.scheduler and not isinstance(
                 self.scheduler, torch.optim.lr_scheduler.OneCycleLR
             ):
@@ -259,7 +248,7 @@ class StandardTrainer(BaseTrainer):
             mask_ds = names == ds
             results[str(ds)] = self._compute_metrics(labels[mask_ds], scores[mask_ds])
 
-        # --- MODIFIED: Clearer logging ---
+        # Logging
         if eval_reason == "step":
             title = f"--- 🏃 Mid-Epoch Validation (Epoch {epoch}, Step {step}) ---"
         elif eval_reason == "epoch":
@@ -304,10 +293,7 @@ class StandardTrainer(BaseTrainer):
             json.dump(results, f, indent=2)
 
         if self.wandb:
-            # Log top-level metrics (loss, EER, etc.)
             self.wandb.log(top_level_metrics, step=step)
-
-            # Log per-dataset metrics with a prefix (e.g., "ASVSpoof19/EER")
             for ds_name, metrics_dict in per_dataset_metrics.items():
                 self.wandb.log(
                     {f"{ds_name}/{k}": v for k, v in metrics_dict.items()}, step=step
@@ -321,7 +307,6 @@ class StandardTrainer(BaseTrainer):
     # ------------------------------
     def _compute_metrics(self, labels, scores):
         if self.evaluator:
-            # Pass the final 1D scores (or [N, C] scores) to the evaluator
             results = self.evaluator.evaluate(labels, scores)
         else:
             results = {}
@@ -329,23 +314,26 @@ class StandardTrainer(BaseTrainer):
 
     def _maybe_checkpoint(self, metrics: Dict, epoch: int, step: int):
         metric = metrics
+        monitor_metric = self.config.get("monitor_metric", "loss")
+        monitor_mode = self.config.get("monitor_mode", "min") # default to loss min
+
         try:
-            for key in self.config.monitor_metric.split("."):
-                metric = metric[key]
+            current_metric = metric
+            for key in monitor_metric.split("."):
+                current_metric = current_metric[key]
         except (KeyError, TypeError):
             self.logger.error(
-                f"Could not find monitor_metric '{self.config.monitor_metric}' in metrics dict."
+                f"Could not find monitor_metric '{monitor_metric}' in metrics dict."
             )
-            self.logger.error(f"Available metrics: {json.dumps(metrics, indent=2)}")
-            return  # Don't checkpoint if metric is missing
+            return 
 
         better = (
-            (metric > self.best_metric)
-            if self.config.monitor_mode == "max"
-            else (metric < self.best_metric)
+            (current_metric > self.best_metric)
+            if monitor_mode == "max"
+            else (current_metric < self.best_metric)
         )
         if better:
-            self.best_metric = metric
+            self.best_metric = current_metric
             self.save_checkpoint(epoch, step, is_best=True)
 
     def _current_lr(self):
@@ -366,7 +354,7 @@ class StandardTrainer(BaseTrainer):
         self.logger.info(f"Saved checkpoint: {fname}")
 
         if is_best:
-            best_path = os.path.join(self.output_dir, "best_model.pth")
+            best_path = os.path.join(self.config.output_dir, "best_model.pth")
             torch.save(state, best_path)
             self.logger.info(f"Saved BEST checkpoint: {best_path}")
 

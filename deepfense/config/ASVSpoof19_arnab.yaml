@@ -1,5 +1,6 @@
 exp_name : "W2V_AASIST"
 output_dir: "./outputs/"
+seed: 42
 
 data:
   sampling_rate: 16000
@@ -19,7 +20,7 @@ data:
         pad_type: "repeat"
 
     augment_transform:
-      - type: "simple_aug"
+      - type: "simple_aug" # Ensure this transform exists or remove
         noise_ratio: 6
 
 
@@ -36,14 +37,7 @@ data:
         random_pad: False
         pad_type: "repeat"
 
-  test:
-    dataset_type: "StandardDataset"
-    dataset_names: ["ASVSpoof19"]
-    parquet_files: [
-      "/ds-slt/audio/adas/deepfense-framework/parquets/dummy_test.parquet",
-      ]
-      
-detector:
+model:
   type: "StandardDetector"
 
   frontend: 
@@ -58,44 +52,38 @@ detector:
       gat_dims: [64, 32]
       pool_ratios: [0.5, 0.5, 0.5, 0.5]
       temperatures: [2.0, 2.0, 100.0, 100.0]
-    
 
-loss:
-  embedding_dim: 160
-  n_classes: 2
-  type: "CrossEntropy"
-  args: 
-    weight: [0.1, 0.9]
+  # Unified Loss definition
+  loss:
+    type: "CrossEntropy"
+    embedding_dim: 160  # Output dim of AASIST (last hidden) - needs to match backend output
+    n_classes: 2
+    class_weights: [0.1, 0.9]
 
-optimizer_config:
-  type: "adam"
-  params:
+training:
+  trainer: "StandardTrainer"
+  epochs: 50
+  batch_size: 2
+  num_workers: 4
+  
+  device: "cuda"
+  output_dir: "./outputs/" # Will be overridden by experiment setup
+  
+  batch_log_interval: 10
+  eval_every_epochs: 1
+  
+  monitor_metric: "loss"
+  monitor_mode: "min"
+
+  optimizer:
+    type: "adam"
     lr: 0.000001
     weight_decay: 0.0001
 
-scheduler_config:
-  type: "exponential"
-  params:
+  scheduler:
+    type: "exponential"
     gamma: 0.9
-
-# metrics:
-#   EER: {}
-#   actDCF:
-#     Pspoof: 0.05
-#     Cmiss: 1
-#     Cfa: 1
-#   minDCF:
-#     Pspoof: 0.05
-#     Cmiss: 1
-#     Cfa: 1
-
-trainer:
-  type: "StandardTrainer"
-  config_type: "StandardConfig"
-  params:
-    device: "cuda"
-    batch_size: 2
-    num_workers: 4
-    batch_log_interval: 1
-    eval_every_steps: 1
-    # monitor_metric: "EER"
+  
+  metrics:
+    EER: {}
+    # ACC: {}

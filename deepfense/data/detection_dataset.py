@@ -4,8 +4,7 @@ import numpy as np
 
 from deepfense.data.transforms.transforms import load_audio
 from deepfense.data.base_dataset import BaseDataset
-from deepfense.data.registry import register_dataset
-from deepfense.data.transforms.registry import build_transforms_from_config
+from deepfense.utils.registry import register_dataset, build_transforms_pipeline
 
 
 @register_dataset("StandardDataset")
@@ -29,8 +28,8 @@ class StandardDataset(BaseDataset):
         self.base_transform_cfg = self.config_data.get("base_transform", None)
         self.augment_transform_cfg = self.config_data.get("augment_transform", None)
 
-        self.base_transform = build_transforms_from_config(self.base_transform_cfg)
-        self.augment_transform = build_transforms_from_config(
+        self.base_transform = build_transforms_pipeline(self.base_transform_cfg)
+        self.augment_transform = build_transforms_pipeline(
             self.augment_transform_cfg
         )
 
@@ -76,7 +75,7 @@ class StandardDataset(BaseDataset):
             x = self.augment_transform(x)
 
         return {
-            "ID": row["ID"],
+            "ID": row.get("ID", f"{row['dataset_name']}_{idx}"),
             "x": torch.tensor(x, dtype=torch.float32),
             "label": torch.tensor(row["label"], dtype=torch.long),
             "dataset_name": row["dataset_name"],

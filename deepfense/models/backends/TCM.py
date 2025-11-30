@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.nn.modules.transformer import _get_clones
 
 from deepfense.models.modules.conformer.conformer import ConformerBlock
-from deepfense.models.backends.registry import register_backend
+from deepfense.utils.registry import register_backend
 
 
 def sinusoidal_embedding(n_channels, dim):
