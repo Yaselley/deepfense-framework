@@ -61,7 +61,6 @@ class ModularDetector(nn.Module):
         """
         # Frontend
         features = self.frontend(x)
-        
         # Backend
         embeddings = self.backend(features)
         

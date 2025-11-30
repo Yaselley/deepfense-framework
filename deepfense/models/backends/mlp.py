@@ -60,11 +60,11 @@ class MLP(BaseBackend):
         super().__init__(config)
 
         # self.input_dim provided by BaseBackend
-        self.projection_dims = getattr(config, "projection", [])
-        self.activation_name = getattr(config, "activation", "relu").lower()
+        self.projection_dims = config.get("projection", [])
+        self.activation_name = config.get("activation", "relu").lower()
 
         # Options: 'batch', 'layer', or None/'none'
-        self.norm_type = getattr(config, "norm_type", "batch").lower()
+        self.norm_type = config.get("norm_type", "layer").lower()
 
         self.projection_block = nn.Sequential()
         current_dim = self.input_dim
@@ -108,6 +108,15 @@ class MLP(BaseBackend):
         self.pool_layer = pooling_modules.get_pooling_layer(config, current_dim)
         self.final_emb_size = self.pool_layer.get_output_dim()
 
+        # --- 4. Final Projection (Optional) ---
+        self.output_dim = config.get("output_dim", self.final_emb_size)
+        self.final_proj = nn.Identity()
+        
+        if self.output_dim != self.final_emb_size:
+             self.final_proj = nn.Linear(self.final_emb_size, self.output_dim)
+             # Update final_emb_size so downstream modules know
+             self.final_emb_size = self.output_dim
+
     def forward(self, x, **kwargs):
         """
         Args:
@@ -123,5 +132,6 @@ class MLP(BaseBackend):
         x = x.transpose(1, 2)
 
         embedding = self.pool_layer(x)  # [Batch, Final_Dim]
+        embedding = self.final_proj(embedding)
 
         return embedding

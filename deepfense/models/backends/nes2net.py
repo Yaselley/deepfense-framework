@@ -98,9 +98,9 @@ class Nes2Net(BaseBackend):
 
         # Nes_ratio is a list: [Outer_Scale, Inner_Scale]
         # Default [8, 8] based on your snippet
-        self.nes_ratio = getattr(config, "nes_ratio", [8, 8])
-        self.dilation = getattr(config, "dilation", 2)
-        self.se_ratio = getattr(config, "se_ratio", 8)
+        self.nes_ratio = config.get("nes_ratio", [8, 8])
+        self.dilation = config.get("dilation", 2)
+        self.se_ratio = config.get("se_ratio", 8)
 
         # 2. Validation
         # The input channels must be divisible by the outer scale

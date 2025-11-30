@@ -81,7 +81,7 @@ training:
     weight_decay: 0.0001
 
   scheduler:
-    type: "cosine_annealing"
+    type: "cosine"
     T_max: 50
 
   metrics:

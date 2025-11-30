@@ -141,6 +141,19 @@ def main():
 
     # Detector
     # Expecting model config to contain frontend, backend, loss
+    
+    # Inject bonafide_label into model config so losses know about it
+    # Usually label_map is {"bonafide": 1, "spoof": 0}
+    label_map = cfg.data.get("label_map", {"bonafide": 1, "spoof": 0})
+    # Handle both OmegaConf and dict
+    if hasattr(label_map, "get"):
+        bonafide_label = label_map.get("bonafide", 1)
+    else:
+        # Assuming dict-like access works or attribute access
+        bonafide_label = getattr(label_map, "bonafide", 1)
+    
+    cfg.model.bonafide_label = bonafide_label
+
     model_cfg = OmegaConf.to_container(cfg.model, resolve=True)
     detector = build_detector(cfg.model.type, model_cfg)
     detector.to(cfg.training.get("device", "cuda"))

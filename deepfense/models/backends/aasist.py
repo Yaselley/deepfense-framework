@@ -386,10 +386,10 @@ class AASIST(BaseBackend):
         super().__init__(config)
 
         self.config = config
-        filts = config["filts"]
-        gat_dims = config["gat_dims"]
-        pool_ratios = config["pool_ratios"]
-        temperatures = config["temperatures"]
+        filts = config.get("filts", [70, [1, 32], [32, 32], [32, 64], [64, 64]])
+        gat_dims = config.get("gat_dims", [64, 32])
+        pool_ratios = config.get("pool_ratios", [0.5, 0.7, 0.5, 0.5])
+        temperatures = config.get("temperatures", [2.0, 2.0, 100.0, 100.0])
         pool = config.get("pool", (1, 1))
 
         self.LL = nn.Linear(1024, 128)

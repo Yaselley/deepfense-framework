@@ -238,8 +238,8 @@ def get_pooling_layer(config, input_dim):
     """
     Selects the pooling layer based on config.pooling_type
     """
-    ptype = getattr(config, "pooling_type", "mean").lower()
-    stddev = getattr(config, "stddev", True)  # Use stats/std by default if applicable
+    ptype = config.get("pooling_type", "mean").lower()
+    stddev = config.get("stddev", True)  # Use stats/std by default if applicable
 
     if ptype in ["tap", "mean"]:
         return TAP(input_dim)
@@ -249,12 +249,12 @@ def get_pooling_layer(config, input_dim):
 
     elif ptype in ["att_stats", "asp"]:
         return AttentiveStatisticsPooling(
-            input_dim, stddev=stddev, hidden_size=getattr(config, "att_hidden_size", 64)
+            input_dim, stddev=stddev, hidden_size=config.get("att_hidden_size", 64)
         )
 
     elif ptype in ["mha", "multihead"]:
         return MultiHeadAttentionPooling(
-            input_dim, stddev=stddev, num_head=getattr(config, "heads", 4)
+            input_dim, stddev=stddev, num_head=config.get("heads", 4)
         )
 
     else:

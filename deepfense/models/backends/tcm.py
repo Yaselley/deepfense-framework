@@ -27,14 +27,12 @@ class TCM_Conformer(BaseBackend):
         super().__init__(config)
 
         # Extract configuration with defaults (based on your snippets)
-        self.emb_size = getattr(config, "emb_size", 128)
-        self.heads = getattr(config, "heads", 4)
-        self.ffmult = getattr(config, "ffmult", 4)
-        self.exp_fac = getattr(config, "exp_fac", 2)
-        self.kernel_size = getattr(config, "kernel_size", 16)
-        self.n_encoders = getattr(
-            config, "num_encoders", 1
-        )  # Note: 'num_encoders' vs 'n_encoders'
+        self.emb_size = config.get("emb_size", 128)
+        self.heads = config.get("heads", 4)
+        self.ffmult = config.get("ffmult", 4)
+        self.exp_fac = config.get("exp_fac", 2)
+        self.kernel_size = config.get("kernel_size", 16)
+        self.n_encoders = config.get("num_encoders", 1)  # Note: 'num_encoders' vs 'n_encoders'
 
         # Preprocessing Layers (Previously in Model class)
         # Projects 1024 (SSL) -> emb_size

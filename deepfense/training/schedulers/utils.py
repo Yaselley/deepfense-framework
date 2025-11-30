@@ -2,7 +2,7 @@ import torch
 from deepfense.utils.registry import register_scheduler
 
 
-@register_scheduler("step")
+@register_scheduler("step_lr")
 def StepLRScheduler(optimizer, config):
     step_size = config.get("step_size", 10)
     gamma = config.get("gamma", 0.1)

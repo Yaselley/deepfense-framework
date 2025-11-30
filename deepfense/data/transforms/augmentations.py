@@ -13,7 +13,7 @@ from typing import Optional, List
 import torch
 import torch.nn.functional as F
 from scipy import signal
-from deepfense.utils.registry import register_transform
+from deepfense.utils.registry import register_transform, build_transform
 from deepfense.data.transforms.RawBoost.data_utils_rawboost import (
     process_Rawboost_feature,
     get_default_args,
@@ -416,3 +416,58 @@ class DoClip:
         clipped_audio = np.clip(x, -clip_value, clip_value)
         
         return clipped_audio
+
+
+@register_transform("augmentation_pipeline")
+class AugmentationPipeline:
+    def __init__(self, transforms: list, mode: str = "sequential", k: Optional[int] = None, p: float = 1.0):
+        """
+        Args:
+            transforms (list): List of transform configs (dicts).
+            mode (str): "sequential" (chain) or "parallel" (one_of).
+            k (int, optional): Number of transforms to apply if mode is "sequential". 
+                               If None, applies all.
+            p (float): Probability of applying the pipeline itself.
+        """
+        self.transforms_configs = transforms
+        self.mode = mode.lower()
+        self.k = k
+        self.p = p
+        self.loaded_transforms = []
+        
+        # Build all transforms
+        for cfg in self.transforms_configs:
+            cfg_copy = cfg.copy()
+            t_type = cfg_copy.pop("type")
+            # Recursively build
+            self.loaded_transforms.append(build_transform(t_type, **cfg_copy))
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        if np.random.random() > self.p:
+            return x
+
+        if not self.loaded_transforms:
+            return x
+
+        if self.mode == "parallel":
+            # Parallel Strategy: Apply exactly ONE randomly selected transform
+            # Use random.choice
+            t = random.choice(self.loaded_transforms)
+            return t(x)
+            
+        elif self.mode == "sequential":
+            # Sequential Strategy
+            if self.k is None:
+                # Apply ALL in definition order
+                selected = self.loaded_transforms
+            else:
+                # Apply K randomly selected (in random order)
+                # This effectively is RandomOrder + RandomSubset
+                k_select = min(self.k, len(self.loaded_transforms))
+                selected = random.sample(self.loaded_transforms, k_select)
+                
+            for t in selected:
+                x = t(x)
+            return x
+            
+        return x

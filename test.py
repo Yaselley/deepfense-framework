@@ -13,6 +13,8 @@ from tqdm import tqdm
 # --- Import components from your project ---
 from deepfense.data.data_utils import build_dataloader
 from deepfense.utils.registry import build_detector
+# Import models to ensure they are registered
+from deepfense.models import * 
 from deepfense.training.evaluations.evaluator import Evaluator
 
 
