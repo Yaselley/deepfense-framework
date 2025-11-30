@@ -18,7 +18,8 @@ from deepfense.data.transforms.RawBoost.data_utils_rawboost import (
     process_Rawboost_feature,
     get_default_args,
 )
-from deepfense.data.transforms.utils import (
+
+from deepfense.data.transforms.audio_utils import (
     select_audio,
     select_multiple_audio,
     align_waveform,
@@ -400,9 +401,6 @@ class DoClip:
         self.noise_ratio = noise_ratio
         self.clip_low = clip_low
         self.clip_high = clip_high
-        # clip_prob seems redundant with noise_ratio in this architecture, 
-        # but keeping it to match logic if needed.
-        # But logic below used noise_ratio as main gate.
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         if np.random.random() > self.noise_ratio:
