@@ -79,14 +79,18 @@ Transformer-Coupled Module (Conformer-based) backend.
 Augmentations are applied to the raw waveform during data loading.
 
 ### **AugmentationPipeline** (`type: "augmentation_pipeline"`)
-A meta-transform that manages a list of other transforms with advanced selection strategies.
+A meta-transform that manages a list of other transforms with advanced selection and execution strategies.
 
 *   **Source**: `deepfense/data/transforms/augmentations.py`
 *   **Config Arguments**:
-    *   `mode` (str): Strategy mode.
-        *   `"sequential"`: Applies augmentations in sequence (or random subset).
-        *   `"parallel"`: Applies exactly one randomly selected augmentation (`OneOf`).
-    *   `k` (int, optional): If mode is `sequential`, applies `k` randomly selected augmentations. If `None`, applies all.
+    *   `mode` (str): **Selection Strategy**.
+        *   `"sequential"`: Selects `k` (or all) transforms.
+        *   `"parallel"`: Selects exactly 1 transform (`OneOf`).
+    *   `k` (int, optional): Number of transforms to select if mode is "sequential". If `None`, selects all.
+    *   `execution` (str): **Application Strategy**.
+        *   `"chain"`: Applies selected transforms in sequence to the same audio (`x -> t1 -> t2`).
+        *   `"independent"`: Applies selected transforms separately (`[t1(x), t2(x)]`).
+    *   `concat_original` (bool): If `True`, includes the original signal in the output stack (`[Original, Aug1, Aug2...]`). Useful for training on both clean and augmented versions simultaneously.
     *   `p` (float): Probability of applying the pipeline itself.
     *   `transforms` (list): List of transform configurations to manage.
 

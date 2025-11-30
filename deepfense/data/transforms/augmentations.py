@@ -420,82 +420,107 @@ class DoClip:
 
 @register_transform("augmentation_pipeline")
 class AugmentationPipeline:
-    def __init__(self, transforms: list, mode: str = "sequential", k: Optional[int] = None, p: float = 1.0):
+    def __init__(self, 
+                 transforms: list, 
+                 mode: str = "sequential", 
+                 k: Optional[int] = None, 
+                 p: float = 1.0,
+                 concat_original: bool = False,
+                 execution: str = "chain"):
         """
         Args:
             transforms (list): List of transform configs (dicts).
-            mode (str): "sequential" (chain) or "parallel" (one_of).
-            k (int, optional): Number of transforms to apply if mode is "sequential". 
-                               If None, applies all.
-            p (float): Probability of applying the pipeline itself.
+            mode (str): "sequential" or "parallel" (determines SELECTION strategy).
+                        "sequential": Selects 'k' (or all) transforms.
+                        "parallel": Selects 1 transform (OneOf).
+            k (int, optional): Number of transforms to select if mode="sequential".
+            p (float): Probability of applying the pipeline.
+            concat_original (bool): If True, returns [Original, Result].
+            execution (str): "chain" or "independent".
+                             "chain": Applies selected transforms in sequence to the same audio.
+                             "independent": Applies selected transforms separately to copies of original audio.
         """
         self.transforms_configs = transforms
-        self.mode = mode.lower()
+        self.mode = mode.lower() # Selection Strategy
         self.k = k
         self.p = p
-        self.loaded_transforms = []
+        self.concat_original = concat_original
+        self.execution = execution.lower() # Application Strategy
         
-        # Build all transforms
+        self.loaded_transforms = []
         for cfg in self.transforms_configs:
             cfg_copy = cfg.copy()
             t_type = cfg_copy.pop("type")
-            # Recursively build
             self.loaded_transforms.append(build_transform(t_type, **cfg_copy))
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         if np.random.random() > self.p:
             return x
-
+        
         if not self.loaded_transforms:
             return x
 
+        # 1. Selection Phase
         if self.mode == "parallel":
-            # Parallel Strategy: Apply exactly ONE randomly selected transform
-            # Use random.choice
-            t = random.choice(self.loaded_transforms)
-            return t(x)
-            
+            # Parallel Selection: Pick exactly 1
+            selected = [random.choice(self.loaded_transforms)]
         elif self.mode == "sequential":
-            # Sequential Strategy
-            if self.k is None:
-                # Apply ALL in definition order
-                selected = self.loaded_transforms
-            else:
-                # Apply K randomly selected (in random order)
-                # This effectively is RandomOrder + RandomSubset
-                k_select = min(self.k, len(self.loaded_transforms))
-                selected = random.sample(self.loaded_transforms, k_select)
-                
-            for t in selected:
-                x = t(x)
-            return x
-            
-        elif self.mode == "concat":
-            # Concat Strategy: Apply K transforms separately and stack them with original
-            # Result: [K+1, T] array
-            # If K is None, use all.
-            
-            # Capture input length to enforce consistency
-            target_len = x.shape[0]
-            results = [x]
-            
+            # Sequential Selection: Pick K (or all)
             if self.k is None:
                 selected = self.loaded_transforms
             else:
-                # Random K
                 k_select = min(self.k, len(self.loaded_transforms))
                 selected = random.sample(self.loaded_transforms, k_select)
-            
+        else:
+             # Default fallback (should not happen if config is correct)
+             selected = self.loaded_transforms
+
+        # 2. Execution Phase
+        target_len = x.shape[0]
+        
+        if self.execution == "independent":
+            # Apply each selected transform separately to a copy of x
+            # Returns list of results
+            augmented_results = []
             for t in selected:
-                # Apply to copy of x
                 res = t(x.copy())
-                
-                # Enforce target length (handle speed perturb etc)
+                # Ensure length consistency for stacking
                 if len(res) != target_len:
                     res = align_waveform(res, target_len, pad_noise=False)
+                augmented_results.append(res)
+            
+            # If concat_original is True, prepend original
+            if self.concat_original:
+                final_list = [x] + augmented_results
+            else:
+                # If independent application but NO concat?
+                # Usually means return list of augmentations?
+                # Or just the first one? 
+                # If we return a stack of just augmentations:
+                final_list = augmented_results
                 
-                results.append(res)
+            # If only 1 result and NOT stacking, return it directly (avoid dimension change)
+            # But "independent" usually implies multiple outputs or branching.
+            # If k=1 and independent, it's same as chain.
+            # If we have multiple results, we MUST stack.
+            if len(final_list) == 1 and not self.concat_original: 
+                 return final_list[0]
+            
+            return np.stack(final_list)
 
-            return np.stack(results)
-
-        return x
+        else: # execution == "chain"
+            # Apply selected transforms in sequence to x
+            out = x.copy()
+            for t in selected:
+                out = t(out)
+                # Note: intermediate transforms might change length (SpeedPerturb).
+                # If we chain, we let it change.
+                # BUT if we concat with original at the end, we might need alignment?
+                # Yes, if returning [Original, Augmented], they must match size for stacking.
+            
+            if self.concat_original:
+                if len(out) != target_len:
+                    out = align_waveform(out, target_len, pad_noise=False)
+                return np.stack([x, out])
+            
+            return out

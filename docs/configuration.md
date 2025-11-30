@@ -26,9 +26,11 @@ data:
     augment_transform:
       # Use AugmentationPipeline for advanced control
       - type: "augmentation_pipeline"
-        mode: "sequential" # or "parallel"
-        k: 2               # Apply 2 random transforms from the list (if sequential)
-        p: 1.0             # Probability to apply pipeline
+        mode: "sequential"       # "sequential" (pick K) or "parallel" (pick 1)
+        k: 2                     # Number of transforms to select (if sequential)
+        execution: "independent" # "chain" (sequential application) or "independent" (branching)
+        concat_original: True    # Stack original signal with augmented versions?
+        p: 1.0                   # Probability to apply pipeline
         transforms:
           - type: "rawboost"
             noise_ratio: 1.0 # Always apply if selected by pipeline

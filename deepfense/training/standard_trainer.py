@@ -4,8 +4,10 @@ import os
 import json
 import logging
 from typing import Dict, Optional
+import collections
 
 import numpy as np
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import torch
@@ -15,6 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 from deepfense.training.base_trainer import BaseTrainer
 from deepfense.utils.registry import register_trainer
 from deepfense.training.evaluations.evaluator import Evaluator
+from deepfense.utils.visualization import plot_det_curve, plot_score_hist, plot_tsne
 
 
 @register_trainer("StandardTrainer")
@@ -45,11 +48,12 @@ class StandardTrainer(BaseTrainer):
         # Output dirs (inherited/setup in BaseTrainer, but specialized here)
         self.results_dir = os.path.join(self.config.output_dir, "results")
         self.ckpts_dir = os.path.join(self.config.output_dir, "ckpts")
+        self.plots_dir = os.path.join(self.config.output_dir, "plots")
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.ckpts_dir, exist_ok=True)
+        os.makedirs(self.plots_dir, exist_ok=True)
 
         # Optimizers / Schedulers
-        # Uses BaseTrainer's _build_* methods which now use unified registry
         self.optimizer = self._build_optimizer(config.optimizer)
         self.scheduler = (
             self._build_scheduler(config.scheduler)
@@ -59,23 +63,19 @@ class StandardTrainer(BaseTrainer):
 
         # Evaluator
         metrics_config = config.get("metrics", None)
-        # If main_loss is available (it might not be if loss is hidden in detector.losses)
-        # ModularDetector handles loss internally now.
-        # We can try to guess the main loss name if needed for metrics, or just pass metrics config.
         if metrics_config and hasattr(self.model, "main_loss_type"):
              metrics_config["loss"] = self.model.main_loss_type
              
         self.evaluator = Evaluator(metrics_config) if metrics_config else None
+
+        # History tracking
+        self.metric_history = collections.defaultdict(list)
 
         # WandB
         if self.config.get("wandb", False):
             import wandb
 
             self.wandb = wandb
-            # Convert full config for logging? 
-            # Ideally we'd like the full config, but here we only have 'training'.
-            # The caller might need to handle wandb init globally, or we pass full config.
-            # For now, logging the training config.
             wandb_config = OmegaConf.to_container(config, resolve=True)
             wandb.init(
                 project=self.config.get("wandb_project", "DeepFense"), 
@@ -86,9 +86,6 @@ class StandardTrainer(BaseTrainer):
 
         self.logger = logging.getLogger("trainer")
 
-    # ------------------------------
-    # Training Loop
-    # ------------------------------
     def train(self):
         self.model.train()
 
@@ -158,7 +155,6 @@ class StandardTrainer(BaseTrainer):
                 )
 
             # Per-epoch eval
-            # Default to eval every epoch if not specified, or use 1
             eval_interval = self.config.get("eval_every_epochs", 1)
             if current_epoch % eval_interval == 0:
                 metrics = self.evaluate(
@@ -172,26 +168,18 @@ class StandardTrainer(BaseTrainer):
             ):
                 self.scheduler.step()
 
-    # ------------------------------
-    # Train one step
-    # ------------------------------
     def _train_step(self, batch):
-        """
-        Training step for batches with:
-            batch["x"], batch["label"], batch["mask"], batch["dataset_name"]
-        """
-        x = batch["x"].to(self.device)  # waveform or features
+        x = batch["x"].to(self.device)
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
 
         # Handle 'concat' augmentation (x: [B, N_aug, T])
-        # If we have [B, N, T] raw audio, flatten to [B*N, T] and repeat labels
         if x.ndim == 3 and labels.shape[0] == x.shape[0]:
-             # Heuristic: x is [B, N, T] and labels is [B]
              B, N, T = x.shape
-             
-             # Only flatten if T is large (likely audio) and N is small (augmentations)
-             # and we assume frontend expects [Batch, Time]
+             # DEBUG PRINT
+             if self.global_step < 5:
+                 self.logger.info(f"[ConcatAug] Detected 3D input: {x.shape}. Expanding to ({B*N}, {T}).")
+
              x = x.view(B * N, T)
              labels = labels.repeat_interleave(N)
              
@@ -206,24 +194,21 @@ class StandardTrainer(BaseTrainer):
 
         self.optimizer.zero_grad()
 
-        # Forward pass through the detector
         outputs = self.model(x, mask) if mask is not None else self.model(x)
-
-        # Compute total loss using ModularDetector's compute_loss
         loss = self.model.compute_loss(outputs, labels)
 
-        # Backpropagation
         loss.backward()
         self.optimizer.step()
 
         return loss.item()
 
-    # ------------------------------
-    # Evaluation
-    # ------------------------------
     def evaluate(self, epoch, step, eval_reason: str = None):
         self.model.eval()
         all_labels, all_scores, all_names, all_losses = [], [], [], []
+        all_embeddings = []
+        
+        # Flag to determine if we should collect embeddings
+        do_viz = self.config.get("visualize", False)
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluating", leave=False):
@@ -236,6 +221,9 @@ class StandardTrainer(BaseTrainer):
                     self.model(x, mask=mask) if mask is not None else self.model(x)
                 )
                 scores = outputs["scores"]
+                
+                if do_viz and "embeddings" in outputs:
+                    all_embeddings.append(outputs["embeddings"].detach().cpu().numpy())
 
                 batch_loss = self.model.compute_loss(outputs, labels)
                 all_losses.append(batch_loss.detach().cpu().item())
@@ -260,13 +248,95 @@ class StandardTrainer(BaseTrainer):
         if isinstance(average_metrics, dict):
             results.update(average_metrics)
         else:
-            results["average"] = average_metrics  # Fallback
+            results["average"] = average_metrics
 
         for ds in np.unique(names):
             mask_ds = names == ds
             results[str(ds)] = self._compute_metrics(labels[mask_ds], scores[mask_ds])
 
-        # Logging
+        # --- History Tracking & Trend Plotting ---
+        self._update_history(epoch, results)
+        self._plot_metric_trends(epoch)
+
+        # --- Visualization (Local & WandB) ---
+        if do_viz:
+            self._generate_visualizations(epoch, step, labels, scores, all_embeddings)
+
+        # Logging to Console & JSON
+        self._log_results(epoch, step, eval_reason, results)
+
+        if self.wandb:
+            self._log_wandb(step, results)
+
+        self.model.train()
+        return results
+
+    def _update_history(self, epoch, results):
+        # Flatten results to scalar metrics
+        for key, val in results.items():
+            if isinstance(val, (int, float)):
+                self.metric_history[key].append((epoch, val))
+            elif isinstance(val, dict):
+                # Flatten nested metrics? (e.g. Dataset1/EER)
+                # Currently results structure is flat for avg, but has keys for datasets
+                pass
+        
+        # If results has Dataset/Metric structure, flatten it
+        # results["Dataset1"]["EER"] -> key="Dataset1_EER"
+        for key, val in results.items():
+            if isinstance(val, dict):
+                for subk, subv in val.items():
+                    if isinstance(subv, (int, float)):
+                        full_key = f"{key}_{subk}"
+                        self.metric_history[full_key].append((epoch, subv))
+
+    def _plot_metric_trends(self, epoch):
+        # Plot each metric history
+        for metric_name, history in self.metric_history.items():
+            if not history:
+                continue
+            epochs, values = zip(*history)
+            
+            fig, ax = plt.subplots()
+            ax.plot(epochs, values, marker='o')
+            ax.set_title(f"{metric_name} Trend")
+            ax.set_xlabel("Epoch")
+            ax.set_ylabel(metric_name)
+            ax.grid(True)
+            
+            # Save locally
+            save_path = os.path.join(self.plots_dir, f"trend_{metric_name}.png")
+            fig.savefig(save_path)
+            plt.close(fig)
+
+    def _generate_visualizations(self, epoch, step, labels, scores, all_embeddings):
+        # 1. DET Curve
+        fig_det = plot_det_curve(labels, scores, title=f"DET Curve (Epoch {epoch})")
+        if fig_det:
+            fig_det.savefig(os.path.join(self.plots_dir, f"det_epoch{epoch}.png"))
+            if self.wandb:
+                self.wandb.log({"val/det_curve": self.wandb.Image(fig_det)}, step=step)
+            plt.close(fig_det) # ensure closed if visualization.py didn't
+
+        # 2. Score Hist
+        fig_hist = plot_score_hist(labels, scores, title=f"Score Hist (Epoch {epoch})")
+        if fig_hist:
+            fig_hist.savefig(os.path.join(self.plots_dir, f"hist_epoch{epoch}.png"))
+            if self.wandb:
+                self.wandb.log({"val/score_hist": self.wandb.Image(fig_hist)}, step=step)
+            plt.close(fig_hist)
+
+        # 3. t-SNE
+        if len(all_embeddings) > 0:
+            full_embeddings = np.concatenate(all_embeddings, axis=0)
+            fig_tsne = plot_tsne(full_embeddings, labels, title=f"t-SNE (Epoch {epoch})")
+            if fig_tsne:
+                fig_tsne.savefig(os.path.join(self.plots_dir, f"tsne_epoch{epoch}.png"))
+                if self.wandb:
+                    self.wandb.log({"val/tsne": self.wandb.Image(fig_tsne)}, step=step)
+                plt.close(fig_tsne)
+
+    def _log_results(self, epoch, step, eval_reason, results):
         if eval_reason == "step":
             title = f"--- 🏃 Mid-Epoch Validation (Epoch {epoch}, Step {step}) ---"
         elif eval_reason == "epoch":
@@ -303,26 +373,27 @@ class StandardTrainer(BaseTrainer):
             self.logger.info(f"📊 Dataset '{ds_name}': {ds_metrics_str}")
         self.logger.info("--------------------------------------------------")
 
-        # Save metrics JSON
         json_path = os.path.join(
             self.results_dir, f"metrics_epoch{epoch}_step{step}.json"
         )
         with open(json_path, "w") as f:
             json.dump(results, f, indent=2)
 
-        if self.wandb:
-            self.wandb.log(top_level_metrics, step=step)
-            for ds_name, metrics_dict in per_dataset_metrics.items():
-                self.wandb.log(
-                    {f"{ds_name}/{k}": v for k, v in metrics_dict.items()}, step=step
-                )
+    def _log_wandb(self, step, results):
+        top_level_metrics = {}
+        per_dataset_metrics = {}
+        for ds_name, metric_values in results.items():
+            if isinstance(metric_values, dict):
+                per_dataset_metrics[ds_name] = metric_values
+            else:
+                top_level_metrics[ds_name] = metric_values
 
-        self.model.train()
-        return results
+        self.wandb.log(top_level_metrics, step=step)
+        for ds_name, metrics_dict in per_dataset_metrics.items():
+            self.wandb.log(
+                {f"{ds_name}/{k}": v for k, v in metrics_dict.items()}, step=step
+            )
 
-    # ------------------------------
-    # Metrics + Checkpointing
-    # ------------------------------
     def _compute_metrics(self, labels, scores):
         if self.evaluator:
             results = self.evaluator.evaluate(labels, scores)
@@ -333,7 +404,7 @@ class StandardTrainer(BaseTrainer):
     def _maybe_checkpoint(self, metrics: Dict, epoch: int, step: int):
         metric = metrics
         monitor_metric = self.config.get("monitor_metric", "loss")
-        monitor_mode = self.config.get("monitor_mode", "min") # default to loss min
+        monitor_mode = self.config.get("monitor_mode", "min")
 
         try:
             current_metric = metric
