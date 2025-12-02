@@ -1,83 +1,77 @@
 # DeepFense Architecture
 
-This document provides a detailed overview of the DeepFense framework's architecture, explaining how data flows from input audio to the final detection score.
+This document details the modular architecture of DeepFense, explaining the data flow from raw audio input to the final spoofing detection score.
 
 ## 🏗️ System Skeleton
 
-DeepFense is built on a modular design pattern where every major component (Frontend, Backend, Loss) is interchangeable via configuration.
+DeepFense is built on a **Registry Pattern**. Every major component (Frontend, Backend, Loss, Transform) is registered via decorators (e.g., `@register_frontend`) and instantiated dynamically based on the YAML configuration.
 
 ### High-Level Data Flow
 
 ```mermaid
 graph TD
-    subgraph Data Pipeline
-        A[Raw Audio] -->|Load & Resample| B(Waveform)
-        B -->|Augmentations| C{Augmentation Pipeline}
-        C -->|RawBoost/Noise/etc| D[Augmented Waveform]
+    subgraph Data Loading ["Data Pipeline (deepfense/data)"]
+        A[Parquet File] -->|Read Metadata| B(StandardDataset)
+        B -->|Load Audio| C[Raw Waveform]
+        C -->|Augment| D{Augmentation Pipeline}
+        D -->|RawBoost/RIR/Codec| E[Augmented Audio]
     end
 
-    subgraph Model Architecture
-        D -->|Input| E[Frontend]
-        E -->|Extract Features| F[Features]
-        F -->|Input| G[Backend]
-        G -->|Process| H[Embeddings]
-        H -->|Input| I[Loss Module]
-        I -->|Calculate| J(Loss Value)
-        I -->|Calculate| K(Score/Logits)
+    subgraph Model ["Detector (deepfense/models)"]
+        E -->|Input| F[Frontend]
+        F -->|Wav2Vec2/WavLM| G[Features]
+        G -->|Input| H[Backend]
+        H -->|AASIST/MLP| I[Embeddings]
+        I -->|Input| J[Loss Module]
+        J -->|OCSoftmax/CE| K(Loss Value)
+        J -->|Calculate| L(Score/Logits)
     end
 
-    subgraph Training Loop
-        J -->|Backprop| L[Optimizer]
-        K -->|Validation| M[Metrics EER/minDCF]
+    subgraph Loop ["Training (deepfense/training)"]
+        K -->|Backprop| M[Optimizer]
+        L -->|Validation| N[Metrics EER/minDCF]
     end
 ```
 
-### Component Responsibilities
+## 🧩 Component Responsibilities
 
-#### 1. Data Pipeline (`deepfense/data`)
-*   **StandardDataset**: Reads metadata from Parquet files. It handles label mapping (Bonafide/Spoof -> 1/0).
+### 1. Data Pipeline (`deepfense/data`)
+
+*   **StandardDataset**: Reads metadata from Parquet files. It handles label mapping (`bonafide` -> 1, `spoof` -> 0).
 *   **AugmentationPipeline**: A flexible system that can run augmentations in:
     *   **Sequential**: Apply A, then B, then C.
     *   **Parallel (OneOf)**: Randomly pick one from [A, B, C].
     *   **Concat**: Produce multiple versions of the same audio (Original + Aug1 + Aug2) to train on all simultaneously.
-*   **CollateFn**: Handles padding of audio to `max_len` or the longest in the batch, and creates boolean masks (1 for valid, 0 for padding).
+*   **CollateFn**: Handles padding of audio to `max_len` or the longest in the batch.
 
-#### 2. The Detector (`deepfense/models/detector.py`)
-The `StandardDetector` is the central `nn.Module`. It doesn't implement logic itself but acts as a container/orchestrator.
-*   **Input**: Batch of audio `[B, T]`
-*   **Frontend**: Converts Audio `[B, T]` -> Features `[B, C, F, T']` (e.g., Wav2Vec2, MelSpectrogram).
-*   **Backend**: Converts Features `[B, C, F, T']` -> Fixed-size Embedding `[B, D]` (e.g., AASIST, ResNet, MLP).
-*   **Loss**: Takes Embeddings `[B, D]` and Labels `[B]` -> Computes Loss and Scores.
+### 2. The Detector (`deepfense/models/detector.py`)
 
-#### 3. The Trainer (`deepfense/training`)
+The `StandardDetector` is the central `nn.Module`. It acts as a container:
+*   **Frontend**: Converts Audio `[B, T]` $\rightarrow$ Features `[B, C, F, T']` (e.g., Wav2Vec2, MelSpectrogram).
+*   **Backend**: Converts Features $\rightarrow$ Fixed-size Embedding `[B, D]` (e.g., AASIST, ResNet, MLP).
+*   **Loss**: Takes Embeddings `[B, D]` and Labels `[B]` $\rightarrow$ Computes Loss and Scores.
+
+### 3. The Trainer (`deepfense/training`)
+
 *   **StandardTrainer**: Manages the training loop, checkpointing, logging (WandB/Console), and evaluation.
 *   **Evaluator**: Computes EER (Equal Error Rate) and minDCF (Minimum Detection Cost Function) at the end of epochs.
 
----
-
-## 🧩 Directory Structure Explained
+## Directory Structure
 
 ```text
 DeepFense/
 ├── deepfense/
 │   ├── config/           # ⚙️ YAML Configuration
-│   │   ├── train.yaml    # The "Main" config file users interact with
-│   │   └── ...
-│   ├── data/             # 💾 Data Handling
-│   │   ├── detection_dataset.py  # Dataset implementation
-│   │   └── transforms/           # Augmentation logic (RawBoost, etc.)
+│   ├── data/             # 💾 Data Handling (Datasets, Transforms)
 │   ├── models/           # 🧠 Neural Networks
-│   │   ├── detector.py   # The main wrapper class
-│   │   ├── frontends/    # wav2vec2.py, wavlm.py (Feature Extractors)
-│   │   ├── backends/     # aasist.py, mlp.py (Classifiers)
-│   │   └── losses/       # am_softmax.py, cross_entropy.py
-│   ├── training/         # 🏋️ Loop Logic
-│   │   ├── standard_trainer.py # Training loop implementation
-│   │   └── evaluations/  # EER/minDCF calculation code
+│   │   ├── detector.py   # Main Wrapper
+│   │   ├── frontends/    # Feature Extractors
+│   │   ├── backends/     # Classifiers
+│   │   └── losses/       # Loss Functions
+│   ├── training/         # 🏋️ Training Loop & Evaluators
 │   └── utils/            # 🛠️ Registry & Helpers
-│       └── registry.py   # Decorators that make the config magic work
-├── docs/                 # 📚 You are here
-├── outputs/              # 📂 Results (Logs, Checkpoints, Plots)
-├── train.py              # 🚀 Entry point for training
-└── test.py               # 🧪 Entry point for inference
+├── docs/                 # 📚 Documentation
+├── outputs/              # 📂 Results
+├── train.py              # 🚀 Training Entry Point
+└── test.py               # 🧪 Inference Entry Point
 ```
