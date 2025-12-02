@@ -48,7 +48,7 @@ class CrossEntropy(BaseLoss):
         logits = self.get_logits(embeddings)
         if self.num_classes == 2:
             # Return LLR based on configured labels
-            return logits[:, self.bonafide_label] - logits[:, self.spoof_label]
+            return logits[:, self.bonafide_label]
         return logits
 
     def get_logits(self, embeddings):

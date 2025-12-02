@@ -91,13 +91,6 @@ class AMSoftmaxLoss(BaseLoss):
         logits: (optional) pre-computed tuple (cos_x, phi_x) from mapper
         """
         if logits is not None:
-            # In AMSoftmax, get_logits returns cos_x, but we need (cos_x, phi_x) for training.
-            # If the passed 'logits' is just cos_x (from get_logits), we still need phi_x.
-            # So we might still need to run mapper if logits doesn't contain both.
-            # However, StandardDetector only gets 'scores' via get_logits() which returns cos_x.
-            # Re-running mapper is safer here unless we change get_logits to return full tuple.
-            # For now, we will NOT use the cached logits for AMSoftmax to avoid correctness issues,
-            # unless we change get_logits to return the full tuple (which we probably shouldn't for validation).
             pass
             
         input_tuple = self.mapper(embeddings)
