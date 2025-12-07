@@ -1,4 +1,4 @@
-exp_name : "W2V_AASIST"
+exp_name : "W2V_AASIST_SFLoss"
 output_dir: "./outputs/"
 seed: 1234
 
@@ -7,13 +7,13 @@ data:
   label_map: {"bonafide": 1, "spoof": 0}
 
   train:
-    batch_size: 32
+    batch_size: 24
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
       "/ds-slt/audio/adas/deepfense-framework/parquets/ASVspoof2019_LA_train.parquet",
       ]
-    
+
     base_transform:
       - type: "pad"
         max_len: 64600
@@ -26,7 +26,7 @@ data:
 
 
   val:
-    batch_size: 32
+    batch_size: 24
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
@@ -40,7 +40,7 @@ data:
         pad_type: "repeat"
 
   test:
-    batch_size: 32
+    batch_size: 24
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
@@ -52,28 +52,30 @@ data:
         max_len: 64600
         random_pad: False
         pad_type: "repeat"
-      
+
 detector:
   type: "StandardDetector"
 
-  frontend: 
+  frontend:
     type: "wav2vec2"
     args:
       ckpt_path: "/netscratch/adas/Projects/deepfense-framework/deepfense/models/pretrained/xlsr2_300m.pt"
 
-  backend: 
+  backend:
     type: "AASIST"
     args:
       filts: [128, [1, 32], [32, 32], [32, 64], [64, 64]]
       gat_dims: [64, 32]
       pool_ratios: [0.5, 0.5, 0.5, 0.5]
       temperatures: [2.0, 2.0, 100.0, 100.0]
-    
+
 
 loss:
   - # --- Loss 1: Cross Entropy ---
-    type: "CrossEntropy"
+    type: "SFSoftmax"
     weight: 0.5
+    margin: 2
+    scale: 30
     embedding_dim: 160
     n_classes: 2
     class_weights: [0.1, 0.9]
@@ -109,6 +111,6 @@ trainer:
   params:
     epochs: 10
     device: "cuda"
-    batch_size: 32
-    num_workers: 4
+    batch_size: 24
+    num_workers: 2
     monitor_metric: "EER"
