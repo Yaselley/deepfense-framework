@@ -1,5 +1,5 @@
 import torch
-from deepfense.training.optimizers.registry import register_optimizer
+from deepfense.utils.registry import register_optimizer
 
 
 @register_optimizer("adam")

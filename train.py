@@ -3,16 +3,17 @@ import argparse
 import yaml
 import logging
 from datetime import datetime
+from omegaconf import OmegaConf
 
 from deepfense.training.set_seed import set_seed
 from deepfense.data.data_utils import build_dataloader
-from deepfense.models.registry import DETECTOR
-from deepfense.training.registry import TRAINER_REGISTRY, TRAINER_CONFIG_REGISTRY
+from deepfense.models import * # Import models to register them
+from deepfense.utils.registry import build_detector, build_trainer
 
 
 def load_config(config_path):
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+    # Load as OmegaConf for better dot access and type safety later
+    return OmegaConf.load(config_path)
 
 
 def setup_logging(output_dir, exp_name):
@@ -24,7 +25,6 @@ def setup_logging(output_dir, exp_name):
 
     # Paths
     log_file = os.path.join(exp_dir, "train.log")
-    # config_out path is no longer needed here
 
     log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
     datefmt = "%Y-%m-%d %H:%M:%S"
@@ -44,13 +44,44 @@ def setup_logging(output_dir, exp_name):
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
 
-    logger = logging.getLogger("train")  # Matches what you use in main()
-
+    logger = logging.getLogger("train")
     logger.info(f"Experiment directory: {exp_dir}")
-    # Removed config log message
     logger.info(f"Logging re-configured successfully. All logs saving to {log_file}\n")
 
     return exp_dir
+
+
+def validate_config(cfg):
+    """
+    Perform basic validation on the configuration to catch errors early.
+    """
+    logger = logging.getLogger("train")
+    
+    # 1. Check Data Config
+    for split in ["train", "val"]:
+        if split in cfg.data:
+            ds_cfg = cfg.data[split]
+            p_files = ds_cfg.get("parquet_files", [])
+            ds_names = ds_cfg.get("dataset_names", [])
+            
+            if not p_files:
+                logger.error(f"No parquet files specified for {split}!")
+                raise ValueError(f"Missing parquet_files in data.{split}")
+                
+            if ds_names and len(p_files) != len(ds_names):
+                logger.warning(f"Mismatch in {split}: {len(p_files)} files vs {len(ds_names)} names.")
+
+            # Check file existence
+            for f in p_files:
+                if not os.path.exists(f):
+                    logger.error(f"Parquet file not found: {f}")
+                    raise FileNotFoundError(f"{f} does not exist")
+
+    # 2. Check Model Config
+    if not cfg.model.get("loss"):
+        logger.warning("No loss function defined in model config!")
+
+    logger.info("Configuration validation passed.")
 
 
 def main():
@@ -63,70 +94,80 @@ def main():
 
     # Load config
     cfg = load_config(args.config)
+    
+    # Validate config
+    validate_config(cfg)
 
     # Setup experiment directory + logging
-    base_output_dir = cfg["output_dir"]
+    base_output_dir = cfg.get("output_dir", "./outputs")
     exp_name = cfg.get("exp_name", "default_exp")
 
-    # --- MODIFIED: Call new setup_logging ---
     output_dir = setup_logging(base_output_dir, exp_name)
 
+    # Update config with actual output_dir
+    cfg.training.output_dir = output_dir
+    
     # Logging
     logger = logging.getLogger("train")
-    logger.info(f"Experiment directory: {output_dir}")
-
-    # --- MODIFICATIONS: Apply all config overrides ---
-    cfg["trainer"]["params"]["output_dir"] = (
-        output_dir  # override with exp-specific path
-    )
-
-    # add the labels to the config for dataset initialization
-    cfg["data"]["train"]["label_map"] = cfg["data"]["label_map"]
-    cfg["data"]["val"]["label_map"] = cfg["data"]["label_map"]
-
-    # add sampling_rate to the config for dataset initialization
-    cfg["data"]["train"]["sampling_rate"] = cfg["data"]["sampling_rate"]
-    cfg["data"]["val"]["sampling_rate"] = cfg["data"]["sampling_rate"]
-
-    # --- NEW: Save the *final* modified config ---
+    
+    # Save the final configuration
     config_out = os.path.join(output_dir, "config.yaml")
     try:
-        with open(config_out, "w") as f:
-            yaml.safe_dump(cfg, f, sort_keys=False)
+        OmegaConf.save(cfg, config_out)
         logger.info(f"Final configuration saved to: {config_out}")
     except Exception as e:
         logger.error(f"Failed to save final config: {e}")
 
     # set seed
-    set_seed(cfg["seed"])
+    set_seed(cfg.get("seed", 42))
 
     # DataLoaders
-    train_loader = build_dataloader(cfg["data"]["train"])
-    val_loader = build_dataloader(cfg["data"]["val"])
+    # Propagate global settings to data configs if needed
+    # e.g. sampling_rate, label_map
+    if "label_map" in cfg.data:
+        cfg.data.train.label_map = cfg.data.label_map
+        cfg.data.val.label_map = cfg.data.label_map
+        if "test" in cfg.data:
+            cfg.data.test.label_map = cfg.data.label_map
 
-    # Detector (frontend + backend + lossMapper)
-    detector_cfg = cfg["detector"]
-    loss_cfg = cfg["loss"]
-    detector_cfg["loss"] = loss_cfg
+    if "sampling_rate" in cfg.data:
+        cfg.data.train.sampling_rate = cfg.data.sampling_rate
+        cfg.data.val.sampling_rate = cfg.data.sampling_rate
+        if "test" in cfg.data:
+            cfg.data.test.sampling_rate = cfg.data.sampling_rate
 
-    detector = DETECTOR[detector_cfg["type"]](detector_cfg)
+    train_loader = build_dataloader(OmegaConf.to_container(cfg.data.train, resolve=True))
+    val_loader = build_dataloader(OmegaConf.to_container(cfg.data.val, resolve=True))
+
+    # Detector
+    # Expecting model config to contain frontend, backend, loss
+    
+    # Inject bonafide_label into model config so losses know about it
+    # Usually label_map is {"bonafide": 1, "spoof": 0}
+    label_map = cfg.data.get("label_map", {"bonafide": 1, "spoof": 0})
+    # Handle both OmegaConf and dict
+    if hasattr(label_map, "get"):
+        bonafide_label = label_map.get("bonafide", 1)
+    else:
+        # Assuming dict-like access works or attribute access
+        bonafide_label = getattr(label_map, "bonafide", 1)
+    
+    cfg.model.bonafide_label = bonafide_label
+
+    model_cfg = OmegaConf.to_container(cfg.model, resolve=True)
+    detector = build_detector(cfg.model.type, model_cfg)
+    detector.to(cfg.training.get("device", "cuda"))
 
     # Trainer
-    trainer_type = cfg["trainer"]["type"]
-    trainer_config_type = cfg["trainer"]["config_type"]
-    trainer_params = cfg["trainer"]["params"]
-
-    TrainerConfig = TRAINER_CONFIG_REGISTRY[trainer_config_type](**trainer_params)
-    TrainerClass = TRAINER_REGISTRY[trainer_type]
-
-    trainer = TrainerClass(
+    trainer_type = cfg.training.get("trainer", "StandardTrainer")
+    
+    # We pass the 'training' config section to the trainer
+    trainer = build_trainer(
+        trainer_type,
         model=detector,
         train_loader=train_loader,
         val_loader=val_loader,
-        optimizer_config=cfg.get("optimizer_config"),
-        scheduler_config=cfg.get("scheduler_config", None),
-        metrics_config=cfg.get("metrics", None),
-        config=TrainerConfig,
+        config=cfg.training,
     )
 
     # Resume

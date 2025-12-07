@@ -32,7 +32,7 @@ import numpy as np
 from sklearn.utils import resample
 from sklearn.metrics import accuracy_score
 
-from deepfense.training.evaluations.registry import register_eval
+from deepfense.utils.registry import register_metric
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
 from deepfense.training.evaluations.compute_eer import compute_det_curve
 
@@ -225,7 +225,7 @@ class Bootstrap:
         return self._ci
 
 
-@register_eval("EER_CI")
+@register_metric("EER_CI")
 def compute_eer_ci(labels, scores, params):
     """
     Compute Equal Error Rate (EER) with confidence interval and the corresponding threshold.

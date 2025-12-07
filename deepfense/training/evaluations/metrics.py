@@ -1,9 +1,9 @@
 import numpy as np
 from sklearn.metrics import f1_score, accuracy_score
-from deepfense.training.evaluations.registry import register_eval
+from deepfense.utils.registry import register_metric
 
 
-@register_eval("F1_SCORE")
+@register_metric("F1_SCORE")
 def compute_f1(labels, scores, params):
     """
     Computes F1-score from raw scores.
@@ -25,7 +25,7 @@ def compute_f1(labels, scores, params):
     return {"F1_SCORE": macro_f1}
 
 
-@register_eval("ACC")
+@register_metric("ACC")
 def compute_accuracy(labels, scores, params):
     """
     Computes Accuracy from raw scores.

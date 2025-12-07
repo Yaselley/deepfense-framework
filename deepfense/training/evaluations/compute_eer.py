@@ -2,7 +2,7 @@
 
 import numpy as np
 import logging
-from deepfense.training.evaluations.registry import register_eval
+from deepfense.utils.registry import register_metric
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
 # Get a logger for this module
@@ -63,7 +63,7 @@ def compute_det_curve(labels, scores, bonafide_label=1):
     return frr, far, thresholds
 
 
-@register_eval("EER")
+@register_metric("EER")
 def compute_eer(labels, scores, params, precise=False):
     """
     Compute Equal Error Rate (EER) and the corresponding threshold.

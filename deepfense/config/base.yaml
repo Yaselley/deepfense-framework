@@ -1,0 +1,84 @@
+seed: 42
+
+data:
+  sampling_rate: 16000
+  label_map:
+    bonafide: 0
+    spoof: 1
+
+  train:
+    dataset_type: "DetectionDataset" # Changed from detection_dataset
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"] # Placeholder, to be overridden
+    label_map: ${data.label_map} # Interpolate from parent
+    target_sr: ${data.sampling_rate} # Interpolate
+    mono: True
+    batch_size: 8
+    shuffle: True
+    base_transform: [] # Default to no base transform
+    augment_transform: # Example default augmentations
+      - type: "RandomCrop"
+        args: {output_size: 160000} # 10 seconds at 16kHz for 16kHz audio
+      - type: "AdditiveNoise"
+        args: {snr_range: [5, 15]}
+
+  validation:
+    dataset_type: "DetectionDataset" # Changed from detection_dataset
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"] # Placeholder
+    label_map: ${data.label_map}
+    target_sr: ${data.sampling_rate}
+    mono: True
+    batch_size: 8
+    shuffle: False
+    base_transform: []
+    augment_transform: []
+
+  test:
+    dataset_type: "DetectionDataset" # Changed from detection_dataset
+    parquet_files: [] # Placeholder
+    label_map: ${data.label_map}
+    target_sr: ${data.sampling_rate}
+    mono: True
+    batch_size: 1
+    shuffle: False
+    base_transform: []
+    augment_transform: []
+
+model:
+  detector:
+    type: "AASIST" # Default detector
+    frontend: 
+      type: "wav2vec2"
+      args: {ckpt_path: "/netscratch/adas/Projects/deepfense-framework/deepfense/models/pretrained/xlsr2_300m.pt"}
+    backend:
+      type: "AASIST" # Default backend
+      args: {filts: [64, 128, 256], gat_dims: [128, 128, 128], pool_ratios: [4, 4, 4], temperatures: [2, 2, 2]}
+  loss:
+    - type: "CrossEntropyLoss"
+      args: {} # Wrapped in a list
+
+trainer:
+  type: "StandardTrainer"
+  exp_name: "default_experiment" # Added
+  output_dir: "outputs" # Added
+  optimizer:
+    type: "Adam"
+    args: {lr: 0.000001}
+  epochs: 100
+  eval_every_epochs: 1 # Changed to 1 for consistency
+  monitor_metric: "eer"
+  monitor_mode: "min"
+  wandb: True
+  wandb_project: "DeepFense"
+  metrics:
+    ACC: {}
+    F1_SCORE: {}
+    EER: {}
+    EER_CI: {}
+    actDCF:
+      Pspoof: 0.05
+      Cmiss: 1
+      Cfa: 1
+    minDCF:
+      Pspoof: 0.05
+      Cmiss: 1
+      Cfa: 1

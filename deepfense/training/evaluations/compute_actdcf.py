@@ -1,17 +1,11 @@
 # https://github.com/asvspoof-challenge/asvspoof5/tree/main/evaluation-package
 
 import numpy as np
-from deepfense.training.evaluations.registry import register_eval
+from deepfense.utils.registry import register_metric
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
-from deepfense.training.evaluations.registry import register_eval
-
-import numpy as np
-
-# Make sure to register it if you haven't!
-from deepfense.training.evaluations.registry import register_eval
 
 
-@register_eval("actDCF")
+@register_metric("actDCF")
 def compute_actDCF(labels, scores, params):
     """
     Compute the actual Detection Cost Function (actDCF).

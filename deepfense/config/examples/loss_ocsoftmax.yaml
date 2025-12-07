@@ -1,0 +1,76 @@
+exp_name: "OCSoftmax_Experiment"
+output_dir: "./outputs/OCSoftmax/"
+seed: 888
+
+data:
+  sampling_rate: 16000
+  label_map: {"bonafide": 0, "spoof": 1} # NOTE: OCSoftmax often expects bonafide to be class 0 for "center" logic, but our implementation handles it. 
+  # Let's stick to standard 1=bonafide, 0=spoof in global map, and let the model handle it.
+  # Wait, OCSoftmax implementation usually centers around class 0. 
+  # Let's check the implementation details in deepfense/models/losses/oc_softmax.py if needed.
+  # Assuming standard map:
+  # label_map: {"bonafide": 1, "spoof": 0}
+  
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Train"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"]
+    batch_size: 24
+    shuffle: True
+    base_transform: [{type: "pad", max_len: 48000}]
+    
+    augment_transform:
+      - type: "drop_chunk"
+        noise_ratio: 0.5
+        drop_length_low: 1000
+        drop_length_high: 5000
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Val"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"]
+    batch_size: 24
+    base_transform: [{type: "pad", max_len: 48000}]
+
+model:
+  type: "StandardDetector"
+  
+  frontend:
+    type: "hubert"
+    args:
+      ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
+
+  backend:
+    type: "tcm" # TCM Conformer
+    args:
+      # TCM specific args
+      # ...
+
+  loss:
+    - type: "OCSoftmax"
+      weight: 1.0
+      embedding_dim: 128 
+      # OCSoftmax specific args
+      # It usually learns a center for the "target" class.
+      # In our BaseLoss, we pass bonafide_label. 
+      # Implementation should handle using that label as the target center.
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 30
+  device: "cuda"
+  eval_every_steps: 500
+  monitor_metric: "EER"
+  monitor_mode: "min"
+
+  optimizer:
+    type: "adam"
+    lr: 0.0003
+
+  scheduler:
+    type: "cosine"
+    T_max: 30
+
+  metrics:
+    EER: {}
+

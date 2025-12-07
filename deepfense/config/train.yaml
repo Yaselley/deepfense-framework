@@ -10,10 +10,10 @@ data:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/netscratch/yelkheir/DeepFense/DeepFense/tests/train.parquet",
+      "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet",
       ]
     
-    batch_size: 1
+    batch_size: 10
     shuffle: True
 
     base_transform:
@@ -27,15 +27,17 @@ data:
         noise_ratio: 0.4
         param2: 3
         param3: 10
-
-      # - type: "rir"
-      #   csv_file: path to RIR
+      
+      # Enable RIR to test optimization (make sure csv exists or is handled gracefully)
+      - type: "rir"
+        noise_ratio: 0.5
+        csv_file: "/netscratch/yelkheir/DeepFense/DeepFense/rirs.csv" 
 
   val:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/netscratch/yelkheir/DeepFense/DeepFense/tests/test.parquet",
+      "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet",
       ]
 
     batch_size: 1
@@ -50,84 +52,72 @@ data:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/netscratch/yelkheir/DeepFense/DeepFense/tests/test.parquet",
+      "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet",
       ]
       
-detector:
+model:
   type: "StandardDetector"
-
-  # frontend: 
-  #   type: "wav2vec2"
-  #   args:
-  #     ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
 
   frontend: 
     type: "wavlm"
     args:
       ckpt_path: "/netscratch/yelkheir/ssl_models/WavLM-Large.pt"
 
-  # backend: 
-  #   type: "AASIST"
-  #   args:
-  #     filts: [128, [1, 32], [32, 32], [32, 64], [64, 64]]
-  #     gat_dims: [64, 32]
-  #     pool_ratios: [0.5, 0.5, 0.5, 0.5]
-  #     temperatures: [2.0, 2.0, 100.0, 100.0]
-  
   backend: 
     type: "Nes2Net"
     args:
       input_dim: 1024 
       pool: mean 
+      
+  loss:
+    - # --- Loss 1: Cross Entropy ---
+      type: "CrossEntropy"
+      weight: 0.5
 
-loss:
-  - # --- Loss 1: Cross Entropy ---
-    type: "CrossEntropy"
-    weight: 0.5
+      embedding_dim: 1024
+      n_classes: 2
+      class_weights: [0.1, 0.9]
 
-    embedding_dim: 1024
-    n_classes: 2
-    class_weights: [0.1, 0.9]
+    - # --- Loss 2: AMSoftmax ---
+      type: "AMSoftmax"
+      weight: 0.5                
 
-  - # --- Loss 2: AMSoftmax ---
-    type: "AMSoftmax"
-    weight: 0.5                
+      embedding_dim: 1024
+      n_classes: 2
+      s: 30.0                       
+      m: 0.4
 
-    embedding_dim: 1024
-    n_classes: 2
-    s: 30.0                       
-    m: 0.4
+training:
+  trainer: "StandardTrainer"
+  epochs: 10
+  device: "cuda"
+  num_workers: 4
+  batch_log_interval: 10
+  # eval_every_epochs: 1
+  eval_every_steps: 1
+  monitor_metric: "EER"
+  monitor_mode: "min"
+  output_dir: "./outputs/" # Will be overridden
 
-
-optimizer_config:
-  type: "adam"
-  params:
+  optimizer:
+    type: "adam"
     lr: 0.000001
     weight_decay: 0.0001
 
-scheduler_config:
-  type: "exponential"
-  params:
+  scheduler:
+    type: "exponential"
     gamma: 0.9
 
-metrics:
-  ACC: {}
-  F1_SCORE: {}
-  EER: {}
-  EER_CI: {}
-  actDCF:
-    Pspoof: 0.05
-    Cmiss: 1
-    Cfa: 1
-  minDCF:
-    Pspoof: 0.05
-    Cmiss: 1
-    Cfa: 1
-
-trainer:
-  type: "StandardTrainer"
-  config_type: "StandardConfig"
-  params:
-    device: "cuda"
-    num_workers: 4
-    monitor_metric: "EER"
+  metrics:
+    ACC: {}
+    F1_SCORE: {}
+    EER: {}
+    EER_CI: {}
+    actDCF:
+      Pspoof: 0.05
+      Cmiss: 1
+      Cfa: 1
+    minDCF:
+      Pspoof: 0.05
+      Cmiss: 1
+      Cfa: 1

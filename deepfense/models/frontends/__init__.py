@@ -1,4 +1,6 @@
-from deepfense.models.frontends.registry import FRONTEND
-from deepfense.models.frontends.Wav2Vec2 import *
-from deepfense.models.frontends.WavLM import *
-from deepfense.models.frontends.HuBERT import *
+from .wav2vec2 import Wav2VecWrapper
+from .wavlm import WavLMWrapper
+from .hubert import HubertWrapper
+from .mert import MERTWrapper
+from .eat import EATWrapper
+# from .mel_spec import MelSpectrogram # If implemented

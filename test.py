@@ -4,6 +4,7 @@ import argparse
 import yaml
 import logging
 from datetime import datetime
+from omegaconf import OmegaConf
 
 import numpy as np
 import torch
@@ -11,14 +12,15 @@ from tqdm import tqdm
 
 # --- Import components from your project ---
 from deepfense.data.data_utils import build_dataloader
-from deepfense.models.registry import DETECTOR
+from deepfense.utils.registry import build_detector
+# Import models to ensure they are registered
+from deepfense.models import * 
 from deepfense.training.evaluations.evaluator import Evaluator
 
 
 def load_config(config_path):
     """Loads a YAML config file."""
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+    return OmegaConf.load(config_path)
 
 
 def setup_logging_test(output_dir):
@@ -58,15 +60,14 @@ def _compute_metrics(evaluator, labels, scores):
     return {}
 
 
-# --- MODIFIED: Function updated to save a single predictions.txt file ---
 def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
     """
-    Runs the evaluation loop, adapted from StandardTrainer.evaluate.
+    Runs the evaluation loop.
     Saves predictions to output_dir/results/predictions
     """
     model.eval()
     all_labels, all_scores, all_names, all_losses = [], [], [], []
-    all_keys = []  # --- NEW: To store audio IDs
+    all_keys = [] 
 
     logger.info("Starting evaluation on the test set...")
 
@@ -76,8 +77,6 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
             labels = batch["label"].to(device)
             mask = batch.get("mask", None)
             names = batch["dataset_name"]
-
-            # Common key names are 'key', 'keys', 'id', 'ids', 'audio_id'
             keys = batch["ID"]
 
             outputs = model(x, mask=mask) if mask is not None else model(x)
@@ -129,58 +128,38 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
         # Compute metrics
         results[str(ds)] = _compute_metrics(evaluator, ds_labels, ds_scores)
 
-        # --- NEW: Save predictions to a single .txt file per dataset ---
-
-        # 1. Handle placeholder IDs if keys were not found in batch
+        # --- Save predictions to a single .txt file per dataset ---
         if len(ds_keys) != len(ds_labels):
-            if len(ds_keys) == 0:
-                logger.warning(
-                    f"No 'keys' found in batch for dataset '{ds}'. Generating placeholder IDs."
-                )
-            else:
-                logger.warning(
-                    f"Mismatched keys and labels for dataset '{ds}'. Generating placeholder IDs."
-                )
             ds_keys = [f"{ds}_sample_{i:06d}" for i in range(len(ds_labels))]
 
-        # 2. Process scores into class 0 and class 1
         scores_c0, scores_c1 = None, None
         if ds_scores.ndim == 1:
-            # Assume score is for class 1 (positive)
             scores_c1 = ds_scores
             scores_c0 = 1.0 - ds_scores
         elif ds_scores.ndim == 2 and ds_scores.shape[1] == 2:
-            # Assume [class_0, class_1]
             scores_c0 = ds_scores[:, 0]
             scores_c1 = ds_scores[:, 1]
         elif ds_scores.ndim == 2 and ds_scores.shape[1] == 1:
-            # Assume [[class_1], [class_1], ...]
             scores_c1 = ds_scores.flatten()
             scores_c0 = 1.0 - scores_c1
         else:
-            logger.error(
-                f"Unsupported score shape {ds_scores.shape} for dataset '{ds}'. Cannot save predictions."
-            )
-            continue  # Skip to next dataset
+            continue 
 
-        # 3. Write the file
         prediction_file_path = os.path.join(
             predictions_dir, f"{str(ds)}_predictions.txt"
         )
         try:
             with open(prediction_file_path, "w") as f:
-                f.write("ID_audio,label,score_class0,score_class1\n")  # Header
+                f.write("ID_audio,label,score_class0,score_class1\n")
                 for i in range(len(ds_labels)):
                     f.write(
                         f"{ds_keys[i]},{int(ds_labels[i])},{scores_c0[i]:.8f},{scores_c1[i]:.8f}\n"
                     )
         except Exception as e:
             logger.warning(f"Failed to save prediction file for dataset '{ds}': {e}")
-        # --- END NEW SECTION ---
 
-    # --- Log results to console/file ---
+    # --- Log results ---
     logger.info("--- Test Results ---")
-
     top_level_metrics = {}
     per_dataset_metrics = {}
 
@@ -191,19 +170,13 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
             top_level_metrics[ds_name] = metric_values
 
     avg_metrics_str = ", ".join(
-        [
-            f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}"
-            for k, v in top_level_metrics.items()
-        ]
+        [f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in top_level_metrics.items()]
     )
     logger.info(f"📈 Overall Metrics: {avg_metrics_str}")
 
     for ds_name, metrics_dict in per_dataset_metrics.items():
         ds_metrics_str = ", ".join(
-            [
-                f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}"
-                for k, v in metrics_dict.items()
-            ]
+            [f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in metrics_dict.items()]
         )
         logger.info(f"📊 Dataset '{ds_name}': {ds_metrics_str}")
     logger.info("------------------------")
@@ -212,78 +185,57 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run testing from a config and checkpoint."
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        required=True,
-        help="Path to the YAML config file (e.g., config.yaml)",
-    )
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        required=True,
-        help="Path to the model checkpoint file (e.g., best_model.pth)",
-    )
+    parser = argparse.ArgumentParser(description="Run testing from a config and checkpoint.")
+    parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file")
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to the model checkpoint file")
     args = parser.parse_args()
 
     # --- 1. Setup ---
-    # Determine output folder (same as checkpoint folder)
     output_dir = os.path.dirname(args.checkpoint)
     results_path = os.path.join(output_dir, "results.json")
 
-    # Setup logging
     logger = setup_logging_test(output_dir)
     logger.info(f"Loading config from: {args.config}")
     logger.info(f"Loading checkpoint from: {args.checkpoint}")
 
-    # Load config
     cfg = load_config(args.config)
 
-    # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
     # --- 2. Build Model ---
-    detector_cfg = cfg["detector"]
-    detector_cfg["loss"] = cfg["loss"]  # Add loss config as train.py does
-    model = DETECTOR[detector_cfg["type"]](detector_cfg)
+    # model: {type: ..., frontend: ..., backend: ..., loss: ...}
+    model_cfg = OmegaConf.to_container(cfg.model, resolve=True)
+    model = build_detector(cfg.model.type, model_cfg)
     model.to(device)
 
     # --- 3. Load Checkpoint ---
     try:
         state = torch.load(args.checkpoint, map_location=device)
         model.load_state_dict(state["model_state"])
-        logger.info(
-            f"Successfully loaded model state from epoch {state.get('epoch', 'N/A')}, step {state.get('step', 'N/A')}"
-        )
+        logger.info(f"Successfully loaded model state.")
     except Exception as e:
         logger.error(f"Failed to load checkpoint: {e}")
         return
 
     # --- 4. Build Test Dataloader ---
     try:
-        test_cfg = cfg["data"]["test"]
-        test_cfg["label_map"] = cfg["data"]["label_map"]
-        test_cfg["sampling_rate"] = cfg["data"]["sampling_rate"]
-    except KeyError:
-        logger.error("Could not find 'data.test' section in config file.")
+        test_cfg = OmegaConf.to_container(cfg.data.test, resolve=True)
+        # Inject global data settings
+        if "label_map" in cfg.data:
+            test_cfg["label_map"] = OmegaConf.to_container(cfg.data.label_map, resolve=True)
+        if "sampling_rate" in cfg.data:
+            test_cfg["sampling_rate"] = cfg.data.sampling_rate
+    except Exception:
+        logger.error("Could not configure test dataset.")
         return
 
     test_loader = build_dataloader(test_cfg)
     logger.info(f"Test dataloader built successfully.")
 
     # --- 5. Build Evaluator ---
-    metrics_config = cfg.get("metrics", None)
-    if metrics_config:
-        metrics_config["loss"] = model.main_loss.lower()
-        evaluator = Evaluator(metrics_config)
-        logger.info("Evaluator built successfully.")
-    else:
-        evaluator = None
-        logger.warning("No 'metrics' config found. Only loss will be reported.")
+    metrics_config = OmegaConf.to_container(cfg.training.metrics, resolve=True) if "metrics" in cfg.training else None
+    evaluator = Evaluator(metrics_config) if metrics_config else None
 
     # --- 6. Run Evaluation ---
     results = run_evaluation(model, test_loader, evaluator, device, logger, output_dir)

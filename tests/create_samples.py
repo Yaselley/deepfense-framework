@@ -6,8 +6,9 @@ path = "/netscratch/yelkheir/fft_test.wav"
 
 # Create dataframe
 data = {
-    "path": [path] * 10,
-    "label": np.random.choice(["bonafide", "spoof"], size=10)
+    "ID": "How are you",
+    "path": [path] * 10000,
+    "label": np.random.choice(["bonafide", "spoof"], size=10000),
 }
 
 df = pd.DataFrame(data)

@@ -1,0 +1,71 @@
+site_name: DeepFense Framework
+site_description: A modular, configuration-driven framework for Deepfake Audio Detection.
+site_author: DeepFense Team
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+  logo: logo/logo.png
+  favicon: logo/logo.png
+
+repo_url: https://github.com/yourusername/DeepFense
+repo_name: DeepFense
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Tutorials:
+    - Getting Started: tutorials/getting_started.md
+    - Extending DeepFense: tutorials/extending.md
+  - User Guide:
+    - Configuration: user_guide/configuration.md
+    - Training Workflow: user_guide/training.md
+    - Inference: user_guide/inference.md
+  - API Reference:
+    - Data Pipeline:
+      - Datasets: api/data/datasets.md
+      - Augmentations: api/data/augmentations.md
+      - Transforms: api/data/transforms.md
+    - Models:
+      - Detector: api/models/detector.md
+      - Frontends: api/models/frontends.md
+      - Backends: api/models/backends.md
+      - Losses: api/models/losses.md
+    - Training:
+      - Trainer: api/training/trainer.md
+      - Evaluations: api/training/evaluations.md
+    - Utilities:
+      - Registry: api/utils/registry.md
+      - Visualization: api/utils/visualization.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+

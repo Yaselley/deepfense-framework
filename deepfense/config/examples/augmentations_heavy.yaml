@@ -1,0 +1,109 @@
+exp_name: "HeavyAugmentations_AASIST"
+output_dir: "./outputs/HeavyAugmentations/"
+seed: 1234
+
+data:
+  sampling_rate: 16000
+  label_map:
+    bonafide: 1
+    spoof: 0
+
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["ASVSpoof19_Train"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"] # Replace with actual path
+    batch_size: 16
+    shuffle: True
+    num_workers: 4
+    
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+
+    augment_transform:
+      - type: "augmentation_pipeline"
+        mode: "sequential"
+        k: 2
+        p: 1.0
+        execution: "independent"  # Apply augmentations separately (branching)
+        concat_original: True     # Stack with original -> [Original, Aug1, Aug2]
+        transforms:
+          - type: "rawboost"
+            noise_ratio: 1.0
+            algo: 5
+          
+          - type: "rir"
+            noise_ratio: 1.0
+            csv_file: "/netscratch/yelkheir/DeepFense/DeepFense/rirs.csv"
+          
+          - type: "add_noise"
+            noise_ratio: 1.0
+            csv_file: "/netscratch/yelkheir/DeepFense/DeepFense/rirs.csv"
+            snr_low: 10
+            snr_high: 30
+          
+          - type: "speed_perturb"
+            noise_ratio: 1.0
+            speeds: [90, 95, 100, 105, 110]
+
+          - type: "do_clip"
+            noise_ratio: 1.0
+            clip_low: 0.6
+            clip_high: 0.9
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["ASVSpoof19_Val"]
+    parquet_files: ["/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"] # Replace with actual path
+    batch_size: 16
+    shuffle: False
+    num_workers: 2
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+
+model:
+  type: "StandardDetector"
+  
+  frontend:
+    type: "wav2vec2"
+    args:
+      ckpt_path: "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
+      freeze: True
+
+  backend:
+    type: "AASIST"
+
+  loss:
+    - type: "AMSoftmax"
+      weight: 1.0
+      embedding_dim: 160 # Depends on AASIST output
+      n_classes: 2
+      m: 0.4
+      s: 40
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 50
+  device: "cuda"
+  eval_every_steps: 1000
+  monitor_metric: "EER"
+  monitor_mode: "min"
+
+  optimizer:
+    type: "adam"
+    lr: 0.0001
+    weight_decay: 0.0001
+
+  scheduler:
+    type: "cosine"
+    T_max: 50
+    eta_min: 0.000001
+
+  metrics:
+    EER: {}
+    minDCF:
+      Pspoof: 0.05
+      Cmiss: 1
+      Cfa: 1
+
