@@ -8,14 +8,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def select_audio(csv_file: str, 
+def select_audio(csv_file,
                  sample_rate: int = 16000) -> np.ndarray:
     """
     csv_file path should have a list of paths
     the function randomly read a path from the csv file
     load and return the audio
     """
-    df = pd.read_csv(csv_file)
+    if isinstance(csv_file, str):
+        df = pd.read_csv(csv_file)
+    else:
+        df = csv_file
     path = df.sample(1)["path"].values[0]
     audio, sr = librosa.load(path, sr=sample_rate, mono=True)
     return audio
