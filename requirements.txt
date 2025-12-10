@@ -21,7 +21,6 @@ transformers>=4.50,<5.0
 tokenizers
 # Utilities
 tqdm
-pyyaml
 typing-extensions
 safetensors
 wandb>=0.12,<1.0
