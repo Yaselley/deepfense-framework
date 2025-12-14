@@ -89,8 +89,8 @@ class RawBoost:
         self.sample_rate = 16000 # Fixed in original code
         self.params = get_default_args()
         # Allow overriding default args from config if needed
-        # for k, v in kwargs.items():
-        #     setattr(self.params, k, v)
+        for k, v in kwargs.items():
+            setattr(self.params, k, v)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         if np.random.random() > self.noise_ratio:
@@ -105,7 +105,6 @@ class RawBoost:
                 algo=self.algo,
             )
         except Exception as e:
-            # print(f"Warning: RawBoost augmentation failed: {e}")
             return audio
 
 
