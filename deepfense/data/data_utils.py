@@ -75,6 +75,7 @@ def build_dataloader(config):
 
     batch_size = config.get("batch_size", 8)
     shuffle = config.get("shuffle", False)
+    num_workers = config.get("num_workers", 0)
 
     # Return DataLoader
     return DataLoader(
@@ -82,4 +83,5 @@ def build_dataloader(config):
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=lambda b: collate_fn(b, max_pad=config.get("max_len", None)),
+        num_workers=num_workers
     )
