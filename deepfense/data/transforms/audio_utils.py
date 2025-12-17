@@ -18,7 +18,7 @@ def select_audio(pd_files,
     df = pd_files
     path = df.sample(1)["path"].values[0]
     audio, sr = librosa.load(path, sr=sample_rate, mono=True)
-    print("selected audio path: ", path)
+    #print("selected audio path: ", path)
     return audio
 
 
