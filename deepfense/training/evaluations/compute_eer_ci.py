@@ -271,8 +271,10 @@ def compute_eer_ci(labels, scores, params):
         num_bootstraps=bootstrap_num,
         alpha=bootstrap_alpha,
     )
-    ci = (ci[1] - ci[0]) / 2.0
+    #ci = (ci[1] - ci[0]) / 2.0
 
     return {
-        "EER_CI": float(ci),
+        "EER_CI": float((ci[1] - ci[0]) / 2.0),
+        "EER_CI_LOW": float(ci[0]),
+        "EER_CI_HIGH": float(ci[1])
     }
