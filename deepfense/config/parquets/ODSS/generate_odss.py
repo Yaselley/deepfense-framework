@@ -78,10 +78,10 @@ def main():
         type=str,
         default=str(output_dir),
     )
-    print(f"Writing parquet files to {output_dir}") 
     
     args = parser.parse_args()
     output_dir = Path(args.output_dir)
+    print(f"Writing parquet files to {output_dir}") 
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
