@@ -2,11 +2,6 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-# Hardcoded label map: only 'original' maps to 'bonafide'
-LABEL_MAP = {
-    'original': 'bonafide'
-}
-
 def process_compspoof_dataset(meta_file, audio_dir):
     """
     Process CompSpoof dataset by reading metadata files and scanning audio files.
@@ -14,7 +9,7 @@ def process_compspoof_dataset(meta_file, audio_dir):
     - CompSpoof_train.txt, CompSpoof_dev.txt, CompSpoof_eval.txt
     - Format: mixed_audio speech_source env_source class_label (4 space-separated fields)
     - Each line has three audio files: mixed_audio, speech_source, env_source
-    - Labels are mapped using LABEL_MAP, with 'original' mapping to 'bonafide'
+    - Labels: [original, bonafide_bonafide, spoof_bonafide, bonafide_spoof, spoof_spoof]
 
     Args:
         meta_file: Path to the metadata text file (e.g., CompSpoof_train.txt)
@@ -43,15 +38,13 @@ def process_compspoof_dataset(meta_file, audio_dir):
             if not line:
                 continue
             
-            # mixed_audio speech_source env_source class_label
+            # mixed_audio speech_source env_source mixed_label
             parts = line.split()
             
             mixed_audio = parts[0]
             speech_source = parts[1]
             env_source = parts[2]
-            class_label = parts[3]
-            
-            mixed_label = LABEL_MAP.get(class_label, class_label)
+            mixed_label = parts[3]
             
             mixed_audio_path = audio_dir / mixed_audio
             if mixed_audio_path.exists():
@@ -67,10 +60,10 @@ def process_compspoof_dataset(meta_file, audio_dir):
             else:
                 print(f"Warning: Mixed audio file not found: {mixed_audio_path}")
 
-            if class_label == 'original':
+            if mixed_label == 'original':
                 continue
             
-            label_parts = class_label.split('_')
+            label_parts = mixed_label.split('_')
             speech_label, env_label = label_parts
             
             speech_source_path = audio_dir / speech_source
