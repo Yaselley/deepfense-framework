@@ -63,6 +63,12 @@ def main():
         required=True,
         help="Root directory containing the processed DECRO dataset"
     )
+    
+    parser.add_argument(
+        "--meta_root",
+        type=str,
+        default=None,
+    )
 
     script_dir = Path(__file__).parent.absolute()
     output_dir = script_dir
@@ -77,6 +83,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
+    meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
     splits = [
         ("en_train.txt", "en_train"),
         ("en_dev.txt", "en_dev"),
@@ -88,7 +95,7 @@ def main():
     
     all_data = {}
     for protocol_file, split_name in splits:
-        txt_file = data_root / protocol_file
+        txt_file = meta_root / protocol_file
         split_data = process_decro_protocol(txt_file, data_root, split_name)
         all_data[split_name] = split_data
     

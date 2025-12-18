@@ -2,7 +2,7 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-def process_ctrsvdd_dataset(data_root):
+def process_ctrsvdd_dataset(data_root, meta_root):
     """
     Process CtrSVDD dataset by reading test.txt and scanning audio files.
     The dataset contains:
@@ -15,16 +15,18 @@ def process_ctrsvdd_dataset(data_root):
 
     Args:
         data_root: root directory containing the uncompressed CtrSVDD dataset
+        meta_root: root directory containing the metadata files
     
     Returns:
         List of dicts containing ID, path, label, and dataset_name
     """
     data_root = Path(data_root)
+    meta_root = Path(meta_root)
     if not data_root.exists():
         print(f"Error: Data root directory not found: {data_root}")
         return []
     
-    test_txt = data_root / "test.txt"
+    test_txt = meta_root / "test.txt"
     test_set_dir = data_root / "test_set"
     
     if not test_txt.exists():
@@ -78,6 +80,12 @@ def main():
         required=True,
     )
     
+    parser.add_argument(
+        "--meta_root",
+        type=str,
+        default=None,
+    )
+    
     output_dir = Path(__file__).parent.absolute()
     parser.add_argument(
         "--output_dir",
@@ -91,7 +99,8 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
-    all_data = process_ctrsvdd_dataset(data_root)
+    meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
+    all_data = process_ctrsvdd_dataset(data_root, meta_root)
     
     if all_data:
         df = pd.DataFrame(all_data)

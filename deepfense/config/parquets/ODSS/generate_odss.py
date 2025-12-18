@@ -72,6 +72,12 @@ def main():
         required=True,
     )
     
+    parser.add_argument(
+        "--meta_root",
+        type=str,
+        default=None,
+    )
+    
     output_dir = Path(__file__).parent.absolute()
     parser.add_argument(
         "--output_dir",
@@ -85,6 +91,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
+    meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
     all_data = process_odss_dataset(data_root)
     
     if all_data:
