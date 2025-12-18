@@ -65,7 +65,7 @@ def main():
     )
 
     script_dir = Path(__file__).parent.absolute()
-    output_dir = script_dir / "DECRO"
+    output_dir = script_dir
     parser.add_argument(
         "--output_dir",
         type=str,
