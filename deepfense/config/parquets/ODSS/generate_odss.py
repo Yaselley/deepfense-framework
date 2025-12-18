@@ -91,6 +91,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
+    data_root = data_root / "odss"
     meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
     all_data = process_odss_dataset(data_root)
     

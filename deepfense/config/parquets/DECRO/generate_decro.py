@@ -83,6 +83,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
+    data_root = data_root / "petrichorwq-DECRO-dataset-6fc9884"
     meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
     splits = [
         ("en_train.txt", "en_train"),
