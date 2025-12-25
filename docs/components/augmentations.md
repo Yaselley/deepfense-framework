@@ -16,16 +16,20 @@ DeepFense provides a robust data pipeline capable of loading huge datasets via P
 These are deterministic operations usually applied to both Train and Val sets.
 
 ### 1. Load Audio (`load_audio`)
-*   **Arguments**:
-    *   `target_sr`: Target sampling rate.
-    *   `mono`: If true, converts stereo to mono (mean).
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `target_sr` | int | Target sampling rate. |
+| `mono` | bool | If true, converts stereo to mono (mean). |
 
 ### 2. Pad/Truncate (`pad`)
 Ensures all audio clips are exactly `max_len` samples long.
-*   **Arguments**:
-    *   `max_len` (int): Target length in samples.
-    *   `random_pad` (bool): If `True` (and audio > max_len), picks a random crop. If `False`, takes the start.
-    *   `pad_type` (str): Strategy for short audio. Currently supports `"repeat"` (tiles the audio).
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `max_len` | int | Target length in samples. |
+| `random_pad` | bool | If `True` (and audio > max_len), picks a random crop. If `False`, takes the start. |
+| `pad_type` | str | Strategy for short audio. Currently supports `"repeat"` (tiles the audio). |
 
 ---
 
