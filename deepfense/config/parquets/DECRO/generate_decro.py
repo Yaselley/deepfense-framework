@@ -1,55 +1,78 @@
 import pandas as pd
-import os
 import argparse
 from pathlib import Path
 
-def process_decro_protocol(txt_file, root_dir, split_name):
+def process_decro_protocol(data_root, meta_root, output_dir):
     """
     Process decro protocol files (format: ID ID - - METHOD Label)
     The dataest is used to evaluate how language differences affect deepfake detection. It includes two languages: English and Chinese.
     
     Args:
-        txt_file: Path to the protocol text file
-        root_dir: Root dir containing the audio files (The processed dir by AUDDIT)
-        split_name: Nmae of the split (e..g, 'en_train', 'ch_dev')
-    
-    Returns:
-        List of dict containing ID, path, label, and dataset_name
+        data_root: Root dir containing the audio files (The processed dir by AUDDIT)
+            - If the data_root is the processed dir by AUDDIT, then it has the following structure:
+            data_root/
+            └── petrichorwq-DECRO-dataset-6fc9884/
+                ├── ch_dev/          # Audio files directory
+                ├── ch_dev.txt        # Protocol file
+                ├── ch_eval/
+                ├── ch_eval.txt
+                ├── ch_train/
+                ├── ch_train.txt
+                ├── en_dev/
+                ├── en_dev.txt
+                ├── en_eval/
+                ├── en_eval.txt
+                ├── en_train/
+                ├── en_train.txt
+                ├── LICENSE
+                └── README.md
+
+        meta_root: Root dir containing the protocol txt files
+        output_dir: Directory to save the parquet files
     """
-    txt_file = Path(txt_file)
-    root_dir = Path(root_dir)
-    if not txt_file.exists():
-        print(f"Warning: Protocol file not found: {txt_file}")
-        return []
+    data_root = Path(data_root)
+    meta_root = Path(meta_root)
+    output_dir = Path(output_dir)
     
-    data = []
-    with open(txt_file, 'r') as f:
-        for line in f:
-            parts = line.strip().split()
-            if not parts:
-                continue
-            
-            # SPEAKER_ID AUDIO_FILE_NAME - SYSTEM_ID KEY
-            # Example: 4 4-727-124443-0055 - baidu spoof
-            assert len(parts) == 5, f"Expected 5 parts, got {len(parts)}"
-            
-            audio_id = parts[1]  
-            label = parts[-1]    
-            
-            # Audio files are in subdirectories named after the split (e.g., en_train/, ch_dev/)
-            # Extract language and split type from split_name (e.g., 'en_train' -> 'en_train')
-            audio_dir = root_dir / split_name
-            file_path = audio_dir / f"{audio_id}.wav"
-            
-            data.append({
-                "ID": audio_id,
-                "path": str(file_path),
-                "label": label,
-                "dataset_name": "DECRO"
-            })
+    audio_base_dir = data_root / "petrichorwq-DECRO-dataset-6fc9884"
     
-    print(f"Processed {len(data)} {split_name} entries")
-    return data
+    for txt_file in sorted(meta_root.glob("*.txt")):
+        split_name = txt_file.stem
+        
+        data = []
+        with open(txt_file, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if not parts:
+                    continue
+                
+                # SPEAKER_ID AUDIO_FILE_NAME - SYSTEM_ID KEY
+                # Example: 4 4-727-124443-0055 - baidu spoof
+                assert len(parts) == 5, f"Expected 5 parts, got {len(parts)}"
+                
+                audio_id = parts[1]  
+                label = parts[-1]    
+                
+                audio_dir = audio_base_dir / split_name
+                file_path = audio_dir / f"{audio_id}.wav"
+                
+                data.append({
+                    "ID": audio_id,
+                    "path": str(file_path.relative_to(data_root)),
+                    "label": label,
+                    "dataset_name": "DECRO"
+                })
+        
+        if not data:
+            print(f"No data found for {split_name}")
+            continue
+        
+        df = pd.DataFrame(data)
+        output_path = output_dir / f"{split_name}.parquet"
+        df.to_parquet(output_path)
+        print(f"\nSaved {len(df)} {split_name} rows to {output_path}")
+        print(f"{split_name} label distribution:")
+        print(df['label'].value_counts())
 
 def main():
     parser = argparse.ArgumentParser(
@@ -80,52 +103,14 @@ def main():
     
     args = parser.parse_args()
     
+    output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    # Keep original data_root for relative paths
     data_root = Path(args.data_root)
-    data_root = data_root / "petrichorwq-DECRO-dataset-6fc9884"
-    meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
-    splits = [
-        ("en_train.txt", "en_train"),
-        ("en_dev.txt", "en_dev"),
-        ("en_eval.txt", "en_eval"),
-        ("ch_train.txt", "ch_train"),
-        ("ch_dev.txt", "ch_dev"),
-        ("ch_eval.txt", "ch_eval")
-    ]
+    meta_root = Path(args.meta_root) if args.meta_root is not None else data_root / "petrichorwq-DECRO-dataset-6fc9884"
     
-    all_data = {}
-    for protocol_file, split_name in splits:
-        txt_file = meta_root / protocol_file
-        split_data = process_decro_protocol(txt_file, data_root, split_name)
-        all_data[split_name] = split_data
-    
-    for split_name in ["en_train", "ch_train"]:
-        if all_data.get(split_name):
-            df = pd.DataFrame(all_data[split_name])
-            output_path = output_dir / f"decro_{split_name}.parquet"
-            df.to_parquet(output_path)
-            print(f"\nSaved {len(df)} {split_name} rows to {output_path}")
-            print(f"{split_name} label distribution:")
-            print(df['label'].value_counts())
-    
-    for split_name in ["en_dev", "ch_dev"]:
-        if all_data.get(split_name):
-            df = pd.DataFrame(all_data[split_name])
-            output_path = output_dir / f"decro_{split_name}.parquet"
-            df.to_parquet(output_path)
-            print(f"\nSaved {len(df)} {split_name} rows to {output_path}")
-            print(f"{split_name} label distribution:")
-            print(df['label'].value_counts())
-    
-    for split_name in ["en_eval", "ch_eval"]:
-        if all_data.get(split_name):
-            df = pd.DataFrame(all_data[split_name])
-            output_path = output_dir / f"decro_{split_name}.parquet"
-            df.to_parquet(output_path)
-            print(f"\nSaved {len(df)} {split_name} rows to {output_path}")
-            print(f"{split_name} label distribution:")
-            print(df['label'].value_counts())
+    process_decro_protocol(data_root, meta_root, output_dir)
 
 if __name__ == "__main__":
     main()
