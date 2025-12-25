@@ -25,7 +25,8 @@ def process_ctrsvdd_dataset(data_root, meta_root):
     if not data_root.exists():
         print(f"Error: Data root directory not found: {data_root}")
         return []
-    
+
+    # it only has test.txt, so we only process the test split
     test_txt = meta_root / "test.txt"
     test_set_dir = data_root / "test_set"
     
@@ -64,7 +65,7 @@ def process_ctrsvdd_dataset(data_root, meta_root):
             
             all_data.append({
                 "ID": filename,
-                "path": str(flac_file),
+                "path": str(flac_file.relative_to(data_root)),
                 "label": label,
                 "dataset_name": "CtrSVDD"
             })
@@ -104,7 +105,7 @@ def main():
     
     if all_data:
         df = pd.DataFrame(all_data)
-        output_path = output_dir / "ctrsvdd.parquet"
+        output_path = output_dir / "test.parquet"
         df.to_parquet(output_path)
         print(f"\nSaved {len(df)} rows to {output_path}")
         print(f"Label distribution:")
