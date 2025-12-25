@@ -1,0 +1,17 @@
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+recursive-include docs *.md *.png
+recursive-include deepfense/config *.yaml
+recursive-exclude deepfense/config *.parquet
+exclude deepfense/models/modules/fairseq
+exclude deepfense/models/modules/wavlm
+exclude deepfense/models/modules/*/__pycache__
+exclude deepfense/models/modules/*/*.pyc
+global-exclude __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pth
+global-exclude *.pt
+global-exclude *.ckpt

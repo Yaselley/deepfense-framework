@@ -44,3 +44,7 @@ A Res2Net-based convolutional architecture.
 ## Input/Output
 *   **Input**: Features from Frontend `[B, T, C]`.
 *   **Output**: Embedding vector `[B, Embedding_Dim]`.
+
+---
+
+> **Next Step**: [Loss Functions →](losses.md)

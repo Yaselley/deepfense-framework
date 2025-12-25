@@ -40,4 +40,8 @@ Standard classification loss with a linear projection layer.
 
 ## Adding Custom Losses
 
-See [Extending DeepFense](../tutorials/extending.md) for a guide on creating custom loss modules.
+See [Extending DeepFense](../user_guide/extending.md) for a guide on creating custom loss modules.
+
+---
+
+> **Next Step**: [Augmentations →](augmentations.md)
