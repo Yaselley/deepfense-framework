@@ -36,7 +36,10 @@ def process_odss_dataset(data_root):
             ├── hui-acg/
             ├── openslr-es/
             └── vctk/
-
+    hifi-tts: English
+    hui-acg: German
+    openslr-es: Spanish
+    vctk: English
     Args:
         data_root: root directory containing the uncompressed ODSS dataset (odss/ subdirectory will be appended)
     
