@@ -5,10 +5,13 @@ from pathlib import Path
 def process_ctrsvdd_dataset(data_root, meta_root):
     """
     Process CtrSVDD dataset by reading test.txt and scanning audio files.
-    The dataset contains:
-    - test.txt: metadata file with columns: origin source, singer id, filename, placeholder, attack iD, label
-    - test_set/ dir: contains .flac audio files
-    - Labels: "bonafide" or "deepfake" (mapped to "spoof")
+    Labels: "bonafide" or "deepfake" (mapped to "spoof")
+
+    Data structure tree for data_root (/mount/arbeitsdaten54/projekte/deepfake/fad/data/ctrsvdd/processed):
+    data_root/
+    ├── test_set/
+    │   └── *.flac (audio files, e.g., CtrSVDD_0114_E_0000002.flac)
+    └── test.txt (metadata file with columns: origin source, singer id, filename, placeholder, attack iD, label)
 
     https://r9y9.github.io/projects/ctrsvdd/
     https://github.com/SVDDChallenge/CtrSVDD2024_Baseline 
