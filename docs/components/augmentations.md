@@ -85,52 +85,86 @@ transforms:
 
 #### 1. RawBoost (`rawboost`)
 Adds linear and non-linear convolutive noise and impulsive noise.
-*   **noise_ratio** (float): Probability (0-1).
-*   **algo** (int): Algorithm ID (0-5).
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation (0-1). |
+| `algo` | int | Algorithm ID (0-5). Controls the type of boost. |
 
 #### 2. RIR / Reverb (`rir`)
 Convolves audio with Room Impulse Responses.
-*   **noise_ratio** (float): Probability.
-*   **csv_file** (str): Path to CSV containing paths to RIR wav files.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `csv_file` | str | Path to CSV containing paths to RIR wav files. |
 
 #### 3. Add Noise (`add_noise`)
 Adds additive background noise.
-*   **noise_ratio** (float): Probability.
-*   **csv_file** (str): Path to noise CSV.
-*   **snr_low** / **snr_high** (float): Range of Signal-to-Noise Ratio to apply (in dB).
-*   **pad_noise** (bool): If True, tiles noise to match audio length.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `csv_file` | str | Path to CSV containing paths to noise audio files. |
+| `snr_low` | float | Minimum Signal-to-Noise Ratio (dB). |
+| `snr_high` | float | Maximum Signal-to-Noise Ratio (dB). |
+| `pad_noise` | bool | If `True`, tiles noise to match audio length. |
 
 #### 4. Add Babble (`add_babble`)
 Mixes multiple speakers ("babble") into the background.
-*   **noise_ratio** (float): Probability.
-*   **csv_file** (str): Path to speech CSV.
-*   **speaker_count** (int): Number of speakers to mix (default: 3).
-*   **snr_low** / **snr_high**: Mixing SNR range.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `csv_file` | str | Path to CSV containing paths to speech audio files. |
+| `speaker_count` | int | Number of speakers to mix (default: 3). |
+| `snr_low` | float | Minimum Mixing SNR (dB). |
+| `snr_high` | float | Maximum Mixing SNR (dB). |
 
 #### 5. Speed Perturbation (`speed_perturb`)
 Resamples audio to change pitch and speed.
-*   **noise_ratio** (float): Probability.
-*   **speeds** (list[int]): List of percentages, e.g., `[90, 100, 110]` (90% speed, 100% speed, etc.).
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `speeds` | list[int] | List of percentages, e.g., `[90, 100, 110]` (90% speed, 100% speed, etc.). |
 
 #### 6. Codec Compression (`codec`)
 Simulates compression artifacts.
-*   **noise_ratio** (float): Probability.
-*   **formats**: Hardcoded to random choice of `("wav", "pcm_mulaw")` or `("g722", None)`.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `formats` | list | Hardcoded to random choice of `("wav", "pcm_mulaw")` or `("g722", None)`. |
 
 #### 7. Drop Frequencies (`drop_freq`)
 Applies random notch filters to drop frequency bands.
-*   **noise_ratio** (float): Probability.
-*   **drop_freq_low/high** (float): Normalized frequency range (0-1).
-*   **drop_count_low/high** (int): Number of notches to apply.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `drop_freq_low` | float | Min normalized frequency range (0-1). |
+| `drop_freq_high` | float | Max normalized frequency range (0-1). |
+| `drop_count_low` | int | Min number of notches to apply. |
+| `drop_count_high` | int | Max number of notches to apply. |
 
 #### 8. Drop Chunk (`drop_chunk`)
 Zeros out (or replaces with noise) random time segments.
-*   **noise_ratio** (float): Probability.
-*   **drop_length_low/high** (int): Length of chunks in samples.
-*   **drop_count_low/high** (int): Number of chunks.
-*   **noise_factor** (float): If > 0, fills chunk with random noise scaled by this factor.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `drop_length_low` | int | Min length of chunks in samples. |
+| `drop_length_high` | int | Max length of chunks in samples. |
+| `drop_count_low` | int | Min number of chunks. |
+| `drop_count_high` | int | Max number of chunks. |
+| `noise_factor` | float | If > 0, fills chunk with random noise scaled by this factor. |
 
 #### 9. Clipping (`do_clip`)
 Clips signal amplitude to simulate saturation.
-*   **noise_ratio** (float): Probability.
-*   **clip_low/high** (float): Range of clipping thresholds.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `noise_ratio` | float | Probability of applying this augmentation. |
+| `clip_low` | float | Min clipping threshold. |
+| `clip_high` | float | Max clipping threshold. |
