@@ -2,9 +2,80 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-def process_envsdd_split(data_root, split_name):
+"""
+Data structure tree for data_root (/mount/arbeitsdaten54/projekte/deepfake/fad/data/envsdd/processed):
+data_root/
+├── development/
+│   ├── fake_audio/
+│   │   ├── ATA/
+│   │   │   └── audioldm1/
+│   │   │       ├── TUTASC2019Dev/
+│   │   │       ├── TUTSED2016Dev/
+│   │   │       ├── TUTSED2016Eval/
+│   │   │       ├── TUTSED2017Dev/
+│   │   │       ├── TUTSED2017Eval/
+│   │   │       └── UrbanSound8K/
+│   │   └── TTA/
+│   │       ├── audiogen/
+│   │       │   ├── TUTASC2019Dev/
+│   │       │   ├── TUTSED2016Dev/
+│   │       │   ├── TUTSED2016Eval/
+│   │       │   ├── TUTSED2017Dev/
+│   │       │   ├── TUTSED2017Eval/
+│   │       │   └── UrbanSound8K/
+│   │       ├── audioldm1/
+│   │       │   ├── TUTASC2019Dev/
+│   │       │   ├── TUTSED2016Dev/
+│   │       │   ├── TUTSED2016Eval/
+│   │       │   ├── TUTSED2017Dev/
+│   │       │   ├── TUTSED2017Eval/
+│   │       │   └── UrbanSound8K/
+│   │       └── audioldm2/
+│   │           ├── TUTASC2019Dev/
+│   │           ├── TUTSED2016Dev/
+│   │           ├── TUTSED2016Eval/
+│   │           ├── TUTSED2017Dev/
+│   │           ├── TUTSED2017Eval/
+│   │           └── UrbanSound8K/
+│   └── real_audio/
+│       ├── TUTASC2019Dev/
+│       ├── TUTSED2016Dev/
+│       ├── TUTSED2016Eval/
+│       ├── TUTSED2017Dev/
+│       ├── TUTSED2017Eval/
+│       └── UrbanSound8K/
+├── remain/
+│   └── fake_audio/
+│       ├── ATA/
+│       │   └── audioldm2/
+│       │       ├── TUTASC2019Dev/
+│       │       ├── TUTSED2016Dev/
+│       │       ├── TUTSED2016Eval/
+│       │       ├── TUTSED2017Dev/
+│       │       ├── TUTSED2017Eval/
+│       │       └── UrbanSound8K/
+│       └── TTA/
+│           ├── audiolcm/
+│           │   ├── TUTASC2019Dev/
+│           │   ├── TUTSED2016Dev/
+│           │   ├── TUTSED2016Eval/
+│           │   ├── TUTSED2017Dev/
+│           │   ├── TUTSED2017Eval/
+│           │   └── UrbanSound8K/
+│           └── tangoflux/
+│               ├── TUTASC2019Dev/
+│               ├── TUTSED2016Dev/
+│               ├── TUTSED2016Eval/
+│               ├── TUTSED2017Dev/
+│               ├── TUTSED2017Eval/
+│               └── UrbanSound8K/
+└── test/
+    └── audio/
+"""
+
+def process_envsdd_split(data_root, split_name, output_dir):
     """
-    Process envsdd split by scanning all audio files.
+    Process envsdd split by scanning all audio files and save to parquet.
     The dataset has:
     - {split_name}/fake_audio/: spoof (contains ATA and TTA subdirs with various models)
     - {split_name}/real_audio/: bonafide (only for development split)
@@ -17,14 +88,15 @@ def process_envsdd_split(data_root, split_name):
     Args:
         data_root: root directory containing the processed envsdd dataset
         split_name: name of the split (e.g., "development", "remain")
+        output_dir: directory where the parquet file will be saved
     
     Returns:
-        List of dicts containing id, path, label, and dataset_name
+        None (saves parquet file directly)
     """
     data_root = Path(data_root)
     if not data_root.exists():
         print(f"Error: Data root directory not found: {data_root}")
-        return []
+        return
     
     split_data = []
     
@@ -37,7 +109,7 @@ def process_envsdd_split(data_root, split_name):
             
             split_data.append({
                 "ID": audio_id,
-                "path": str(wav_file),
+                "path": str(relative_path),
                 "label": "spoof",
                 "dataset_name": "EnvSDD"
             })
@@ -52,12 +124,20 @@ def process_envsdd_split(data_root, split_name):
                 
                 split_data.append({
                     "ID": audio_id,
-                    "path": str(wav_file),
+                    "path": str(relative_path),
                     "label": "bonafide",
                     "dataset_name": "EnvSDD"
                 })
     
-    return split_data
+    if split_data:
+        df = pd.DataFrame(split_data)
+        output_path = output_dir / f"{split_name}.parquet"
+        df.to_parquet(output_path)
+        print(f"Saved {len(df)} rows to {output_path}")
+        print(f"Label distribution:")
+        print(df['label'].value_counts())
+    else:
+        print(f"No {split_name} data to save!")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -93,16 +173,7 @@ def main():
     
     for split_name in splits:
         print(f"\nProcessing {split_name} split...")
-        split_data = process_envsdd_split(data_root, split_name)
-        if split_data:
-            df = pd.DataFrame(split_data)
-            output_path = output_dir / f"envsdd_{split_name}.parquet"
-            df.to_parquet(output_path)
-            print(f"Saved {len(df)} rows to {output_path}")
-            print(f"Label distribution:")
-            print(df['label'].value_counts())
-        else:
-            print(f"No {split_name} data to save!")
+        process_envsdd_split(data_root, split_name, output_dir)
 
 if __name__ == "__main__":
     main()
