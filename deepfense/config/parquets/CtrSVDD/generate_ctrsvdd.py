@@ -62,6 +62,9 @@ def process_ctrsvdd_dataset(data_root, meta_root):
                 label = "bonafide"
             
             flac_file = test_set_dir / f"{filename}.flac"
+            if not flac_file.exists():
+                print(f"Warning: Flac file not found: {flac_file}")
+                continue
             
             all_data.append({
                 "ID": filename,
