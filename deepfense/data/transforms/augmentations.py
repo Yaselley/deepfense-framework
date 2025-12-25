@@ -144,7 +144,6 @@ class Morph:
         self.noise_ratio = noise_ratio
     
     def __call__(self, x: np.ndarray) -> np.ndarray:
-        # Placeholder as per previous fix
         return x
 
 

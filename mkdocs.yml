@@ -1,16 +1,23 @@
 site_name: DeepFense Framework
 site_description: A modular, configuration-driven framework for Deepfake Audio Detection.
 site_author: DeepFense Team
+site_url: https://yaselley.github.io/deepfense-framework/
+
+repo_url: https://github.com/Yaselley/deepfense-framework
+repo_name: deepfense-framework
+edit_uri: edit/main/docs/
 
 theme:
   name: material
   palette:
+    # Light mode
     - scheme: default
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+    # Dark mode
     - scheme: slate
       primary: indigo
       accent: indigo
@@ -22,38 +29,9 @@ theme:
     - navigation.sections
     - navigation.expand
     - content.code.copy
+    - content.action.edit
   logo: logo/logo.png
   favicon: logo/logo.png
-
-repo_url: https://github.com/yourusername/DeepFense
-repo_name: DeepFense
-
-nav:
-  - Home: index.md
-  - Architecture: architecture.md
-  - Tutorials:
-    - Getting Started: tutorials/getting_started.md
-    - Extending DeepFense: tutorials/extending.md
-  - User Guide:
-    - Configuration: user_guide/configuration.md
-    - Training Workflow: user_guide/training.md
-    - Inference: user_guide/inference.md
-  - API Reference:
-    - Data Pipeline:
-      - Datasets: api/data/datasets.md
-      - Augmentations: api/data/augmentations.md
-      - Transforms: api/data/transforms.md
-    - Models:
-      - Detector: api/models/detector.md
-      - Frontends: api/models/frontends.md
-      - Backends: api/models/backends.md
-      - Losses: api/models/losses.md
-    - Training:
-      - Trainer: api/training/trainer.md
-      - Evaluations: api/training/evaluations.md
-    - Utilities:
-      - Registry: api/utils/registry.md
-      - Visualization: api/utils/visualization.md
 
 markdown_extensions:
   - admonition
@@ -63,9 +41,29 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
 
 plugins:
   - search
 
+nav:
+  - Home: index.md
+  - 01 Installation: 01_installation.md
+  - 02 Quick Start: 02_quickstart.md
+  - 03 Full Tutorial: 03_full_tutorial.md
+  - 04 Architecture: 04_architecture.md
+  - 05 Configuration: 05_configuration.md
+  - 06 Library Usage: 06_library_usage.md
+  - Component Reference:
+    - Frontends: components/frontends.md
+    - Backends: components/backends.md
+    - Losses: components/losses.md
+    - Augmentations: components/augmentations.md
+    - Optimizers & Schedulers: components/optimizers_schedulers.md
+  - User Guides:
+    - Training Workflow: user_guide/training.md
+    - Inference: user_guide/inference.md
+    - Extending DeepFense: user_guide/extending.md

@@ -11,12 +11,11 @@ class WavLMWrapper(BaseFrontend):
     def __init__(self, config):
         super().__init__(config)
 
-        self.source = config.get("source", "unil") # Default to microsoft (original implementation)
+        self.source = config.get("source", "unil")
         self.ckpt_path = config.get("ckpt_path", None)
         self.freeze = config.get("freeze", False)
 
         if self.source == "unil":
-            # Original implementation (bundled in this repo usually)
             from deepfense.models.modules.wavlm.wavlm import WavLM, WavLMConfig
             checkpoint = torch.load(self.ckpt_path)
             cfg = WavLMConfig(checkpoint["cfg"])

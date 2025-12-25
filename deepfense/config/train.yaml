@@ -10,7 +10,7 @@ data:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet",
+      "./data/test.parquet",
       ]
     
     batch_size: 10
@@ -31,13 +31,13 @@ data:
       # Enable RIR to test optimization (make sure csv exists or is handled gracefully)
       - type: "rir"
         noise_ratio: 0.5
-        csv_file: "/netscratch/yelkheir/DeepFense/DeepFense/rirs.csv" 
+        csv_file: "./data/rirs.csv" 
 
   val:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet",
+      "./data/test.parquet",
       ]
 
     batch_size: 1
@@ -52,7 +52,7 @@ data:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet",
+      "./data/test.parquet",
       ]
       
 model:
@@ -61,7 +61,7 @@ model:
   frontend: 
     type: "wavlm"
     args:
-      ckpt_path: "/netscratch/yelkheir/ssl_models/WavLM-Large.pt"
+      ckpt_path: "./models/WavLM-Large.pt"
 
   backend: 
     type: "Nes2Net"

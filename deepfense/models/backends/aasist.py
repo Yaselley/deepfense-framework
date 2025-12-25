@@ -13,24 +13,18 @@ class GraphAttentionLayer(nn.Module):
     def __init__(self, in_dim, out_dim, **kwargs):
         super().__init__()
 
-        # attention map
         self.att_proj = nn.Linear(in_dim, out_dim)
         self.att_weight = self._init_new_params(out_dim, 1)
 
-        # project
         self.proj_with_att = nn.Linear(in_dim, out_dim)
         self.proj_without_att = nn.Linear(in_dim, out_dim)
 
-        # batch norm
         self.bn = nn.BatchNorm1d(out_dim)
 
-        # dropout for inputs
         self.input_drop = nn.Dropout(p=0.2)
 
-        # activate
         self.act = nn.SELU(inplace=True)
 
-        # temperature
         self.temp = 1.0
         if "temperature" in kwargs:
             self.temp = kwargs["temperature"]
@@ -39,16 +33,12 @@ class GraphAttentionLayer(nn.Module):
         """
         x   :(#bs, #node, #dim)
         """
-        # apply input dropout
         x = self.input_drop(x)
 
-        # derive attention map
         att_map = self._derive_att_map(x)
 
-        # projection
         x = self._project(x, att_map)
 
-        # apply batch norm
         x = self._apply_BN(x)
         x = self.act(x)
         return x
@@ -78,7 +68,6 @@ class GraphAttentionLayer(nn.Module):
         # size: (#bs, #node, #node, 1)
         att_map = torch.matmul(att_map, self.att_weight)
 
-        # apply temperature
         att_map = att_map / self.temp
 
         att_map = F.softmax(att_map, dim=-2)
@@ -137,7 +126,6 @@ class HtrgGraphAttentionLayer(nn.Module):
         # activate
         self.act = nn.SELU(inplace=True)
 
-        # temperature
         self.temp = 1.0
         if "temperature" in kwargs:
             self.temp = kwargs["temperature"]
@@ -158,19 +146,14 @@ class HtrgGraphAttentionLayer(nn.Module):
         if master is None:
             master = torch.mean(x, dim=1, keepdim=True)
 
-        # apply input dropout
         x = self.input_drop(x)
 
-        # derive attention map
         att_map = self._derive_att_map(x, num_type1, num_type2)
 
-        # directional edge for master node
         master = self._update_master(x, master)
 
-        # projection
         x = self._project(x, att_map)
 
-        # apply batch norm
         x = self._apply_BN(x)
         x = self.act(x)
 
@@ -209,7 +192,6 @@ class HtrgGraphAttentionLayer(nn.Module):
 
         att_map = torch.matmul(att_map, self.att_weightM)
 
-        # apply temperature
         att_map = att_map / self.temp
 
         att_map = F.softmax(att_map, dim=-2)
@@ -243,10 +225,8 @@ class HtrgGraphAttentionLayer(nn.Module):
 
         att_map = att_board
 
-        # att_map = torch.matmul(att_map, self.att_weight12)
-
-        # apply temperature
         att_map = att_map / self.temp
+
 
         att_map = F.softmax(att_map, dim=-2)
 
@@ -355,7 +335,8 @@ class Residual_block(nn.Module):
 
         else:
             self.downsample = False
-        self.mp = nn.MaxPool2d(pool)  # self.mp = nn.MaxPool2d((1,4))
+        self.mp = nn.MaxPool2d(pool)
+
 
     def forward(self, x):
         identity = x
@@ -388,7 +369,8 @@ class AASIST(BaseBackend):
         temperatures = config.get("temperatures", [2.0, 2.0, 100.0, 100.0])
         pool = config.get("pool", (1, 1))
 
-        self.LL = nn.Linear(1024, 128)
+        input_dim = config.get("input_dim", 1024)
+        self.LL = nn.Linear(input_dim, 128)
 
         self.first_bn = nn.BatchNorm2d(num_features=1)
         self.first_bn1 = nn.BatchNorm2d(num_features=64)
@@ -412,7 +394,6 @@ class AASIST(BaseBackend):
             nn.BatchNorm2d(128),
             nn.Conv2d(128, 64, kernel_size=(1, 1)),
         )
-        # position encoding
         self.pos_S = nn.Parameter(torch.randn(1, 42, filts[-1][-1]))
 
         self.master1 = nn.Parameter(torch.randn(1, 1, gat_dims[0]))
@@ -439,7 +420,6 @@ class AASIST(BaseBackend):
             gat_dims[1], gat_dims[1], temperature=temperatures[2]
         )
 
-        # Graph pooling layers
         self.pool_S = GraphPool(pool_ratios[0], gat_dims[0], 0.3)
         self.pool_T = GraphPool(pool_ratios[1], gat_dims[0], 0.3)
         self.pool_hS1 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
@@ -449,17 +429,13 @@ class AASIST(BaseBackend):
         self.pool_hT2 = GraphPool(pool_ratios[2], gat_dims[1], 0.3)
 
     def forward(self, x):
-        # -------pre-trained Wav2vec model fine tunning ------------------------##
-        x = self.LL(x)  # (bs,frame_number,feat_out_dim)
-
-        # post-processing on front-end features
+        x = self.LL(x)
         x = x.transpose(1, 2)  # (bs,feat_out_dim,frame_number)
         x = x.unsqueeze(dim=1)  # add channel
         x = F.max_pool2d(x, (3, 3))
         x = self.first_bn(x)
         x = self.selu(x)
 
-        # RawNet2-based encoder
         x = self.encoder(x)
         x = self.first_bn1(x)
         x = self.selu(x)

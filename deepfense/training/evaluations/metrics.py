@@ -10,8 +10,6 @@ def compute_f1(labels, scores, params):
     Handles 1D (binary) or 2D [N, C] (multi-class) scores.
     """
     if scores.ndim == 2:
-        # We need to code the case where AMSoftnmx is used are primary ...
-        # Multi-class: [N, C] scores -> argmax
         predictions = np.argmax(scores, axis=1)
     else:
         # Binary: 1D scores -> threshold at 0

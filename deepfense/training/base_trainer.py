@@ -1,4 +1,3 @@
-# training/base_trainer.py
 import os
 import math
 import logging

@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 from deepfense.utils.registry import register_frontend
@@ -15,19 +16,50 @@ class HubertWrapper(BaseFrontend):
         self.ckpt_path = config.get("ckpt_path", None)
         self.freeze = config.get("freeze", True)
 
+        if self.ckpt_path is None:
+            raise ValueError("ckpt_path must be provided in config")
+
         if self.source == "fairseq":
-            import fairseq
-            models, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-                [self.ckpt_path]
-            )
-            self.model = models[0]
+            try:
+                import fairseq
+            except ImportError:
+                raise ImportError(
+                    "fairseq is required for 'fairseq' source. "
+                    "Please install it following the README instructions."
+                )
+            
+            if not os.path.exists(self.ckpt_path):
+                raise FileNotFoundError(
+                    f"Checkpoint file not found: {self.ckpt_path}. "
+                    "Please verify the path is correct."
+                )
+            
+            try:
+                models, cfg, task = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+                    [self.ckpt_path]
+                )
+                self.model = models[0]
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to load fairseq model from {self.ckpt_path}: {e}"
+                )
 
         elif self.source == "huggingface":
-            from transformers import HubertModel
-            self.model = HubertModel.from_pretrained(self.ckpt_path)
+            try:
+                from transformers import HubertModel
+                self.model = HubertModel.from_pretrained(self.ckpt_path)
+            except ImportError:
+                raise ImportError(
+                    "transformers is required for 'huggingface' source. "
+                    "Please install it: pip install transformers"
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to load HuggingFace model '{self.ckpt_path}': {e}"
+                )
         
         else:
-            raise ValueError(f"Unknown source: {self.source}")
+            raise ValueError(f"Unknown source: {self.source}. Must be 'fairseq' or 'huggingface'")
 
         if self.freeze:
             for param in self.model.parameters():

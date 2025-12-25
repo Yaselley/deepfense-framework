@@ -54,48 +54,12 @@ class Res2NetBlock(nn.Module):
         # Split channels
         spx = torch.split(out, self.width, 1)
         
-        # Processing each scale
-        sp = spx[0] # First part goes straight through (conceptually, though we usually process from i=0 in loop logic if adapting)
-        # Standard Res2Net implementation logic:
-        # y[i] = conv(x[i]) if i==0; else conv(x[i] + y[i-1])
-        
-        # However, the loop above in my previous attempt was slightly off for standard Res2Net.
-        # Let's stick to a robust implementation:
-        
-        output_branches = []
-        
-        # spx[0] is y_0? Usually Res2Net: y1 = x1; y2 = K2(x2+y1); y3 = K3(x3+y2)...
-        # Let's align with the standard logic:
-        
-        y = spx[0]
-        output_branches.append(y)
-        
-        for i in range(self.nums):
-            if i == 0:
-                # First processed branch (second actual branch) takes x[1] + x[0] (if cascading)?
-                # Standard: y[i] = K[i](x[i] + y[i-1])
-                # But spx index 0 is "x1".
-                # My self.convs[i] corresponds to branch i+1 (since branch 0 has no conv).
-                # Let's restart logic to be clear:
-                
-                # x split into s subsets: x_1, x_2, ..., x_s
-                # y_1 = x_1
-                # y_2 = K_2(x_2 + y_1)
-                # y_3 = K_3(x_3 + y_2)
-                pass
-
         # Re-implementing forward loop cleanly
         out_list = []
         sp = spx[0] # y_1
         out_list.append(sp)
         
         for i in range(self.nums):
-            # input to this conv is x_{i+2} + y_{i+1}
-            # Wait, spx has `scale` parts.
-            # i goes from 0 to scale-2.
-            # i=0 corresponds to processing for y_2. Input is x_2 + y_1.
-            # spx[i+1] is x_{i+2}.
-            
             sp = sp + spx[i+1]
             sp = self.convs[i](sp)
             sp = self.relu(self.bns[i](sp))

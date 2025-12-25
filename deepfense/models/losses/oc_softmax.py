@@ -17,7 +17,7 @@ class OCAngleLayer(nn.Module):
 
     def __init__(self, config):
         super(OCAngleLayer, self).__init__()
-        in_planes = config["embedding_dim"] # Renamed from in_planes to match config convention
+        in_planes = config["embedding_dim"]
         w_posi = config["w_posi"]
         w_nega = config["w_nega"]
         alpha = config["alpha"]
@@ -37,15 +37,10 @@ class OCAngleLayer(nn.Module):
         """
         Compute oc-softmax activations
         """
-        # w (feature_dim, output_dim)
         w = self.weight.renorm(2, 1, 1e-5).mul(1e5)
-        # x_modulus (batchsize)
-        # sum input -> x_modules in shape (batchsize)
         x_modulus = input.pow(2).sum(1).pow(0.5)
         
-        # inner_wx (batchsize, 1)
         inner_wx = input.mm(w)
-        # cos_theta (batchsize, output_dim)
         cos_theta = inner_wx / x_modulus.view(-1, 1)
         cos_theta = cos_theta.clamp(-1, 1)
 
@@ -56,7 +51,6 @@ class OCAngleLayer(nn.Module):
             pos_score = self.alpha * (self.w_posi - cos_theta)
             neg_score = -1 * self.alpha * (self.w_nega - cos_theta)
 
-        #
         return pos_score, neg_score
 
 
@@ -70,10 +64,6 @@ class OCSoftmaxLoss(BaseLoss):
 
     def __init__(self, config):
         super().__init__(config)
-        # Rename in_planes to embedding_dim for consistency if needed, 
-        # but config usually comes with keys. 
-        # The original code used 'in_planes' in config. 
-        # I'll support both or expect embedding_dim.
         if "in_planes" not in config and "embedding_dim" in config:
              config["in_planes"] = config["embedding_dim"]
              
@@ -89,13 +79,8 @@ class OCSoftmaxLoss(BaseLoss):
         if logits is not None and isinstance(logits, tuple):
              inputs = logits
         else:
-             # Similar to AMSoftmax, we need specific internal values, not just the final score.
-             # For OCSoftmax, mapper returns (pos_score, neg_score).
              inputs = self.mapper(embeddings)
-        # inputs[0]: positive class score
-        # inputs[1]: negative class score
         
-        # Assume target is binary, positive = 1, negaitve = 0
         output = inputs[0] * target.view(-1, 1) + inputs[1] * (1 - target.view(-1, 1))
         loss = self.m_loss(output).mean()
 
@@ -106,7 +91,6 @@ class OCSoftmaxLoss(BaseLoss):
         Returns cos_theta (similarity to bonafide center).
         """
         cos_theta = self.get_logits(embeddings)
-        # cos_theta is [Batch, 1]. Squeeze to 1D [Batch]
         return cos_theta.squeeze(1)
 
     def get_logits(self, embeddings):

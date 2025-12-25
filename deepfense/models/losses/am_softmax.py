@@ -60,7 +60,6 @@ class AMAngleLayer(nn.Module):
             cos_x = self.s * cos_theta
             phi_x = self.s * (cos_theta - self.m)
 
-        # ((batchsize, output_dim), (batchsie, output_dim))
         return cos_x, phi_x
 
 
@@ -95,26 +94,17 @@ class AMSoftmaxLoss(BaseLoss):
             
         input_tuple = self.mapper(embeddings)
         
-        # target (batchsize)
         target = target.long()
 
-        # create an index matrix, i.e., one-hot vectors
         with torch.no_grad():
             index = torch.zeros_like(input_tuple[0])
-            # index[i][target[i][j]] = 1
             index.scatter_(1, target.data.view(-1, 1), 1)
             index = index.bool()
 
-        # use the one-hot vector as index to select
-        # input[0] -> cos
-        # input[1] -> phi
-        # if target_i = j, ouput[i][j] = phi[i][j], otherwise cos[i][j]
-        #
         output = input_tuple[0] * 1.0
         output[index] -= input_tuple[0][index] * 1.0
         output[index] += input_tuple[1][index] * 1.0
 
-        # cross entropy loss
         loss = self.m_loss(output, target)
 
         return loss
