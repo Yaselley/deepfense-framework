@@ -10,8 +10,32 @@ def process_wavefake_dataset(data_root):
     - Sub dir names are attacker types
     https://github.com/RUB-SysSec/WaveFake
     
+    Data structure tree for data_root (/mount/arbeitsdaten54/projekte/deepfake/fad/data/wavefake/processed):
+    data_root/
+    └── generated_audio/
+        ├── common_voices_prompts_from_conformer_fastspeech2_pwg_ljspeech/
+        │   └── *.wav (audio files)
+        ├── jsut_multi_band_melgan/
+        │   └── *.wav (audio files)
+        ├── jsut_parallel_wavegan/
+        │   └── *.wav (audio files)
+        ├── ljspeech_full_band_melgan/
+        │   └── *.wav (audio files)
+        ├── ljspeech_hifiGAN/
+        │   └── *.wav (audio files)
+        ├── ljspeech_melgan/
+        │   └── *.wav (audio files)
+        ├── ljspeech_melgan_large/
+        │   └── *.wav (audio files)
+        ├── ljspeech_multi_band_melgan/
+        │   └── *.wav (audio files)
+        ├── ljspeech_parallel_wavegan/
+        │   └── *.wav (audio files)
+        └── ljspeech_waveglow/
+            └── *.wav (audio files)
+    
     Args:
-        data_root: root directory containing the uncompressed WaveFake dataset
+        data_root: root directory containing the uncompressed WaveFake dataset (generated_audio/ subdirectory will be appended)
     
     Returns:
         List of dicts containing ID, path, label, and dataset_name
@@ -32,7 +56,7 @@ def process_wavefake_dataset(data_root):
             
             all_data.append({
                 "ID": audio_id,
-                "path": str(wav_file),
+                "path": str(wav_file.relative_to(data_root)),
                 "label": "spoof",
                 "dataset_name": "WaveFake",
             })
@@ -51,12 +75,6 @@ def main():
         required=True,
     )
     
-    parser.add_argument(
-        "--meta_root",
-        type=str,
-        default=None,
-    )
-    
     output_dir = Path(__file__).parent.absolute()
     parser.add_argument(
         "--output_dir",
@@ -71,7 +89,6 @@ def main():
     
     data_root = Path(args.data_root)
     data_root = data_root / "generated_audio"
-    meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
     all_data = process_wavefake_dataset(data_root)
     
     if all_data:
