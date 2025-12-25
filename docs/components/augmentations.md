@@ -90,10 +90,18 @@ transforms:
 ### 1. RawBoost (`rawboost`)
 Adds linear and non-linear convolutive noise and impulsive noise.
 
+**Configuration Signature:**
+```yaml
+- type: rawboost
+  args:
+    noise_ratio: float
+    algo: int
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation (0-1).
-* **algo** (*int*) - Algorithm ID (0-5). Controls the type of boost.
+* **noise_ratio** - (*float*) Probability of applying this augmentation (0-1).
+* **algo** - (*int*) Algorithm ID (0-5). Controls the type of boost.
 
 **Example:**
 ```yaml
@@ -107,10 +115,18 @@ Adds linear and non-linear convolutive noise and impulsive noise.
 ### 2. RIR / Reverb (`rir`)
 Convolves audio with Room Impulse Responses.
 
+**Configuration Signature:**
+```yaml
+- type: rir
+  args:
+    noise_ratio: float
+    csv_file: string
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **csv_file** (*str*) - Path to CSV containing paths to RIR wav files.
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **csv_file** - (*str*) Path to CSV containing paths to RIR wav files.
 
 **Example:**
 ```yaml
@@ -124,13 +140,24 @@ Convolves audio with Room Impulse Responses.
 ### 3. Add Noise (`add_noise`)
 Adds additive background noise.
 
+**Configuration Signature:**
+```yaml
+- type: add_noise
+  args:
+    noise_ratio: float
+    csv_file: string
+    snr_low: float
+    snr_high: float
+    pad_noise: bool
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **csv_file** (*str*) - Path to CSV containing paths to noise audio files.
-* **snr_low** (*float*) - Minimum Signal-to-Noise Ratio (dB).
-* **snr_high** (*float*) - Maximum Signal-to-Noise Ratio (dB).
-* **pad_noise** (*bool*) - If `True`, tiles noise to match audio length.
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **csv_file** - (*str*) Path to CSV containing paths to noise audio files.
+* **snr_low** - (*float*) Minimum Signal-to-Noise Ratio (dB).
+* **snr_high** - (*float*) Maximum Signal-to-Noise Ratio (dB).
+* **pad_noise** - (*bool*) If `True`, tiles noise to match audio length.
 
 **Example:**
 ```yaml
@@ -146,13 +173,24 @@ Adds additive background noise.
 ### 4. Add Babble (`add_babble`)
 Mixes multiple speakers ("babble") into the background.
 
+**Configuration Signature:**
+```yaml
+- type: add_babble
+  args:
+    noise_ratio: float
+    csv_file: string
+    speaker_count: int
+    snr_low: float
+    snr_high: float
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **csv_file** (*str*) - Path to CSV containing paths to speech audio files.
-* **speaker_count** (*int*) - Number of speakers to mix (default: 3).
-* **snr_low** (*float*) - Minimum Mixing SNR (dB).
-* **snr_high** (*float*) - Maximum Mixing SNR (dB).
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **csv_file** - (*str*) Path to CSV containing paths to speech audio files.
+* **speaker_count** - (*int*) Number of speakers to mix (default: 3).
+* **snr_low** - (*float*) Minimum Mixing SNR (dB).
+* **snr_high** - (*float*) Maximum Mixing SNR (dB).
 
 **Example:**
 ```yaml
@@ -169,10 +207,18 @@ Mixes multiple speakers ("babble") into the background.
 ### 5. Speed Perturbation (`speed_perturb`)
 Resamples audio to change pitch and speed.
 
+**Configuration Signature:**
+```yaml
+- type: speed_perturb
+  args:
+    noise_ratio: float
+    speeds: list[int]
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **speeds** (*list[int]*) - List of percentages, e.g., `[90, 100, 110]` (90% speed, 100% speed, etc.).
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **speeds** - (*list[int]*) List of percentages, e.g., `[90, 100, 110]` (90% speed, 100% speed, etc.).
 
 **Example:**
 ```yaml
@@ -186,10 +232,18 @@ Resamples audio to change pitch and speed.
 ### 6. Codec Compression (`codec`)
 Simulates compression artifacts.
 
+**Configuration Signature:**
+```yaml
+- type: codec
+  args:
+    noise_ratio: float
+    formats: list
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **formats** (*list*) - Hardcoded to random choice of `("wav", "pcm_mulaw")` or `("g722", None)`.
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **formats** - (*list*) Hardcoded to random choice of `("wav", "pcm_mulaw")` or `("g722", None)`.
 
 **Example:**
 ```yaml
@@ -202,13 +256,24 @@ Simulates compression artifacts.
 ### 7. Drop Frequencies (`drop_freq`)
 Applies random notch filters to drop frequency bands.
 
+**Configuration Signature:**
+```yaml
+- type: drop_freq
+  args:
+    noise_ratio: float
+    drop_freq_low: float
+    drop_freq_high: float
+    drop_count_low: int
+    drop_count_high: int
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **drop_freq_low** (*float*) - Min normalized frequency range (0-1).
-* **drop_freq_high** (*float*) - Max normalized frequency range (0-1).
-* **drop_count_low** (*int*) - Min number of notches to apply.
-* **drop_count_high** (*int*) - Max number of notches to apply.
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **drop_freq_low** - (*float*) Min normalized frequency range (0-1).
+* **drop_freq_high** - (*float*) Max normalized frequency range (0-1).
+* **drop_count_low** - (*int*) Min number of notches to apply.
+* **drop_count_high** - (*int*) Max number of notches to apply.
 
 **Example:**
 ```yaml
@@ -225,14 +290,26 @@ Applies random notch filters to drop frequency bands.
 ### 8. Drop Chunk (`drop_chunk`)
 Zeros out (or replaces with noise) random time segments.
 
+**Configuration Signature:**
+```yaml
+- type: drop_chunk
+  args:
+    noise_ratio: float
+    drop_length_low: int
+    drop_length_high: int
+    drop_count_low: int
+    drop_count_high: int
+    noise_factor: float
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **drop_length_low** (*int*) - Min length of chunks in samples.
-* **drop_length_high** (*int*) - Max length of chunks in samples.
-* **drop_count_low** (*int*) - Min number of chunks.
-* **drop_count_high** (*int*) - Max number of chunks.
-* **noise_factor** (*float*) - If > 0, fills chunk with random noise scaled by this factor.
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **drop_length_low** - (*int*) Min length of chunks in samples.
+* **drop_length_high** - (*int*) Max length of chunks in samples.
+* **drop_count_low** - (*int*) Min number of chunks.
+* **drop_count_high** - (*int*) Max number of chunks.
+* **noise_factor** - (*float*) If > 0, fills chunk with random noise scaled by this factor.
 
 **Example:**
 ```yaml
@@ -249,11 +326,20 @@ Zeros out (or replaces with noise) random time segments.
 ### 9. Clipping (`do_clip`)
 Clips signal amplitude to simulate saturation.
 
+**Configuration Signature:**
+```yaml
+- type: do_clip
+  args:
+    noise_ratio: float
+    clip_low: float
+    clip_high: float
+```
+
 **Parameters:**
 
-* **noise_ratio** (*float*) - Probability of applying this augmentation.
-* **clip_low** (*float*) - Min clipping threshold.
-* **clip_high** (*float*) - Max clipping threshold.
+* **noise_ratio** - (*float*) Probability of applying this augmentation.
+* **clip_low** - (*float*) Min clipping threshold.
+* **clip_high** - (*float*) Max clipping threshold.
 
 **Example:**
 ```yaml

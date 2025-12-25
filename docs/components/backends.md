@@ -6,12 +6,20 @@ Backends take the features extracted by the Frontend and map them to a fixed-dim
 
 ### 1. AASIST (`AASIST`)
 A Graph Attention Network (GAT) based architecture designed for ASV spoofing.
-*   **Config Type**: `AASIST`
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: AASIST
+  args:
+    filts: list
+    gat_dims: list
+```
 
 **Parameters:**
 
-* **filts** (*list*) - Filter configuration.
-* **gat_dims** (*list*) - Graph attention dimensions.
+* **filts** - (*list*) Filter configuration.
+* **gat_dims** - (*list*) Graph attention dimensions.
 
 **Example:**
 ```yaml
@@ -22,14 +30,24 @@ backend:
     gat_dims: [64, 32]
 ```
 
+---
+
 ### 2. ECAPA-TDNN (`ECAPA_TDNN`)
 **State-of-the-Art** backend for speaker verification, adapted for Deepfake Detection. Features channel attention (SE-Blocks) and multi-scale feature aggregation.
-*   **Config Type**: `ECAPA_TDNN`
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: ECAPA_TDNN
+  args:
+    channels: int
+    emb_dim: int
+```
 
 **Parameters:**
 
-* **channels** (*int*) - Number of channels in Res2Net blocks (default: 512).
-* **emb_dim** (*int*) - Output embedding dimension (default: 192).
+* **channels** - (*int*) Number of channels in Res2Net blocks (default: 512).
+* **emb_dim** - (*int*) Output embedding dimension (default: 192).
 
 **Example:**
 ```yaml
@@ -40,15 +58,26 @@ backend:
     emb_dim: 192
 ```
 
+---
+
 ### 3. RawNet2 (`RawNet2`)
 A classic CNN-GRU architecture for ASV spoofing.
-*   **Config Type**: `RawNet2`
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: RawNet2
+  args:
+    filts: list
+    gru_node: int
+    emb_dim: int
+```
 
 **Parameters:**
 
-* **filts** (*list*) - Channels for each residual block.
-* **gru_node** (*int*) - GRU hidden size.
-* **emb_dim** (*int*) - Output dimension.
+* **filts** - (*list*) Channels for each residual block.
+* **gru_node** - (*int*) GRU hidden size.
+* **emb_dim** - (*int*) Output dimension.
 
 **Example:**
 ```yaml
@@ -60,15 +89,26 @@ backend:
     emb_dim: 1024
 ```
 
+---
+
 ### 4. MLP (`MLP`)
 A simple Multi-Layer Perceptron with configurable pooling. Good for SSL frontends (Wav2Vec2, WavLM) that already output high-level features.
-*   **Config Type**: `MLP`
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: MLP
+  args:
+    input_dim: int
+    projection: list[int]
+    pooling_type: string
+```
 
 **Parameters:**
 
-* **input_dim** (*int*) - Dimension of input features.
-* **projection** (*list[int]*) - List of hidden layer sizes (e.g., `[128, 64]`).
-* **pooling_type** (*str*) - Pooling method (`mean`, `max`, `asp` (Attentive Statistics Pooling)).
+* **input_dim** - (*int*) Dimension of input features.
+* **projection** - (*list[int]*) List of hidden layer sizes (e.g., `[128, 64]`).
+* **pooling_type** - (*str*) Pooling method (`mean`, `max`, `asp` (Attentive Statistics Pooling)).
 
 **Example:**
 ```yaml
@@ -80,14 +120,24 @@ backend:
     pooling_type: asp
 ```
 
+---
+
 ### 5. Res2Net (`Nes2Net`)
 A Res2Net-based convolutional architecture.
-*   **Config Type**: `Nes2Net`
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: Nes2Net
+  args:
+    strides: list
+    filts: list
+```
 
 **Parameters:**
 
-* **strides** (*list*) - Stride settings for layers.
-* **filts** (*list*) - Channel counts for layers.
+* **strides** - (*list*) Stride settings for layers.
+* **filts** - (*list*) Channel counts for layers.
 
 **Example:**
 ```yaml
