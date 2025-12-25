@@ -29,8 +29,8 @@ def process_single_meta_file(meta_file, audio_dir, data_root, output_dir):
             parts = line.split()
             
             mixed_audio = parts[0]
-            speech_source = parts[1]
-            env_source = parts[2]
+            # parts[1] is speech_source (not used)
+            # parts[2] is env_source (not used)
             mixed_label = parts[3]
             
             mixed_audio_path = audio_dir / mixed_audio
@@ -46,40 +46,6 @@ def process_single_meta_file(meta_file, audio_dir, data_root, output_dir):
                     })
             else:
                 print(f"Warning: Mixed audio file not found: {mixed_audio_path}")
-
-            if mixed_label == 'original':
-                continue
-            
-            label_parts = mixed_label.split('_')
-            speech_label, env_label = label_parts
-            
-            speech_source_path = audio_dir / speech_source
-            if speech_source_path.exists():
-                if speech_source not in audio_id_set:
-                    audio_id_set.add(speech_source)
-                    file_id = Path(speech_source).stem
-                    all_data.append({
-                        "ID": file_id,
-                        "path": str(speech_source_path.relative_to(data_root)),
-                        "label": speech_label,
-                        "dataset_name": "CompSpoof"
-                    })
-            else:
-                print(f"Warning: Speech source file not found: {speech_source_path}")
-            
-            env_source_path = audio_dir / env_source
-            if env_source_path.exists():
-                if env_source not in audio_id_set:
-                    audio_id_set.add(env_source)
-                    file_id = Path(env_source).stem
-                    all_data.append({
-                        "ID": file_id,
-                        "path": str(env_source_path.relative_to(data_root)),
-                        "label": env_label,
-                        "dataset_name": "CompSpoof"
-                    })
-            else:
-                print(f"Warning: Env source file not found: {env_source_path}")
     
     if not all_data:
         print(f"No data found for {meta_file.name}!")
@@ -100,7 +66,7 @@ def process_compspoof_dataset(data_root, meta_root, output_dir):
     The dataset contains:
     - CompSpoof_train.txt, CompSpoof_dev.txt, CompSpoof_eval.txt
     - Format: mixed_audio speech_source env_source class_label (4 space-separated fields)
-    - Each line has three audio files: mixed_audio, speech_source, env_source
+    - Only the mixed_audio files are processed with their mixed_label
     - Labels: [original, bonafide_bonafide, spoof_bonafide, bonafide_spoof, spoof_spoof]
 
     Args:
