@@ -6,8 +6,12 @@ This guide covers all installation methods for DeepFense.
 
 ## Prerequisites
 
+<<<<<<< HEAD
 - **Python**: 3.8 or higher
 - **PyTorch**: 2.0+ (with CUDA support recommended)
+=======
+- **Python**: 3.10 or higher (3.10 recommended)
+>>>>>>> ceeccd5 (Switch to ReadTheDocs theme)
 - **OS**: Linux, macOS, or Windows
 
 ---
