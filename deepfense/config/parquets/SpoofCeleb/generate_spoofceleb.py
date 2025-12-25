@@ -73,6 +73,7 @@ def process_spoofceleb_dataset(data_root, meta_root, output_dir):
     
     for csv_path in csv_files:
         split_name = csv_path.stem
+        audio_id = 0
         
         split_data = []
         df_meta = pd.read_csv(csv_path)
@@ -88,7 +89,7 @@ def process_spoofceleb_dataset(data_root, meta_root, output_dir):
             #    print(f"Warning: Audio file not found: {audio_path}")
             #    continue
             
-            audio_id = audio_path.stem
+            audio_id += 1
             
             if attack_type == "a00":
                 label = "bonafide"
@@ -96,7 +97,7 @@ def process_spoofceleb_dataset(data_root, meta_root, output_dir):
                 label = "spoof"
             
             split_data.append({
-                "ID": audio_id,
+                "ID": str(audio_id),
                 "path": str(audio_path.relative_to(data_root)),
                 "label": label,
                 "dataset_name": "SpoofCeleb"
