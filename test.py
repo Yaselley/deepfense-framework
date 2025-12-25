@@ -10,10 +10,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-# --- Import components from your project ---
 from deepfense.data.data_utils import build_dataloader
 from deepfense.utils.registry import build_detector
-# Import models to ensure they are registered
 from deepfense.models import * 
 from deepfense.training.evaluations.evaluator import Evaluator
 
@@ -38,12 +36,10 @@ def setup_logging_test(output_dir):
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
-    # File handler
     file_handler = logging.FileHandler(log_file, mode="w")
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
@@ -96,7 +92,6 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
             all_scores.append(scores)
             all_names.extend(names)
             all_keys.extend(keys)
-
     # Concatenate all results
     labels = np.concatenate(all_labels, axis=0)
     scores = np.concatenate(all_scores, axis=0)
@@ -190,7 +185,6 @@ def main():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to the model checkpoint file")
     args = parser.parse_args()
 
-    # --- 1. Setup ---
     output_dir = os.path.dirname(args.checkpoint)
     results_path = os.path.join(output_dir, "results.json")
 
@@ -203,13 +197,10 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # --- 2. Build Model ---
-    # model: {type: ..., frontend: ..., backend: ..., loss: ...}
     model_cfg = OmegaConf.to_container(cfg.model, resolve=True)
     model = build_detector(cfg.model.type, model_cfg)
     model.to(device)
 
-    # --- 3. Load Checkpoint ---
     try:
         state = torch.load(args.checkpoint, map_location=device)
         model.load_state_dict(state["model_state"])
@@ -218,7 +209,6 @@ def main():
         logger.error(f"Failed to load checkpoint: {e}")
         return
 
-    # --- 4. Build Test Dataloader ---
     try:
         test_cfg = OmegaConf.to_container(cfg.data.test, resolve=True)
         # Inject global data settings
@@ -233,14 +223,11 @@ def main():
     test_loader = build_dataloader(test_cfg)
     logger.info(f"Test dataloader built successfully.")
 
-    # --- 5. Build Evaluator ---
     metrics_config = OmegaConf.to_container(cfg.training.metrics, resolve=True) if "metrics" in cfg.training else None
     evaluator = Evaluator(metrics_config) if metrics_config else None
 
-    # --- 6. Run Evaluation ---
     results = run_evaluation(model, test_loader, evaluator, device, logger, output_dir)
 
-    # --- 7. Save Results ---
     try:
         with open(results_path, "w") as f:
             json.dump(results, f, indent=2)

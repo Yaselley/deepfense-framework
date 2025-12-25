@@ -1,18 +1,53 @@
-# Welcome to DeepFense
+# DeepFense Documentation
 
-**DeepFense** is a modular, configuration-driven framework designed for **Deepfake Audio Detection**. It decouples the **Frontend** (feature extraction), **Backend** (classification), and **Loss** functions, allowing researchers to mix and match components easily via YAML configuration files.
+Welcome to the **DeepFense Framework** documentation — your comprehensive guide to building state-of-the-art deepfake audio detection systems.
 
-## Key Features
+---
 
-*   **Modular Design**: Swap Wav2Vec2 for WavLM or AASIST for ResNet with a single config change.
-*   **Configuration-Driven**: All hyperparameters (learning rates, augmentations, model architectures) are defined in `config/train.yaml`.
-*   **Advanced Augmentations**: Includes a powerful pipeline for RawBoost, RIR (Reverb), Codec simulation, and more.
-*   **Standardized Training**: Built-in support for EER (Equal Error Rate) and minDCF metrics, logging to WandB, and checkpoint management.
+## 📖 How to Read This Documentation
 
-## Quick Links
+This documentation is organized as a **progressive learning path**. We recommend reading in order:
 
-*   [Getting Started](tutorials/getting_started.md): Install and run your first experiment.
-*   [Architecture](architecture.md): Understand how data flows through the system.
-*   [Configuration](user_guide/configuration.md): Learn how to customize experiments.
-*   [API Reference](api/models/detector.md): Deep dive into the code.
+| Chapter | Title | Description |
+|---------|-------|-------------|
+| **01** | [Installation](01_installation.md) | Set up your environment |
+| **02** | [Quick Start](02_quickstart.md) | Train your first model in 5 minutes |
+| **03** | [Complete Training Tutorial](03_full_tutorial.md) | Config-driven training guide |
+| **04** | [Architecture Overview](04_architecture.md) | Understand how DeepFense works |
+| **05** | [Configuration Reference](05_configuration.md) | All YAML parameters explained |
+| **06** | [Library Usage](06_library_usage.md) | Use DeepFense programmatically in Python |
 
+---
+
+## 🧩 Component Reference
+
+Detailed documentation for each module type:
+
+| Component | Description |
+|-----------|-------------|
+| [Frontends](components/frontends.md) | Feature extractors: Wav2Vec2, WavLM, HuBERT, MERT, EAT |
+| [Backends](components/backends.md) | Classifiers: AASIST, ECAPA-TDNN, RawNet2, MLP |
+| [Losses](components/losses.md) | Loss functions: AM-Softmax, OC-Softmax, A-Softmax, CrossEntropy |
+| [Augmentations](components/augmentations.md) | Data augmentation: RawBoost, RIR, Codec, Noise, etc. |
+| [Optimizers & Schedulers](components/optimizers_schedulers.md) | Adam, SGD, CosineAnnealing, etc. |
+
+---
+
+## 🔧 User Guides
+
+| Guide | Description |
+|-------|-------------|
+| [Training Workflow](user_guide/training.md) | Detailed training loop explanation |
+| [Evaluation & Inference](user_guide/inference.md) | Testing and deployment |
+| **[Extending DeepFense](user_guide/extending.md)** | **Add your own datasets, frontends, backends, losses, and more** |
+
+---
+
+## 🚀 Quick Links
+
+- **[GitHub Repository](https://github.com/Yaselley/deepfense-framework)**
+- **[Report Issues](https://github.com/Yaselley/deepfense-framework/issues)**
+
+---
+
+> **New to DeepFense?** Start with [Installation](01_installation.md) → [Quick Start](02_quickstart.md) → [Full Tutorial](03_full_tutorial.md)

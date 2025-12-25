@@ -1,5 +1,3 @@
-# training/standard_trainer.py
-
 import os
 import json
 import logging
@@ -234,8 +232,10 @@ class StandardTrainer(BaseTrainer):
             self.global_step += 1
             
             # Step scheduler if it's per-step (like OneCycleLR)
-            # Note: Original code didn't have this here, but it's good practice.
-            # If original code only stepped scheduler at epoch end, this is fine.
+            if self.scheduler and isinstance(
+                self.scheduler, torch.optim.lr_scheduler.OneCycleLR
+            ):
+                self.scheduler.step()
             
         return loss.item() * self.accum_steps
 
@@ -508,6 +508,6 @@ class StandardTrainer(BaseTrainer):
         self.best_metric = state.get("best_metric", self.best_metric)
         self.logger.info(f"Loaded checkpoint from {path}")
 
-    def infer(self, images):
+    def infer(self, x):
         self.model.eval()
-        return self.model(images)
+        return self.model(x)

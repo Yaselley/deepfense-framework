@@ -1,6 +1,7 @@
 import torch
 import pandas as pd
 import numpy as np
+import os
 
 from deepfense.data.transforms.transforms import load_audio
 from deepfense.data.base_dataset import BaseDataset
@@ -13,6 +14,18 @@ class StandardDataset(BaseDataset):
     Dataset for audio deepfake detection.
     Handles reading Parquet metadata, mapping labels,
     applying transforms, and loading feature/audio files.
+    
+    Args:
+        cfg (dict): Configuration with keys:
+            - parquet_files (list[str]): Paths to parquet metadata files
+            - label_map (dict): Mapping from label strings to integers
+            - root_dir (str, optional): Base directory to prepend to paths in parquet
+            - dataset_names (list[str], optional): Names for each parquet file
+            - max_per_class (int, optional): Maximum samples per class
+            - target_sr (int): Target sample rate (default: 16000)
+            - mono (bool): Convert to mono (default: True)
+            - base_transform (list): Base transform pipeline config
+            - augment_transform (list): Augmentation pipeline config
     """
 
     def __init__(self, cfg):
@@ -22,6 +35,8 @@ class StandardDataset(BaseDataset):
         self.label_map = self.config_data["label_map"]
         self.parquet_files = self.config_data["parquet_files"]
         self.dataset_names = self.config_data.get("dataset_names", None)
+        
+        self.root_dir = self.config_data.get("root_dir", None)
 
         self.max_per_class = self.config_data.get("max_per_class", None)
 
@@ -56,15 +71,22 @@ class StandardDataset(BaseDataset):
                 )
             self.data = pd.concat(limited_data, ignore_index=True)
 
+    def _get_audio_path(self, path):
+        """Get full audio path, prepending root_dir if specified."""
+        if self.root_dir is not None:
+            return os.path.join(self.root_dir, path)
+        return path
+
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
 
-        # Load audio
+        audio_path = self._get_audio_path(row["path"])
+        
         x = load_audio(
-            path=row["path"],
+            path=audio_path,
             target_sr=self.config_data.get("target_sr", 16000),
             mono=self.config_data.get("mono", True),
         )

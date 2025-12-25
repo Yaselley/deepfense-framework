@@ -2,10 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# --- Helper Classes (TdnnAffine, AttentionAlphaComponent) ---
-# (These are required dependencies for the attentive pooling layers)
-
-
 class TdnnAffine(nn.Module):
     def __init__(
         self,
@@ -110,9 +106,6 @@ class AttentionAlphaComponent(nn.Module):
         if self.relu_affine:
             x = self.relu(self.first_affine(x))
         return self.softmax(self.last_affine(x))
-
-
-# --- Pooling Classes ---
 
 
 class TAP(nn.Module):
@@ -233,7 +226,7 @@ class MultiHeadAttentionPooling(nn.Module):
         return self.output_dim
 
 
-# --- Factory Function ---
+
 def get_pooling_layer(config, input_dim):
     """
     Selects the pooling layer based on config.pooling_type

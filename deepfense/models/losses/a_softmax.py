@@ -62,15 +62,10 @@ class AngleLayer(nn.Module):
         cos_m_theta = self.cos_val[self.m](cos_theta)
 
         with torch.no_grad():
-            # theta (batchsie, output_dim)
             theta = cos_theta.acos()
-            # k is deterministic here
-            # k * pi / m <= theta <= (k + 1) * pi / m
             k = (self.m * theta / 3.14159265).floor()
             minus_one = k * 0.0 - 1
 
-        # phi_theta (batchsize, output_dim)
-        # Phi(yi, i) = (-1)**k * cos(myi,i) - 2 * k
         phi_theta = (minus_one**k) * cos_m_theta - 2 * k
 
         if flag_angle_only:
@@ -80,7 +75,6 @@ class AngleLayer(nn.Module):
             cos_x = cos_theta * x_modulus.view(-1, 1)
             phi_x = phi_theta * x_modulus.view(-1, 1)
 
-        # ((batchsize, output_dim), (batchsize, output_dim))
         return cos_x, phi_x
 
 
@@ -114,26 +108,20 @@ class ASoftmaxLoss(BaseLoss):
         input_tuple = (cos_x, phi_x)
 
         self.iter += 1
-        # target (batchsize, 1)
         target = target.long().view(-1, 1)
 
         with torch.no_grad():
             index = torch.zeros_like(input_tuple[0])
-            # index[i][target[i][j]] = 1
             index.scatter_(1, target.data.view(-1, 1), 1)
             index = index.bool()
 
-        # output (batchsize, output_dim)
         self.lamb = max(self.lambda_min, self.lambda_max / (1 + 0.1 * self.iter))
         output = input_tuple[0] * 1.0
         output[index] -= input_tuple[0][index] * 1.0 / (1 + self.lamb)
         output[index] += input_tuple[1][index] * 1.0 / (1 + self.lamb)
 
-        # softmax loss
         logit = F.log_softmax(output, dim=1)
-        # select the ones specified by target
         logit = logit.gather(1, target).view(-1)
-        # additional
         pt = logit.data.exp()
         loss = -1 * (1 - pt) ** self.gamma * logit
         loss = loss.mean()

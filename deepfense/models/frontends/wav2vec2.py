@@ -11,8 +11,8 @@ class Wav2VecWrapper(BaseFrontend):
     def __init__(self, config):
         super().__init__(config)
         
-        self.source = config.get("source", "fairseq") # "fairseq" or "huggingface"
-        self.ckpt_path = config.get("ckpt_path", None) # Path for fairseq or HF model ID
+        self.source = config.get("source", "fairseq")
+        self.ckpt_path = config.get("ckpt_path", None)
         self.freeze = config.get("freeze", True)
 
         if self.source == "fairseq":
@@ -37,17 +37,13 @@ class Wav2VecWrapper(BaseFrontend):
 
         if self.source == "fairseq":
             emb = self.model(input_data, mask=False, features_only=True)
-            x = emb["x"] # Last layer features
-            
-            # If we want intermediate layers:
-            # x, layer_results = emb["x"], emb["layer_results"]
+            x = emb["x"]
             return x
 
         elif self.source == "huggingface":
-            # HF logic
             attention_mask = None
             if mask is not None:
-                attention_mask = mask.long() # HF expects 1=valid, 0=pad
+                attention_mask = mask.long()
 
             outputs = self.model(input_data, attention_mask=attention_mask)
             return outputs.last_hidden_state
