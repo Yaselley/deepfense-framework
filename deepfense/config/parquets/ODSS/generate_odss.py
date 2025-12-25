@@ -11,8 +11,34 @@ def process_odss_dataset(data_root):
     https://www.idmt.fraunhofer.de/en/publications/datasets/ODSS-open-dataset-synthetic-speech.html
     An Open Dataset of Synthetic Speech, a multilingual, multispeaker dataset of synthetic and natural speech.
 
+    Data structure tree for data_root (/mount/arbeitsdaten54/projekte/deepfake/fad/data/odss/processed):
+    data_root/
+    └── odss/
+        ├── natural/ (bonafide)
+        │   ├── hifi-tts/
+        │   │   ├── speaker subdirectories (e.g., 92/)
+        │   │   └── *.wav (audio files in each speaker subdirectory)
+        │   ├── hui-acg/
+        │   │   ├── speaker subdirectories (e.g., Bernd_Ungerer/)
+        │   │   └── *.wav (audio files in each speaker subdirectory)
+        │   ├── openslr-es/
+        │   │   ├── speaker subdirectories (e.g., arf_00295/)
+        │   │   └── *.wav (audio files in each speaker subdirectory)
+        │   └── vctk/
+        │       ├── speaker subdirectories (e.g., p227/)
+        │       └── *.wav (audio files in each speaker subdirectory)
+        ├── fastpitch-hifigan/ (spoof)
+        │   ├── hifi-tts/ (Same sub dirs as natural/hifi-tts)
+        │   ├── hui-acg/ 
+        │   └── openslr-es/
+        └── vits/ (spoof)
+            ├── hifi-tts/
+            ├── hui-acg/
+            ├── openslr-es/
+            └── vctk/
+
     Args:
-        data_root: root directory containing the uncompressed ODSS dataset
+        data_root: root directory containing the uncompressed ODSS dataset (odss/ subdirectory will be appended)
     
     Returns:
         List of dicts containing ID, path, label, and dataset_name
@@ -31,7 +57,7 @@ def process_odss_dataset(data_root):
             
             all_data.append({
                 "ID": audio_id,
-                "path": str(wav_file),
+                "path": str(wav_file.relative_to(data_root)),
                 "label": "bonafide",
                 "dataset_name": "ODSS"
             })
@@ -42,7 +68,7 @@ def process_odss_dataset(data_root):
             audio_id = wav_file.stem
             all_data.append({
                 "ID": audio_id,
-                "path": str(wav_file), 
+                "path": str(wav_file.relative_to(data_root)), 
                 "label": "spoof",
                 "dataset_name": "ODSS"
             })
@@ -53,7 +79,7 @@ def process_odss_dataset(data_root):
             audio_id = wav_file.stem
             all_data.append({
                 "ID": audio_id,
-                "path": str(wav_file),
+                "path": str(wav_file.relative_to(data_root)),
                 "label": "spoof",
                 "dataset_name": "ODSS"
             })
