@@ -41,7 +41,7 @@ def process_one_csv(csv_path, data_root, exp_type, output_dir):
         
         data_list.append({
             "ID": audio_id,
-            "path": str(audio_path),
+            "path": str(audio_path.relative_to(data_root)),
             "label": row['label'],
             "dataset_name": "SpeechFake"
         })
@@ -65,15 +65,30 @@ def process_speechfake_dataset(data_root, meta_root, output_dir):
     """
     Process SpeechFake dataset by reading metadata CSV files from experiments directories.
     
-    The dataset structure:
-    - data_root/ contains BD/, MD/, Real/ directories with audio files
-    - meta_root/metadata/experiments/ contains 4 experiment types:
-      - baseline/
-      - cross_generator/
-      - cross_lingual/
-      - cross_speaker/
-    
-    Each experiment type contains multiple CSV files that will be converted to parquet files.
+    Data structure tree for data_root (/mount/arbeitsdaten54/projekte/deepfake/fad/data/speechfake/processed):
+    data_root/
+    ├── BD/ (spoof - Big Dataset)
+    │   ├── BigVGAN/, ChatTTS/, CosyVoice/, CosyVoice_VC/, DiffGAN_TTS/, FastDiff/,
+    │   ├── FastSpeech2/, FireRedTTS/, Fish/, Fish_VC/, Fullband_MelGAN/, Glow_TTS/,
+    │   ├── GPTSoVITS_VC/, Grad_TTS/, HiFiGAN/, MelGAN/, MeloTTS/, OpenVoice/,
+    │   ├── OpenVoice_VC/, Parallel_WaveGAN/, ParlerTTS/, PortaSpeech/, ProDiff_TTS/,
+    │   ├── SeedVC/, StarGAN/, StyleMelGAN/, StyleTTS2/, Tactotron2/, Tortoise/,
+    │   └── VITS/, WaveGlow/, WaveNet/ (TTS/VC model subdirectories)
+    │       └── dataset subdirectories (e.g., Aishell/, Aishell3/, LibriTTS/, VCTK/)
+    │           └── *.wav (audio files)
+    ├── MD/ (spoof - Medium Dataset)
+    │   ├── CosyVoice/, EdgeTTS/, Fish_VC/, GPTSoVITS_VC/, MeloTTS/,
+    │   ├── OpenVoice/, SeedVC/ (TTS/VC model subdirectories)
+    │   └── *.wav (audio files)
+    ├── Real/ (bonafide)
+    │   ├── Aishell/, Aishell3/, CommonVoice/, LibriTTS/, VCTK-Corpus/
+    │   └── *.wav (audio files in dataset subdirectories)
+    └── metadata/
+        └── experiments/
+            ├── baseline/ (*.csv files: dev_all.csv, dev_en.csv, dev_zh.csv, test_*.csv, train_*.csv)
+            ├── cross_generator/ (*.csv files: dev_NV.csv, dev_TTS.csv, dev_VC.csv, test_*.csv, train_*.csv)
+            ├── cross_lingual/ (*.csv files: dev.csv, test_*.csv, train.csv)
+            └── cross_speaker/ (*.csv files: test_diff_spk.csv, test_overlap*.csv, test_same_spk.csv, train.csv)
     
     Args:
         data_root: root directory containing the processed dataset
