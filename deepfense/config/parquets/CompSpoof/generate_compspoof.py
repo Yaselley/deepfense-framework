@@ -2,32 +2,19 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-def process_compspoof_dataset(data_root, meta_file):
+def process_single_meta_file(meta_file, audio_dir, data_root, output_dir):
     """
-    Process CompSpoof dataset by reading metadata files and scanning audio files.
-    The dataset contains:
-    - CompSpoof_train.txt, CompSpoof_dev.txt, CompSpoof_eval.txt
-    - Format: mixed_audio speech_source env_source class_label (4 space-separated fields)
-    - Each line has three audio files: mixed_audio, speech_source, env_source
-    - Labels: [original, bonafide_bonafide, spoof_bonafide, bonafide_spoof, spoof_spoof]
-
+    Process a single CompSpoof metadata file and save the parquet.
+    
     Args:
-        data_root: Directory containing the audio files
         meta_file: Path to the metadata text file (e.g., CompSpoof_train.txt)
-    
-    Returns:
-        List of dicts containing ID, path, label, and dataset_name
+        audio_dir: Directory containing the audio files
+        data_root: Root directory for computing relative paths
+        output_dir: Directory to save the parquet file
     """
-    data_root = Path(data_root)
-    meta_file = Path(meta_file)
-    
     if not meta_file.exists():
-        print(f"Error: Metadata file not found: {meta_file}")
-        return []
-    
-    if not data_root.exists():
-        print(f"Error: Audio directory not found: {data_root}")
-        return []
+        print(f"Warning: Metadata file not found: {meta_file}")
+        return
     
     all_data = []
     audio_id_set = set()
@@ -46,7 +33,7 @@ def process_compspoof_dataset(data_root, meta_file):
             env_source = parts[2]
             mixed_label = parts[3]
             
-            mixed_audio_path = data_root / mixed_audio
+            mixed_audio_path = audio_dir / mixed_audio
             if mixed_audio_path.exists():
                 if mixed_audio not in audio_id_set:
                     audio_id_set.add(mixed_audio)
@@ -66,7 +53,7 @@ def process_compspoof_dataset(data_root, meta_file):
             label_parts = mixed_label.split('_')
             speech_label, env_label = label_parts
             
-            speech_source_path = data_root / speech_source
+            speech_source_path = audio_dir / speech_source
             if speech_source_path.exists():
                 if speech_source not in audio_id_set:
                     audio_id_set.add(speech_source)
@@ -80,7 +67,7 @@ def process_compspoof_dataset(data_root, meta_file):
             else:
                 print(f"Warning: Speech source file not found: {speech_source_path}")
             
-            env_source_path = data_root / env_source
+            env_source_path = audio_dir / env_source
             if env_source_path.exists():
                 if env_source not in audio_id_set:
                     audio_id_set.add(env_source)
@@ -94,7 +81,58 @@ def process_compspoof_dataset(data_root, meta_file):
             else:
                 print(f"Warning: Env source file not found: {env_source_path}")
     
-    return all_data
+    if not all_data:
+        print(f"No data found for {meta_file.name}!")
+        return
+    
+    # Save the parquet file (name matches the txt file name without extension)
+    df = pd.DataFrame(all_data)
+    output_filename = meta_file.stem + ".parquet"
+    output_path = output_dir / output_filename
+    df.to_parquet(output_path)
+    print(f"\nSaved {len(df)} rows to {output_path}")
+    print(f"{meta_file.stem} label distribution:")
+    print(df['label'].value_counts())
+
+def process_compspoof_dataset(data_root, meta_root, output_dir):
+    """
+    Process CompSpoof dataset by reading metadata files and scanning audio files.
+    The dataset contains:
+    - CompSpoof_train.txt, CompSpoof_dev.txt, CompSpoof_eval.txt
+    - Format: mixed_audio speech_source env_source class_label (4 space-separated fields)
+    - Each line has three audio files: mixed_audio, speech_source, env_source
+    - Labels: [original, bonafide_bonafide, spoof_bonafide, bonafide_spoof, spoof_spoof]
+
+    Args:
+        data_root: Root directory containing the audio files
+            - If the data_root is the processed dir, then it has the following structure:
+            data_root/
+            └── dataset/
+                └── (audio files)
+
+        meta_root: Root directory containing the protocol txt files
+            - Structure:
+            meta_root/
+            ├── CompSpoof_dev.txt
+            ├── CompSpoof_eval.txt
+            ├── CompSpoof_train.txt
+            ├── LICENSE.md
+            └── README.md
+
+        output_dir: Directory to save the parquet files
+    """
+    data_root = Path(data_root)
+    meta_root = Path(meta_root)
+    output_dir = Path(output_dir)
+    
+    audio_dir = data_root / "dataset"
+    
+    if not audio_dir.exists():
+        print(f"Error: Audio directory not found: {audio_dir}")
+        return
+    
+    for meta_file in sorted(meta_root.glob("CompSpoof_*.txt")):
+        process_single_meta_file(meta_file, audio_dir, data_root, output_dir)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -108,7 +146,7 @@ def main():
     parser.add_argument(
         "--meta_root",
         type=str,
-        required=None,
+        default=None,
     )
 
     output_dir = Path(__file__).parent.absolute()
@@ -120,36 +158,12 @@ def main():
     
     args = parser.parse_args()
     output_dir = Path(args.output_dir)
-    print(f"Writing parquet files to {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     data_root = Path(args.data_root)
     meta_root = Path(args.meta_root) if args.meta_root is not None else data_root
-    if meta_root is None:
-        meta_root = data_root
-        print(f"Meta directory not provided, using data directory as meta directory")
-    meta_root = Path(args.meta_root)
     
-    splits = [
-        "CompSpoof_train.txt",
-        "CompSpoof_dev.txt",
-        "CompSpoof_eval.txt"
-    ]
-    
-    for meta_filename in splits:
-        meta_file = meta_root / meta_filename
-        all_data = process_compspoof_dataset(data_root, meta_file)
-        
-        if all_data:
-            df = pd.DataFrame(all_data)
-            output_filename = meta_filename.replace('.txt', '.parquet')
-            output_path = output_dir / output_filename
-            df.to_parquet(output_path)
-            print(f"\nSaved {len(df)} rows to {output_path}")
-            print(f"Label distribution:")
-            print(df['label'].value_counts())
-        else:
-            print(f"No data found for {meta_filename}!")
+    process_compspoof_dataset(data_root, meta_root, output_dir)
 
 if __name__ == "__main__":
     main()
