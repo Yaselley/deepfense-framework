@@ -12,9 +12,35 @@ def process_spoofceleb_dataset(data_root, meta_root, output_dir):
     https://jungjee.github.io/spoofceleb/
     SpoofCeleb: A Large-Scale Public Audio-Visual Dataset for Deepfake Detection
     
-    The dataset structure:
-    - flac/train/, flac/development/, flac/evaluation/ contain audio files
-    - metadata/ contains CSV files with file paths, speaker IDs, and attack types
+    Data structure tree for data_root (/mount/arbeitsdaten54/projekte/deepfake/fad/data/spoofceleb/processed):
+    data_root/
+    └── spoofceleb/
+        ├── flac/
+        │   ├── train/
+        │   │   ├── a00/ (bonafide)
+        │   │   │   ├── speaker subdirectories (e.g., id10310/)
+        │   │   │   └── *.flac (audio files)
+        │   │   └── a01/ through a10/ (spoof)
+        │   │       ├── speaker subdir
+        │   │       └── *.flac (audio files)
+        │   ├── development/
+        │   │   ├── a00/ (bonafide)
+        │   │   │   ├── speaker subdir
+        │   │   │   └── *.flac (audio files)
+        │   │   └── a06/, a07/, a11/, a12/, a13/, a14/ (spoof)
+        │   │       ├── speaker subdir
+        │   │       └── *.flac (audio files)
+        │   └── evaluation/
+        │       ├── a00/ (bonafide)
+        │       │   ├── speaker subdir
+        │       │   └── *.flac (audio files)
+        │       └── a15/ through a23/ (spoof)
+        │           ├── speaker subdir
+        │           └── *.flac (audio files)
+        └── metadata/
+            ├── train.csv
+            ├── development.csv
+            └── evaluation.csv
     
     Args:
         data_root: root directory containing the processed dataset 
@@ -71,7 +97,7 @@ def process_spoofceleb_dataset(data_root, meta_root, output_dir):
             
             split_data.append({
                 "ID": audio_id,
-                "path": str(audio_path),
+                "path": str(audio_path.relative_to(data_root)),
                 "label": label,
                 "dataset_name": "SpoofCeleb"
             })
