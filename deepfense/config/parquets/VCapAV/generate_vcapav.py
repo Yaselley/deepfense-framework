@@ -5,17 +5,29 @@ from pathlib import Path
 def process_vcapav_dataset(data_root):
     """
     Process VCapAV dataset by scanning all audio files.
-    The dataset contains:
-    - T2A/ (Text-to-Audio): spoof
-      - audiocraft_audio_cut/
-      - audioLDM1_audio_cut/
-      - audioLDM2_audio_cut/
-    - V2A/ (Video-to-Audio): spoof
-      - SMIIPdata2/datasets/V2A/V2A-Mapper/V2A_audio_cut/
-      - SMIIPdata2/datasets/V2A/V2A-MLP/YMJ_audio_cut/
-      - home/dl392/data/yimj/V2A_output/Kling_videos/ (skipped cuz it contains videos, not audio)
-    - VGGsound_test_14923_audio_cut/: bonafide (real audio from VGGSound dataset)
-    - The other dirs contain videos, not audio, so we skip them.
+    Data structure tree for data_root 
+    data_root/
+    ├── T2A/ (spoof - Text-to-Audio)
+    │   ├── audiocraft_audio_cut/
+    │   │   └── *.wav (audio files)
+    │   ├── audioLDM1_audio_cut/
+    │   │   └── *.wav (audio files)
+    │   └── audioLDM2_audio_cut/
+    │       └── *.wav (audio files)
+    ├── V2A/ (spoof - Video-to-Audio)
+    │   ├── SMIIPdata2/
+    │   │   └── datasets/
+    │   │       └── V2A/
+    │   │           ├── V2A-Mapper/
+    │   │           │   └── V2A_audio_cut/
+    │   │           │       └── *.wav (audio files)
+    │   │           └── V2A-MLP/
+    │   │               └── YMJ_audio_cut/
+    │   │                   └── *.wav (audio files)
+    │   └── home/ (skipped, contains videos)
+    └── VGGsound_test_14923_audio_cut/ (bonafide)
+        └── VGGsound_test_15446_audio_cut/
+            └── *.wav (audio files)
     
     Note: The paper mentions three partitions (dev1, dev2, dev3), but the metadata
     is not provided in the dataset, so we create a single parquet file with all data.
@@ -39,14 +51,16 @@ def process_vcapav_dataset(data_root):
     all_data = []
     
     t2a_dir = data_root / "T2A"
+    audio_id = 0
+
     if t2a_dir.exists():
         for wav_file in t2a_dir.rglob("*.wav"):
+            audio_id += 1
             relative_path = wav_file.relative_to(data_root)
-            audio_id = str(relative_path.with_suffix(""))
             
             all_data.append({
-                "ID": audio_id,
-                "path": str(wav_file),
+                "ID": str(audio_id),
+                "path": str(relative_path),
                 "label": "spoof",
                 "dataset_name": "VCapAV"
             })
@@ -54,15 +68,12 @@ def process_vcapav_dataset(data_root):
     v2a_dir = data_root / "V2A"
     if v2a_dir.exists():
         for wav_file in v2a_dir.rglob("*.wav"):
-            if "Kling_videos" in str(wav_file):
-                continue
-            
+            audio_id += 1
             relative_path = wav_file.relative_to(data_root)
-            audio_id = str(relative_path.with_suffix(""))
             
             all_data.append({
-                "ID": audio_id,
-                "path": str(wav_file),
+                "ID": str(audio_id),
+                "path": str(relative_path),
                 "label": "spoof",
                 "dataset_name": "VCapAV"
             })
@@ -71,11 +82,11 @@ def process_vcapav_dataset(data_root):
     if vggsound_dir.exists():
         for wav_file in vggsound_dir.rglob("*.wav"):
             relative_path = wav_file.relative_to(data_root)
-            audio_id = str(relative_path.with_suffix(""))
+            audio_id += 1
             
             all_data.append({
-                "ID": audio_id,
-                "path": str(wav_file),
+                "ID": str(audio_id),
+                "path": str(relative_path),
                 "label": "bonafide",
                 "dataset_name": "VCapAV"
             })
