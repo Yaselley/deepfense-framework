@@ -27,6 +27,9 @@
 - 🎛️ **Advanced Augmentations** — RawBoost, RIR, Codec, Noise, and more
 - 📊 **Built-in Metrics** — EER, minDCF, F1-score, Accuracy
 - 🚀 **Simple CLI** — Train and test models with command-line interface
+- 📚 **Recipes** — Pre-configured training setups and example models ([see recipes](recipes/))
+
+**New to DeepFense?** Check out our [recipes](recipes/) for pre-configured training setups and example models to get started quickly!
 
 ---
 
@@ -88,6 +91,8 @@ DeepFense provides a modular set of components that can be mixed and matched:
 - **Augmentations**: RawBoost, RIR, Codec, Noise, SpeedPerturb - See [Augmentations Documentation](docs/components/augmentations.md)
 
 See [Component Reference](docs/index.md#-component-reference) for complete details.
+
+**Looking for example configurations?** Check out our [recipes](recipes/) for pre-configured training setups and trained models.
 
 ---
 
