@@ -16,6 +16,9 @@ This documentation is organized as a **progressive learning path**. We recommend
 | **04** | [Architecture Overview](04_architecture.md) | Understand how DeepFense works |
 | **05** | [Configuration Reference](05_configuration.md) | All YAML parameters explained |
 | **06** | [Library Usage](06_library_usage.md) | Use DeepFense programmatically in Python |
+| **07** | [CLI Reference](cli_reference.md) | Command-line interface documentation |
+| **08** | [Pipeline Flow](pipeline_flow.md) | Complete pipeline from data to deployment |
+| **[Data Transforms](data_transforms.md)** | **All transform options, padding, cropping, and augmentation parameters** |
 
 ---
 
@@ -38,8 +41,17 @@ Detailed documentation for each module type:
 | Guide | Description |
 |-------|-------------|
 | [Training Workflow](user_guide/training.md) | Detailed training loop explanation |
+| [Training with CLI](user_guide/training_with_cli.md) | How to train models using the Library CLI |
 | [Evaluation & Inference](user_guide/inference.md) | Testing and deployment |
-| **[Extending DeepFense](user_guide/extending.md)** | **Add your own datasets, frontends, backends, losses, and more** |
+| [Adding a New Backend](user_guide/adding_backends.md) | Step-by-step guide to create custom backends |
+| [Adding a New Frontend](user_guide/adding_frontends.md) | Step-by-step guide to create custom frontends |
+| [Adding a New Loss](user_guide/adding_losses.md) | Step-by-step guide to create custom loss functions |
+| [Adding a New Dataset](user_guide/adding_datasets.md) | Step-by-step guide to create custom datasets |
+| [Adding Augmentations](user_guide/adding_augmentations.md) | Step-by-step guide to create custom data augmentations |
+| [Adding Optimizers](user_guide/adding_optimizers.md) | Step-by-step guide to add custom optimizers |
+| [Adding Metrics](user_guide/adding_metrics.md) | Step-by-step guide to add custom evaluation metrics |
+| [Adding Schedulers](user_guide/adding_schedulers.md) | Step-by-step guide to add custom learning rate schedulers |
+| **[Extending DeepFense](user_guide/extending.md)** | **Quick reference for all component types** |
 
 ---
 
