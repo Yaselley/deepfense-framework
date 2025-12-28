@@ -8,6 +8,11 @@
 
 **A Modular, Extensible Framework for Deepfake Audio Detection**
 
+[![Website](https://img.shields.io/badge/🌐-Website-blue)](https://deepfense.github.io/)
+[![HuggingFace](https://img.shields.io/badge/🤗-HuggingFace-yellow)](https://huggingface.co/DeepFense)
+[![Documentation](https://img.shields.io/badge/📚-Documentation-green)](https://deepfense.readthedocs.io/)
+[![Recipes](https://img.shields.io/badge/📖-Recipes-orange)](recipes/)
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-navy.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-navy.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-navy.svg)](https://pytorch.org/)
@@ -27,6 +32,9 @@
 - 🎛️ **Advanced Augmentations** — RawBoost, RIR, Codec, Noise, and more
 - 📊 **Built-in Metrics** — EER, minDCF, F1-score, Accuracy
 - 🚀 **Simple CLI** — Train and test models with command-line interface
+- 📚 **Recipes** — Pre-configured training setups and example models ([see recipes](recipes/))
+
+**New to DeepFense?** Check out our [recipes](recipes/) for pre-configured training setups and example models to get started quickly!
 
 ---
 
@@ -88,6 +96,8 @@ DeepFense provides a modular set of components that can be mixed and matched:
 - **Augmentations**: RawBoost, RIR, Codec, Noise, SpeedPerturb - See [Augmentations Documentation](docs/components/augmentations.md)
 
 See [Component Reference](docs/index.md#-component-reference) for complete details.
+
+**Looking for example configurations?** Check out our [recipes](recipes/) for pre-configured training setups and trained models.
 
 ---
 
