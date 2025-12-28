@@ -39,7 +39,7 @@
 5. [Evaluating and Testing Models](#evaluating-and-testing-models)
 6. [Data Preparation](#data-preparation)
 7. [Extending DeepFense](#extending-deepfense)
-8. [Using the CLI](#using-the-cli)
+8. [Using the CLI (Alternative)](#using-the-cli-alternative)
 9. [Complete Pipeline Flow](#complete-pipeline-flow)
 10. [Documentation](#documentation)
 
@@ -93,29 +93,33 @@ See [Component Reference](docs/index.md#-component-reference) for complete detai
 
 ## Training Models
 
-Train models using the CLI:
+Train models using Python scripts:
 
 ```bash
-deepfense train --config deepfense/config/train.yaml
+python train.py --config deepfense/config/train.yaml
 ```
 
 Training creates an experiment directory with checkpoints, logs, and metrics.
 
-See [Training Guide](docs/user_guide/training_with_cli.md) for detailed instructions and [Configuration Reference](docs/05_configuration.md) for all YAML parameters.
+**Alternative**: You can also use the CLI (see [Using the CLI](#using-the-cli) section below).
+
+See [Quick Start Guide](docs/02_quickstart.md) for detailed instructions and [Configuration Reference](docs/05_configuration.md) for all YAML parameters.
 
 ---
 
 ## Evaluating and Testing Models
 
-Test a trained model:
+Test a trained model using Python scripts:
 
 ```bash
-deepfense test \
+python test.py \
     --config deepfense/config/train.yaml \
     --checkpoint outputs/my_experiment/best_model.pth
 ```
 
 DeepFense computes metrics automatically (EER, minDCF, F1, ACC) and saves results to the experiment directory.
+
+**Alternative**: You can also use the CLI (see [Using the CLI](#using-the-cli) section below).
 
 See [Evaluation & Inference Guide](docs/user_guide/inference.md) for details.
 
@@ -156,7 +160,7 @@ data:
         args:
           max_len: 160000       # 10 seconds @ 16kHz
           random_pad: True      # Random crop if longer
-          pad_type: "repeat"    # Repeat if shorter
+          pad_type: "repeat"    # Repeat if shorteror
 ```
 
 **See [Data Transforms Guide](docs/data_transforms.md)** for complete transform parameters, padding/cropping options, augmentations, and how to check/modify configurations.
@@ -175,15 +179,15 @@ See [Extending DeepFense (Quick Reference)](docs/user_guide/extending.md) for a 
 
 ---
 
-## Using the CLI
+## Using the CLI (Alternative)
 
-DeepFense provides a simple CLI for training and testing models:
+DeepFense provides a CLI as an alternative to Python scripts. The CLI supports:
 
 ```bash
-# Train a model
+# Train a model (alternative to python train.py)
 deepfense train --config config/train.yaml
 
-# Test a model
+# Test a model (alternative to python test.py)
 deepfense test --config config/train.yaml --checkpoint outputs/exp/best_model.pth
 
 # List available components
@@ -192,7 +196,7 @@ deepfense list
 
 **Note**: The CLI currently supports training and testing existing models with different parameters. Future versions will support adding components via CLI.
 
-See [CLI Reference](docs/cli_reference.md) for complete documentation and use cases.
+See [CLI Reference](docs/cli_reference.md) for complete documentation.
 
 ---
 
