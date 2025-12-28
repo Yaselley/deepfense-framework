@@ -1,37 +1,21 @@
 site_name: DeepFense Framework
 site_description: A modular, configuration-driven framework for Deepfake Audio Detection.
 site_author: DeepFense Team
-site_url: https://yaselley.github.io/deepfense-framework/
+site_url: https://deepfense.github.io/
 
 repo_url: https://github.com/Yaselley/deepfense-framework
 repo_name: deepfense-framework
 edit_uri: edit/main/docs/
 
 theme:
-  name: material
-  palette:
-    # Light mode
-    - scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    # Dark mode
-    - scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-  features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.expand
-    - content.code.copy
-    - content.action.edit
+  name: readthedocs
   logo: logo/logo.png
   favicon: logo/logo.png
+  highlightjs: true
+  hljs_languages:
+    - yaml
+    - python
+    - bash
 
 markdown_extensions:
   - admonition
