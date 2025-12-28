@@ -2,10 +2,13 @@ import torch
 import pandas as pd
 import numpy as np
 import os
+import logging
 
 from deepfense.data.transforms.transforms import load_audio
 from deepfense.data.base_dataset import BaseDataset
 from deepfense.utils.registry import register_dataset, build_transforms_pipeline
+
+logger = logging.getLogger(__name__)
 
 
 @register_dataset("StandardDataset")
@@ -51,12 +54,51 @@ class StandardDataset(BaseDataset):
         # Load and concatenate Parquet metadata
         self.data = []
         for i, p_file in enumerate(self.parquet_files):
+            # Check if parquet file exists
+            if not os.path.exists(p_file):
+                error_msg = (
+                    f"Parquet file not found: {p_file}\n"
+                    f"Please check the path in your configuration."
+                )
+                logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
             df = pd.read_parquet(p_file)
+            
+            # Check if parquet file is empty
+            if len(df) == 0:
+                error_msg = (
+                    f"Parquet file is empty: {p_file}\n"
+                    f"Please ensure the file contains data."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            # Check if required columns exist
+            required_columns = ["path", "label"]
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                error_msg = (
+                    f"Parquet file '{p_file}' is missing required columns: {missing_columns}\n"
+                    f"Required columns: {required_columns}\n"
+                    f"Available columns: {list(df.columns)}"
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
             df["dataset_name"] = (
                 self.dataset_names[i] if i < len(self.dataset_names) else f"dataset_{i}"
             )
             self.data.append(df)
         self.data = pd.concat(self.data, ignore_index=True)
+        
+        # Check if concatenated data is empty
+        if len(self.data) == 0:
+            error_msg = (
+                f"No data found after loading parquet files: {self.parquet_files}\n"
+                f"Please check your data configuration."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         # Map labels
         self.data["label"] = self.data["label"].map(self.label_map)
@@ -74,7 +116,7 @@ class StandardDataset(BaseDataset):
     def _get_audio_path(self, path):
         """Get full audio path, prepending root_dir if specified."""
         if self.root_dir is not None:
-            return os.path.join(self.root_dir, path)
+            return os.path.join(self.root_dir, path[1:])
         return path
 
     def __len__(self):
@@ -84,6 +126,19 @@ class StandardDataset(BaseDataset):
         row = self.data.iloc[idx]
 
         audio_path = self._get_audio_path(row["path"])
+
+        # Check if audio file exists
+        if not os.path.exists(audio_path):
+            error_msg = (
+                f"Audio file not found: {audio_path}\n"
+                f"Row ID: {row.get('ID', idx)}\n"
+                f"Dataset: {row.get('dataset_name', 'unknown')}\n"
+                f"Original path in parquet: {row['path']}\n"
+                f"Root directory: {self.root_dir}\n"
+                f"Please check that the file exists and the path is correct."
+            )
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
         
         x = load_audio(
             path=audio_path,
