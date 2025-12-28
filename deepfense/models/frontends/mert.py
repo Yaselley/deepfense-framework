@@ -17,7 +17,7 @@ class MERTWrapper(BaseFrontend):
 
         self.source = config.get("source", "huggingface") 
         self.ckpt_path = config.get("ckpt_path", "m-a-p/MERT-v1-95M")
-        self.freeze = config.get("freeze", True)
+        self.freeze = config.get("freeze", False)
         self.trust_remote_code = config.get("trust_remote_code", True)
 
         if self.source == "huggingface":

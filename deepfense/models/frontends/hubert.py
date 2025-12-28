@@ -14,7 +14,7 @@ class HubertWrapper(BaseFrontend):
 
         self.source = config.get("source", "fairseq")
         self.ckpt_path = config.get("ckpt_path", None)
-        self.freeze = config.get("freeze", True)
+        self.freeze = config.get("freeze", False)
 
         if self.ckpt_path is None:
             raise ValueError("ckpt_path must be provided in config")

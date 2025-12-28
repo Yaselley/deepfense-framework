@@ -19,6 +19,7 @@ This documentation is organized as a **progressive learning path**. We recommend
 | **07** | [CLI Reference](cli_reference.md) | Command-line interface documentation |
 | **08** | [Pipeline Flow](pipeline_flow.md) | Complete pipeline from data to deployment |
 | **[Data Transforms](data_transforms.md)** | **All transform options, padding, cropping, and augmentation parameters** |
+| **[Recipes](../recipes/)** | **Pre-configured training setups and example models** |
 
 ---
 
@@ -29,9 +30,9 @@ Detailed documentation for each module type:
 | Component | Description |
 |-----------|-------------|
 | [Frontends](components/frontends.md) | Feature extractors: Wav2Vec2, WavLM, HuBERT, MERT, EAT |
-| [Backends](components/backends.md) | Classifiers: AASIST, ECAPA-TDNN, RawNet2, MLP |
+| [Backends](components/backends.md) | Classifiers: AASIST, ECAPA_TDNN, RawNet2, MLP, Pool, Nes2Net, TCM |
 | [Losses](components/losses.md) | Loss functions: AM-Softmax, OC-Softmax, A-Softmax, CrossEntropy |
-| [Augmentations](components/augmentations.md) | Data augmentation: RawBoost, RIR, Codec, Noise, etc. |
+| [Augmentations](components/augmentations.md) | Data augmentation: RawBoost, RIR, Codec, Morph, AdditiveNoise, SpeedPerturb, AddBabble, DropFreq, DropChunk, DoClip |
 | [Optimizers & Schedulers](components/optimizers_schedulers.md) | Adam, SGD, CosineAnnealing, etc. |
 
 ---

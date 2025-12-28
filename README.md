@@ -224,7 +224,7 @@ See [Pipeline Flow Documentation](docs/pipeline_flow.md) for the complete detail
 | Component | Documentation |
 |-----------|--------------|
 | [Frontends](docs/components/frontends.md) | Wav2Vec2, WavLM, HuBERT, MERT, EAT |
-| [Backends](docs/components/backends.md) | AASIST, ECAPA-TDNN, RawNet2, MLP, Nes2Net, TCM |
+| [Backends](docs/components/backends.md) | AASIST, ECAPA_TDNN, RawNet2, MLP, Pool, Nes2Net, TCM |
 | [Losses](docs/components/losses.md) | CrossEntropy, OC-Softmax, AM-Softmax, A-Softmax |
 | [Augmentations](docs/components/augmentations.md) | RawBoost, RIR, Codec, Noise, SpeedPerturb |
 | [Optimizers & Schedulers](docs/components/optimizers_schedulers.md) | Adam, SGD, CosineAnnealing, StepLR |
@@ -259,6 +259,12 @@ See [Pipeline Flow Documentation](docs/pipeline_flow.md) for the complete detail
 |-------|-------------|
 | [CLI Reference](docs/cli_reference.md) | Complete CLI documentation |
 
+### Recipes
+
+| Resource | Description |
+|----------|-------------|
+| [Recipes](recipes/) | Pre-configured training setups and example models |
+
 ---
 
 ## Project Structure
@@ -274,6 +280,18 @@ deepfense/
 ```
 
 See [Architecture Overview](docs/04_architecture.md) for detailed structure and component organization.
+
+---
+
+## Recipes
+
+DeepFense provides example recipes (pre-configured training setups) to help you get started quickly. Each recipe includes:
+- Complete configuration files
+- Pre-trained model checkpoints (where available)
+- Training scripts and evaluation results
+- Documentation on architecture choices and hyperparameters
+
+See the [recipes](recipes/) folder for available recipes. Each recipe includes detailed README files explaining the configuration and how to reproduce the results.
 
 ---
 

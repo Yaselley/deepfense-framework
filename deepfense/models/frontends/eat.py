@@ -18,7 +18,7 @@ class EATWrapper(BaseFrontend):
 
         self.source = config.get("source", "huggingface") 
         self.ckpt_path = config.get("ckpt_path", "worstchan/EAT-large_epoch20_pretrain")
-        self.freeze = config.get("freeze", True)
+        self.freeze = config.get("freeze", False)
         self.trust_remote_code = config.get("trust_remote_code", True)
 
         # EAT normalization constants
