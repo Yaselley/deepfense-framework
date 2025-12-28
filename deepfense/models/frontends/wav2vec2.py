@@ -13,7 +13,7 @@ class Wav2VecWrapper(BaseFrontend):
         
         self.source = config.get("source", "fairseq")
         self.ckpt_path = config.get("ckpt_path", None)
-        self.freeze = config.get("freeze", True)
+        self.freeze = config.get("freeze", False)
 
         if self.source == "fairseq":
             import fairseq
