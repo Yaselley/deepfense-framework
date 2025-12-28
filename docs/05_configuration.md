@@ -21,11 +21,11 @@ training: {...}       # Training configuration
 
 ## Global Settings
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `exp_name` | string | `"default_exp"` | Name for the experiment folder |
-| `output_dir` | string | `"./outputs/"` | Base directory for outputs |
-| `seed` | integer | `42` | Random seed for reproducibility |
+**Parameters:**
+
+* **exp_name** - (*str*) Name for the experiment folder (default: `"default_exp"`).
+* **output_dir** - (*str*) Base directory for outputs (default: `"./outputs/"`).
+* **seed** - (*int*) Random seed for reproducibility (default: `42`).
 
 ---
 
@@ -47,15 +47,15 @@ data:
 
 ### Dataset Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `dataset_type` | string | `"StandardDataset"` | Dataset class name |
-| `parquet_files` | list[string] | **required** | Paths to Parquet files |
-| `dataset_names` | list[string] | `null` | Names for each Parquet file |
-| `batch_size` | integer | `32` | Batch size |
-| `shuffle` | boolean | `true` | Shuffle data |
-| `num_workers` | integer | `4` | DataLoader workers |
-| `drop_last` | boolean | `false` | Drop incomplete batches |
+**Parameters:**
+
+* **dataset_type** - (*str*) Dataset class name (default: `"StandardDataset"`).
+* **parquet_files** - (*list[str]*) **Required**. Paths to Parquet files.
+* **dataset_names** - (*list[str]*) Names for each Parquet file (default: `null`).
+* **batch_size** - (*int*) Batch size (default: `32`).
+* **shuffle** - (*bool*) Shuffle data (default: `true`).
+* **num_workers** - (*int*) DataLoader workers (default: `4`).
+* **drop_last** - (*bool*) Drop incomplete batches (default: `false`).
 
 ### Base Transform
 
@@ -73,10 +73,10 @@ base_transform:
     pad_type: repeat     # How to pad short audio
 ```
 
-| Transform | Parameters | Description |
-|-----------|------------|-------------|
-| `load_audio` | `target_sr`, `mono` | Load audio file |
-| `pad` | `max_len`, `random_pad`, `pad_type` | Pad/truncate to fixed length |
+**Available Transforms:**
+
+* **load_audio** - Parameters: `target_sr`, `mono`. Loads audio file.
+* **pad** - Parameters: `max_len`, `random_pad`, `pad_type`. Pads/truncates to fixed length.
 
 ### Augmentation Transform (Training Only)
 
@@ -98,24 +98,15 @@ augment_transform:
 
 #### Pipeline Modes
 
-| Mode | Execution | Result |
-|------|-----------|--------|
-| `parallel` | `chain` | Pick ONE transform randomly |
-| `sequential` | `chain` | Apply ALL transforms in order |
-| `sequential` | `independent` | Create separate copies with each transform |
+**Modes:**
+
+* **parallel / chain** - Picks ONE transform randomly.
+* **sequential / chain** - Applies ALL transforms in order.
+* **sequential / independent** - Creates separate copies with each transform.
 
 #### Available Augmentations
 
-| Type | Key Parameters |
-|------|----------------|
-| `rawboost` | `algo` (0-8), `noise_ratio` |
-| `rir` | `csv_file`, `noise_ratio` |
-| `add_noise` | `csv_file`, `snr_low`, `snr_high`, `noise_ratio` |
-| `add_babble` | `csv_file`, `speaker_count`, `snr_low`, `snr_high` |
-| `speed_perturb` | `speeds` (list), `noise_ratio` |
-| `codec` | `noise_ratio` |
-| `drop_freq` | `drop_freq_low`, `drop_freq_high`, `drop_count_low`, `drop_count_high` |
-| `drop_chunk` | `drop_length_low`, `drop_length_high`, `drop_count_low`, `drop_count_high` |
+Complete details in [Augmentation Reference](components/augmentations.md).
 
 ---
 
@@ -143,13 +134,17 @@ frontend:
     freeze: true
 ```
 
-| Frontend | Type Key | Key Args |
-|----------|----------|----------|
-| Wav2Vec2 | `wav2vec2` | `source`, `ckpt_path`, `freeze` |
-| WavLM | `wavlm` | `source`, `ckpt_path`, `freeze` |
-| HuBERT | `hubert` | `source`, `ckpt_path`, `freeze` |
-| MERT | `mert` | `ckpt_path`, `freeze`, `trust_remote_code` |
-| EAT | `eat` | `ckpt_path`, `freeze`, `trust_remote_code` |
+### Frontend
+
+**Supported Frontends:**
+
+* **Wav2Vec2** (`wav2vec2`) - Parameters: `source`, `ckpt_path`, `freeze`.
+* **WavLM** (`wavlm`) - Parameters: `source`, `ckpt_path`, `freeze`.
+* **HuBERT** (`hubert`) - Parameters: `source`, `ckpt_path`, `freeze`.
+* **MERT** (`mert`) - Parameters: `ckpt_path`, `freeze`, `trust_remote_code`.
+* **EAT** (`eat`) - Parameters: `ckpt_path`, `freeze`, `trust_remote_code`.
+
+Detailed usage in [Frontend Reference](components/frontends.md).
 
 ### Backend
 
@@ -164,13 +159,17 @@ backend:
     temperatures: [2.0, 2.0, 100.0, 100.0]
 ```
 
-| Backend | Type Key | Key Args |
-|---------|----------|----------|
-| AASIST | `AASIST` | `input_dim`, `filts`, `gat_dims` |
-| ECAPA-TDNN | `ECAPA_TDNN` | `channels`, `emb_dim` |
-| RawNet2 | `RawNet2` | `filts`, `gru_node`, `emb_dim` |
-| MLP | `MLP` | `input_dim`, `projection`, `pooling_type` |
-| Nes2Net | `Nes2Net` | `strides`, `filts` |
+### Backend
+
+**Supported Backends:**
+
+* **AASIST** (`AASIST`) - Parameters: `input_dim`, `filts`, `gat_dims`.
+* **ECAPA-TDNN** (`ECAPA_TDNN`) - Parameters: `channels`, `emb_dim`.
+* **RawNet2** (`RawNet2`) - Parameters: `filts`, `gru_node`, `emb_dim`.
+* **MLP** (`MLP`) - Parameters: `input_dim`, `projection`, `pooling_type`.
+* **Res2Net** (`Nes2Net`) - Parameters: `strides`, `filts`.
+
+Detailed usage in [Backend Reference](components/backends.md).
 
 ### Loss Functions
 
@@ -201,12 +200,16 @@ loss:
     n_classes: 2
 ```
 
-| Loss | Type Key | Key Args |
-|------|----------|----------|
-| OC-Softmax | `OCSoftmax` | `embedding_dim`, `w_posi`, `w_nega`, `alpha` |
-| AM-Softmax | `AMSoftmax` | `embedding_dim`, `n_classes`, `m`, `s` |
-| A-Softmax | `ASoftmax` | `embedding_dim`, `n_classes`, `m` |
-| Cross Entropy | `CrossEntropy` | `embedding_dim`, `n_classes` |
+### Loss Functions
+
+**Supported Losses:**
+
+* **OC-Softmax** (`OCSoftmax`) - Parameters: `embedding_dim`, `m_real`, `m_fake`, `alpha`.
+* **AM-Softmax** (`AMSoftmax`) - Parameters: `embedding_dim`, `n_classes`, `m`, `s`.
+* **A-Softmax** (`ASoftmax`) - Parameters: `embedding_dim`, `n_classes`, `m`.
+* **Cross Entropy** (`CrossEntropy`) - Parameters: `embedding_dim`, `n_classes`.
+
+Detailed usage in [Loss Reference](components/losses.md).
 
 ---
 
@@ -249,36 +252,44 @@ training:
 
 ### Core Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `trainer` | string | `"StandardTrainer"` | Trainer class |
-| `device` | string | `"cuda"` | Device (`cuda`, `cpu`, `cuda:0`) |
-| `epochs` | integer | `50` | Total training epochs |
-| `gradient_accumulation_steps` | integer | `1` | Accumulate gradients |
-| `max_grad_norm` | float | `1.0` | Gradient clipping norm |
+### Core Parameters
+
+**Parameters:**
+
+* **trainer** - (*str*) Trainer class (default: `"StandardTrainer"`).
+* **device** - (*str*) Device (`cuda`, `cpu`, `cuda:0`) (default: `"cuda"`).
+* **epochs** - (*int*) Total training epochs (default: `50`).
+* **gradient_accumulation_steps** - (*int*) Accumulate gradients (default: `1`).
+* **max_grad_norm** - (*float*) Gradient clipping norm (default: `1.0`).
 
 ### Logging
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `batch_log_interval` | integer | `50` | Log every N batches |
+### Logging
+
+**Parameters:**
+
+* **batch_log_interval** - (*int*) Log every N batches (default: `50`).
 
 ### Evaluation
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `eval_every_epochs` | integer | `1` | Evaluate every N epochs |
-| `eval_every_steps` | integer | `null` | Evaluate every N steps |
-| `metrics` | list[string] | `["EER"]` | Metrics to compute |
+### Evaluation
+
+**Parameters:**
+
+* **eval_every_epochs** - (*int*) Evaluate every N epochs (default: `1`).
+* **eval_every_steps** - (*int*) Evaluate every N steps (default: `null`).
+* **metrics** - (*list[str]*) Metrics to compute (default: `["EER"]`).
 
 ### Checkpointing
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `monitor_metric` | string | `"EER"` | Metric for best model |
-| `monitor_mode` | string | `"min"` | `"min"` or `"max"` |
-| `save_every_epochs` | integer | `5` | Save checkpoint every N epochs |
-| `early_stopping_patience` | integer | `null` | Stop if no improvement |
+### Checkpointing
+
+**Parameters:**
+
+* **monitor_metric** - (*str*) Metric for best model (default: `"EER"`).
+* **monitor_mode** - (*str*) `"min"` or `"max"` (default: `"min"`).
+* **save_every_epochs** - (*int*) Save checkpoint every N epochs (default: `5`).
+* **early_stopping_patience** - (*int*) Stop if no improvement (default: `null`).
 
 ### Optimizer
 
@@ -290,11 +301,15 @@ optimizer:
   betas: [0.9, 0.999]
 ```
 
-| Optimizer | Type Key | Key Args |
-|-----------|----------|----------|
-| Adam | `adam` | `lr`, `weight_decay`, `betas` |
-| AdamW | `adamw` | `lr`, `weight_decay`, `betas` |
-| SGD | `sgd` | `lr`, `momentum`, `weight_decay` |
+### Optimizer
+
+Detailed reference in [Optimizers & Schedulers](components/optimizers_schedulers.md).
+
+**Common Parameters:**
+
+* **lr** - (*float*) Learning rate (default: `1e-6`).
+* **weight_decay** - (*float*) L2 penalty (default: `1e-4`).
+* **betas** - (*tuple*) (0.9, 0.999).
 
 ### Scheduler
 
@@ -305,11 +320,15 @@ scheduler:
   eta_min: 0.000001
 ```
 
-| Scheduler | Type Key | Key Args |
-|-----------|----------|----------|
-| Cosine Annealing | `cosine_annealing` | `T_max`, `eta_min` |
-| Step LR | `step_lr` | `step_size`, `gamma` |
-| Exponential LR | `exponential_lr` | `gamma` |
+### Scheduler
+
+Detailed reference in [Optimizers & Schedulers](components/optimizers_schedulers.md).
+
+**Common Parameters:**
+
+* **T_max** - (*int*) Max iterations.
+* **gamma** - (*float*) Decay factor.
+* **eta_min** - (*float*) Min learning rate.
 
 ### WandB Integration
 
