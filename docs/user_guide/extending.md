@@ -1,14 +1,15 @@
-# Extending DeepFense
+# Extending DeepFense - Quick Reference
 
-DeepFense uses a **Registry Pattern** that makes it easy to add custom components. This guide shows you how to add your own:
+DeepFense uses a **Registry Pattern** that makes it easy to add custom components. This is a quick reference guide. For detailed step-by-step tutorials, see:
 
-- [Datasets](#adding-a-new-dataset)
-- [Frontends](#adding-a-new-frontend)
-- [Backends](#adding-a-new-backend)
-- [Loss Functions](#adding-a-new-loss)
-- [Augmentations](#adding-a-new-augmentation)
-- [Optimizers](#adding-a-new-optimizer)
-- [Metrics](#adding-a-new-metric)
+- **[Adding a New Backend](adding_backends.md)** - Complete guide with examples
+- **[Adding a New Frontend](adding_frontends.md)** - Complete guide with examples
+- **[Adding a New Loss](adding_losses.md)** - Complete guide with examples
+- **[Adding a New Dataset](adding_datasets.md)** - Complete guide with examples
+- **[Adding Augmentations](adding_augmentations.md)** - Complete guide with examples
+- **[Adding Optimizers](adding_optimizers.md)** - Complete guide with examples
+- **[Adding Metrics](adding_metrics.md)** - Complete guide with examples
+- **[Adding Schedulers](adding_schedulers.md)** - Complete guide with examples
 
 ---
 
@@ -108,6 +109,8 @@ data:
 
 ## Adding a New Frontend
 
+See **[Adding a New Frontend](adding_frontends.md)** for complete guide.
+
 ### Step 1: Create the File
 
 `deepfense/models/frontends/my_frontend.py`:
@@ -178,7 +181,15 @@ model:
 
 ---
 
+---
+
+## Quick Reference Examples
+
+Below are minimal examples for quick reference. **For detailed guides, see the dedicated tutorials linked above.**
+
 ## Adding a New Backend
+
+See **[Adding a New Backend](adding_backends.md)** for complete guide.
 
 ### Step 1: Create the File
 
@@ -251,6 +262,8 @@ model:
 ---
 
 ## Adding a New Loss
+
+See **[Adding a New Loss](adding_losses.md)** for complete guide.
 
 ### Step 1: Create the File
 
@@ -330,6 +343,8 @@ model:
 
 ## Adding a New Augmentation
 
+See **[Adding Augmentations](adding_augmentations.md)** for complete guide.
+
 ### Step 1: Add to Augmentations File
 
 `deepfense/data/transforms/augmentations.py`:
@@ -381,9 +396,11 @@ data:
 
 ## Adding a New Optimizer
 
+See **[Adding Optimizers](adding_optimizers.md)** for complete guide.
+
 ### Step 1: Register in Registry
 
-`deepfense/utils/registry.py` (in the optimizer section):
+`deepfense/training/optimizers/utils.py`:
 
 ```python
 @register_optimizer("my_optimizer")
@@ -412,6 +429,8 @@ training:
 ---
 
 ## Adding a New Metric
+
+See **[Adding Metrics](adding_metrics.md)** for complete guide.
 
 ### Step 1: Add to Metrics File
 
@@ -457,15 +476,16 @@ training:
 
 ## Quick Reference
 
-| Component | Decorator | File Location | Config Key |
-|-----------|-----------|---------------|------------|
-| Dataset | `@register_dataset("Name")` | `deepfense/data/` | `data.train.dataset_type` |
-| Frontend | `@register_frontend("Name")` | `deepfense/models/frontends/` | `model.frontend.type` |
-| Backend | `@register_backend("Name")` | `deepfense/models/backends/` | `model.backend.type` |
-| Loss | `@register_loss("Name")` | `deepfense/models/losses/` | `model.loss[].type` |
-| Augmentation | `@register_transform("Name")` | `deepfense/data/transforms/` | `augment_transform[].type` |
-| Optimizer | `@register_optimizer("Name")` | `deepfense/utils/registry.py` | `training.optimizer.type` |
-| Metric | `@register_metric("Name")` | `deepfense/training/evaluations/metrics.py` | `training.metrics.Name` |
+| Component | Decorator | File Location | Config Key | Detailed Guide |
+|-----------|-----------|---------------|------------|----------------|
+| Dataset | `@register_dataset("Name")` | `deepfense/data/` | `data.train.dataset_type` | [Adding Datasets](adding_datasets.md) |
+| Frontend | `@register_frontend("Name")` | `deepfense/models/frontends/` | `model.frontend.type` | [Adding Frontends](adding_frontends.md) |
+| Backend | `@register_backend("Name")` | `deepfense/models/backends/` | `model.backend.type` | [Adding Backends](adding_backends.md) |
+| Loss | `@register_loss("Name")` | `deepfense/models/losses/` | `model.loss[].type` | [Adding Losses](adding_losses.md) |
+| Augmentation | `@register_transform("Name")` | `deepfense/data/transforms/augmentations.py` | `augment_transform[].type` | [Adding Augmentations](adding_augmentations.md) |
+| Optimizer | `@register_optimizer("Name")` | `deepfense/training/optimizers/utils.py` | `training.optimizer.type` | [Adding Optimizers](adding_optimizers.md) |
+| Scheduler | `@register_scheduler("Name")` | `deepfense/training/schedulers/utils.py` | `training.scheduler.type` | [Adding Schedulers](adding_schedulers.md) |
+| Metric | `@register_metric("Name")` | `deepfense/training/evaluations/metrics.py` | `training.metrics.Name` | [Adding Metrics](adding_metrics.md) |
 
 ---
 
