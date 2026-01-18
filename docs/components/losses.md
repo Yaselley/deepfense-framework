@@ -6,8 +6,7 @@ Loss modules in DeepFense are unified: they handle **projection**, **loss calcul
 
 ### 1. AM-Softmax (`AMSoftmax`)
 **Additive Margin Softmax**. Forces classes to be separated by a margin `m` on the hypersphere.
-### 1. AM-Softmax (`AMSoftmax`)
-**Additive Margin Softmax**. Forces classes to be separated by a margin `m` on the hypersphere.
+
 
 **Configuration Signature:**
 ```yaml
