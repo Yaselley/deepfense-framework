@@ -147,6 +147,8 @@ augment_transform:
   - type: "rir"
     noise_ratio: 0.5
     csv_file: "./data/rirs.csv"
+    # csv_file format: CSV with a 'path' column containing absolute paths to audio files.
+
 ```
 
 When you list multiple augmentations, they are applied **sequentially** (one after another).
@@ -231,7 +233,7 @@ frontend:
 
 | Parameter | What it does |
 |-----------|--------------|
-| `source` | Where to load model from. `"huggingface"` = HuggingFace Hub, `"fairseq"` = local .pt file |
+| `source` | Where to load model from. `"huggingface"` = HuggingFace Hub, `"fairseq"` = local .pt file. DeepFense handles the different forward logics automatically. |
 | `ckpt_path` | Path or HuggingFace model ID |
 | `freeze` | If `True`, don't train frontend weights (recommended for fine-tuning) |
 
