@@ -70,7 +70,7 @@ ModularDetector
 
 | Component | Input | Output |
 |-----------|-------|--------|
-| **Frontend** | `[Batch, Time]` | `[Batch, Time', Dim]` |
+| **Frontend** | `[Batch, Time]` | `[Batch, Time', Dim]` (typically) |
 | **Backend** | `[Batch, Time', Dim]` | `[Batch, EmbeddingDim]` |
 | **Loss** | `[Batch, EmbeddingDim]` + Labels | Loss scalar + Scores |
 
