@@ -7,7 +7,7 @@ DeepFense provides a robust data pipeline capable of loading huge datasets via P
 2.  **Resample**: If needed, audio is resampled to `data.sampling_rate`.
 3.  **Base Transform**: Basic operations like Padding/Trimming (always applied).
 4.  **Augment Transform**: Complex, probabilistic augmentations (Training only).
-5.  **Collate**: Batching and Mask creation.
+5.  **CollateFn**: Batching and Mask creation.
 
 ---
 
@@ -120,13 +120,14 @@ Convolves audio with Room Impulse Responses.
 - type: rir
   args:
     noise_ratio: float
-    csv_file: string
+    csv_file: string (csv file of paths, df["path"] = [path1, path2, ...])
 ```
 
 **Parameters:**
 
 * **noise_ratio** - (*float*) Probability of applying this augmentation.
 * **csv_file** - (*str*) Path to CSV containing paths to RIR wav files.
+  * **Format**: CSV with a 'path' column containing absolute paths to audio files.
 
 **Example:**
 ```yaml
@@ -155,6 +156,7 @@ Adds additive background noise.
 
 * **noise_ratio** - (*float*) Probability of applying this augmentation.
 * **csv_file** - (*str*) Path to CSV containing paths to noise audio files.
+  * **Format**: CSV with a 'path' column containing absolute paths to audio files.
 * **snr_low** - (*float*) Minimum Signal-to-Noise Ratio (dB).
 * **snr_high** - (*float*) Maximum Signal-to-Noise Ratio (dB).
 * **pad_noise** - (*bool*) If `True`, tiles noise to match audio length.
@@ -188,6 +190,7 @@ Mixes multiple speakers ("babble") into the background.
 
 * **noise_ratio** - (*float*) Probability of applying this augmentation.
 * **csv_file** - (*str*) Path to CSV containing paths to speech audio files.
+  * **Format**: CSV with a 'path' column containing absolute paths to audio files.
 * **speaker_count** - (*int*) Number of speakers to mix (default: 3).
 * **snr_low** - (*float*) Minimum Mixing SNR (dB).
 * **snr_high** - (*float*) Maximum Mixing SNR (dB).

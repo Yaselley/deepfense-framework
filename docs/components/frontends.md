@@ -129,7 +129,7 @@ frontend:
 ---
 
 ### 5. EAT (`eat`)
-Efficient Audio Transformer. **Requires 16kHz input**. It performs internal Fbank extraction.
+Efficient Audio Transformer. It performs internal Fbank extraction.
 
 **Configuration Signature:**
 ```yaml
@@ -190,7 +190,9 @@ frontend:
 
 ## Input/Output
 *   **Input**: Raw waveform Tensor of shape `(Batch, Time)`.
-*   **Output**: Feature Tensor of shape `(Batch, Time, Dim)` (Transformers) or `(Batch, Channels, Freq, Time)` (Spectrograms).
+*   **Output**: Feature Tensor. Shape depends on the frontend:
+    *   Transformers (Wav2Vec2, WavLM, etc.): `(Batch, Time, Dim)`
+    *   Spectrograms (MelSpec): `(Batch, Channels, Freq, Time)` - *Note: Backends need adjustment to handle 4D input.*
 
 ---
 

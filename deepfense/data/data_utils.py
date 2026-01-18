@@ -1,6 +1,9 @@
 import torch
+import logging
 from torch.utils.data import DataLoader
 from deepfense.utils.registry import build_dataset
+
+logger = logging.getLogger(__name__)
 
 
 def collate_fn(batch, max_pad=None):
@@ -72,6 +75,17 @@ def build_dataloader(config):
     dataset_name = config["dataset_type"]
     # Build dataset using registry
     ds = build_dataset(dataset_name, cfg=config)
+
+    # Check if dataset is empty
+    if len(ds) == 0:
+        error_msg = (
+            f"Dataset '{dataset_name}' is empty. Please check your data configuration:\n"
+            f"  - parquet_files: {config.get('parquet_files', 'not specified')}\n"
+            f"  - root_dir: {config.get('root_dir', 'not specified')}\n"
+            f"  - label_map: {config.get('label_map', 'not specified')}"
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
     batch_size = config.get("batch_size", 8)
     shuffle = config.get("shuffle", False)

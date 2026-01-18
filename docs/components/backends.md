@@ -5,7 +5,7 @@ Backends take the features extracted by the Frontend and map them to a fixed-dim
 ## Available Backends
 
 ### 1. AASIST (`AASIST`)
-A Graph Attention Network (GAT) based architecture designed for ASV spoofing.
+A Graph Attention Network (GAT) based architecture designed for audio deepfake detection and ASV spoofing.
 
 **Configuration Signature:**
 ```yaml
@@ -33,7 +33,7 @@ backend:
 ---
 
 ### 2. ECAPA-TDNN (`ECAPA_TDNN`)
-**State-of-the-Art** backend for speaker verification, adapted for Deepfake Detection. Features channel attention (SE-Blocks) and multi-scale feature aggregation.
+Strong backend for speaker verification, adapted for Deepfake Detection. Features channel attention (SE-Blocks) and multi-scale feature aggregation.
 
 **Configuration Signature:**
 ```yaml

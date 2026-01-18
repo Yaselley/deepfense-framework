@@ -9,7 +9,7 @@ After installing DeepFense, the CLI is available as the `deepfense` command:
 ```bash
 pip install -e .  # For development
 # or
-pip install deepfense  # From PyPI (when published)
+pip install deepfense==0.1  # From PyPI (when published)
 ```
 
 ## Commands Overview

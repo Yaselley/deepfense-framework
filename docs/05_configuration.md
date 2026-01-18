@@ -51,11 +51,13 @@ data:
 
 * **dataset_type** - (*str*) Dataset class name (default: `"StandardDataset"`).
 * **parquet_files** - (*list[str]*) **Required**. Paths to Parquet files.
-* **dataset_names** - (*list[str]*) Names for each Parquet file (default: `null`).
+* **dataset_names** - (*list[str]*) Names for each Parquet file (default: `null`). Length should match `parquet_files`. If shorter, defaults to `dataset_i`.
 * **batch_size** - (*int*) Batch size (default: `32`).
 * **shuffle** - (*bool*) Shuffle data (default: `true`).
 * **num_workers** - (*int*) DataLoader workers (default: `4`).
 * **drop_last** - (*bool*) Drop incomplete batches (default: `false`).
+
+> **Note on Placement**: All parameters above (`parquet_files`, `batch_size`, `num_workers`, etc.) must be defined **inside the specific split section** (e.g., under `data.train:` or `data.val:`). They are not global.
 
 ### Base Transform
 
@@ -98,11 +100,30 @@ augment_transform:
 
 #### Pipeline Modes
 
-**Modes:**
+The pipeline logic is split into two phases: **Selection** (what to apply) and **Execution** (how to apply it).
 
-* **parallel / chain** - Picks ONE transform randomly.
-* **sequential / chain** - Applies ALL transforms in order.
-* **sequential / independent** - Creates separate copies with each transform.
+**1. Selection Phase (`mode`)**
+*   `parallel`: Selects exactly **ONE** random transform from the list (acts like "OneOf").
+*   `sequential`: Selects **ALL** transforms (or `k` random ones if `k` is set).
+
+**2. Execution Phase (`execution`)**
+*   `chain`: Applies selected transforms **in sequence** to the same audio ($x \to T_1 \to T_2 \dots$).
+    *   Returns a single waveform (Shape: `L`).
+*   `independent`: Applies each selected transform **separately** to the original audio ($x \to T_1$, $x \to T_2$).
+    *   Returns a batch of waveforms (Shape: `N x L`).
+
+**`concat_original`**:
+*   If `true`, adds the original clean audio to the output.
+
+**Common Configurations:**
+
+| Goal | Mode | Execution | Behavior | Output Shape |
+| :--- | :--- | :--- | :--- | :--- |
+| **Standard Augmentation** | `parallel` | `chain` | Pick 1 random transform. Apply it. | `(L,)` |
+| **Data Expansion** | `sequential` | `independent` | Apply ALL transforms separately.<br>Returns batch of variations. | `(N_aug, L)` |
+| **Sequential Chain** | `sequential` | `chain` | Apply ALL transforms in order to one audio.<br>($x \to T_1 \to T_2 \dots$) | `(L,)` |
+
+
 
 #### Available Augmentations
 
@@ -280,6 +301,8 @@ training:
 * **eval_every_steps** - (*int*) Evaluate every N steps (default: `null`).
 * **metrics** - (*list[str]*) Metrics to compute (default: `["EER"]`).
 
+> **Note**: If both `eval_every_epochs` and `eval_every_steps` are set, **both** will trigger evaluations. For example, setting both to 1 will cause evaluation at every step AND at the end of every epoch.
+
 ### Checkpointing
 
 ### Checkpointing
@@ -289,7 +312,8 @@ training:
 * **monitor_metric** - (*str*) Metric for best model (default: `"EER"`).
 * **monitor_mode** - (*str*) `"min"` or `"max"` (default: `"min"`).
 * **save_every_epochs** - (*int*) Save checkpoint every N epochs (default: `5`).
-* **early_stopping_patience** - (*int*) Stop if no improvement (default: `null`).
+* **early_stopping_patience** - (*int*) Stop training if `monitor_metric` does not improve for N consecutive evaluations (default: `null` / disabled).
+    *   *Note*: `min_delta` is not currently supported; any improvement counts.
 
 ### Optimizer
 

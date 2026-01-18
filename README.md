@@ -62,7 +62,7 @@ cd deepfense-framework
 pip install -e .
 
 # Or From PyPI 
-pip install deepfense
+pip install deepfense==0.1
 ```
 
 See [Installation Guide](docs/01_installation.md) for detailed instructions.

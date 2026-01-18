@@ -16,7 +16,7 @@ This guide covers all installation methods for DeepFense.
 ## Option 1: Install from PyPI (Recommended)
 
 ```bash
-pip install deepfense
+pip install deepfense==0.1
 ```
 
 ---
