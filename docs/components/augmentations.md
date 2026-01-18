@@ -7,7 +7,7 @@ DeepFense provides a robust data pipeline capable of loading huge datasets via P
 2.  **Resample**: If needed, audio is resampled to `data.sampling_rate`.
 3.  **Base Transform**: Basic operations like Padding/Trimming (always applied).
 4.  **Augment Transform**: Complex, probabilistic augmentations (Training only).
-5.  **Collate**: Batching and Mask creation.
+5.  **CollateFn**: Batching and Mask creation.
 
 ---
 
