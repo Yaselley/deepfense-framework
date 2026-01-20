@@ -1,4 +1,4 @@
-# https://github.com/asvspoof-challenge/asvspoof5/tree/main/evaluation-package
+
 
 import numpy as np
 import logging
@@ -9,9 +9,11 @@ from deepfense.training.evaluations.utils import _metric_get_1d_scores
 logger = logging.getLogger(__name__)
 
 
-def compute_det_curve(labels, scores, bonafide_label=1):
+def compute_det_curve_legacy(labels, scores, bonafide_label=1):
     """
     Compute the DET curve values.
+    Legacy version https://www.asvspoof.org/asvspoof2019/tDCF_python_v1.zip
+    Legacy version does not solve the tie when scores are equal 
 
     Args:
         labels (np.ndarray): Binary ground-truth labels
@@ -61,6 +63,69 @@ def compute_det_curve(labels, scores, bonafide_label=1):
     thresholds = np.concatenate(([all_scores[indices[0]] - 1e-6], all_scores[indices]))
 
     return frr, far, thresholds
+
+def compute_det_curve(labels, scores, bonafide_label=1):
+    """
+    Compute the DET curve values.
+    Compared with the legacy version, samples with the same score
+    are now grouped together.
+
+    Args:
+        labels (np.ndarray): Binary ground-truth labels
+                             (0 = bonafide, 1 = spoof by default)
+        scores (np.ndarray): Model prediction scores (higher → more likely spoof)
+        bonafide_label (int): Label representing bonafide class (default: 0)
+
+    Returns:
+        tuple: (frr, far, thresholds)
+            - frr: np.ndarray, False Rejection Rates (#N,)
+            - far: np.ndarray, False Acceptance Rates (#N,)
+            - thresholds: np.ndarray, thresholds corresponding to FRR/FAR
+    """
+    # 
+    labels = np.asarray(labels).astype(int)
+    scores = np.asarray(scores).astype(float)
+
+    spoof_label = 1 - bonafide_label
+
+    # bona/truth trials
+    ts = scores[labels == bonafide_label]
+    # spoof/fake trials
+    ns = scores[labels == spoof_label]   
+
+    if ts.size == 0 or ns.size == 0:
+        raise ValueError("Both bonafide and spoof samples must be present")
+
+        
+    all_scores = np.unique(np.concatenate((ts, ns)))
+    
+    # count target and non-target samples for each score
+    def count_ele(s):
+        return [np.sum(ts == s), np.sum(ns == s)]
+
+    cnt = np.array(list(map(count_ele, all_scores)))
+    indices = np.argsort(all_scores, kind='mergesort')
+    all_scores = all_scores[indices]
+    
+    # sorted based on score values
+    t_labels = cnt[indices, 0]
+    n_labels = cnt[indices, 1]
+
+    # compute false rejection and false acceptance rates                                                       
+    tar_trial_sums = np.cumsum(t_labels)
+    nontarget_trial_sums = np.cumsum(n_labels)
+
+    # false rejection rates                                                                                    
+    frr = np.concatenate((np.atleast_1d(0), tar_trial_sums / ts.size))
+    # false acceptance rates
+    far = 1-np.concatenate((np.atleast_1d(0), nontarget_trial_sums / ns.size))
+    
+    # Thresholds are the sorted scores                                                                         
+    thresholds = np.concatenate(
+        (np.atleast_1d(all_scores[0] - 0.001), all_scores+np.finfo(np.float32).eps))
+
+    return frr, far, thresholds
+
 
 
 @register_metric("EER")
