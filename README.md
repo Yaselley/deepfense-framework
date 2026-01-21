@@ -322,10 +322,10 @@ Apache 2.0 — see [LICENSE](LICENSE) for details.
 If you use DeepFense in your research, please cite:
 
 ```bibtex
-@software{deepfense2024,
+@software{deepfense2025/26,
   title={DeepFense: A Modular Framework for Deepfake Audio Detection},
   author={DeepFense Team},
-  year={2024},
+  year={2025-2026},
   url={https://github.com/Yaselley/deepfense-framework}
 }
 ```
