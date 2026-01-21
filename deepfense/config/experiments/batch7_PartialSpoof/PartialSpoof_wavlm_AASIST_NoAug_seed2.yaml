@@ -1,0 +1,57 @@
+exp_name: PartialSpoof_wavlm_AASIST_NoAug_seed2
+output_dir: ./outputs/batch7_PartialSpoof/
+seed: 2
+data:
+  sampling_rate: 16000
+  label_map: {bonafide: 1, spoof: 0}
+  train:
+    dataset_type: StandardDataset
+    parquet_files: [/netscratch/yelkheir/DeepFense/DeepFense/deepfense/config/parquets/PartialSpoof/train.parquet]
+    dataset_names: [PartialSpoof_Train]
+    batch_size: 16
+    shuffle: true
+    num_workers: 4
+    augment_transform: []
+  val:
+    dataset_type: StandardDataset
+    parquet_files: [/netscratch/yelkheir/DeepFense/DeepFense/deepfense/config/parquets/PartialSpoof/dev.parquet]
+    dataset_names: [PartialSpoof_Val]
+    batch_size: 1
+    shuffle: false
+    num_workers: 4
+  test:
+    dataset_type: StandardDataset
+    parquet_files: [/netscratch/yelkheir/DeepFense/DeepFense/deepfense/config/parquets/PartialSpoof/eval.parquet]
+    dataset_names: [PartialSpoof_Eval]
+    batch_size: 1
+    shuffle: false
+    num_workers: 4
+model:
+  type: StandardDetector
+  frontend:
+    type: wavlm
+    args: {ckpt_path: /netscratch/yelkheir/ssl_models/WavLM-Large.pt, freeze: false,
+      source: unil}
+  backend:
+    type: AASIST
+    args:
+      input_dim: 1024
+      filts:
+      - 70
+      - [1, 32]
+      - [32, 32]
+      - [32, 64]
+      - [64, 64]
+      gat_dims: [64, 32]
+  loss:
+  - {type: CrossEntropy, embedding_dim: 160, n_classes: 2, weight: 1.0}
+training:
+  trainer: StandardTrainer
+  epochs: 100
+  early_stopping_patience: 7
+  optimizer: {type: adam, lr: 1.0e-06}
+  metrics:
+    ACC: {}
+    EER: {}
+  eval_every_epochs: 1
+  device: cuda

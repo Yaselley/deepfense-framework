@@ -2,13 +2,23 @@ include README.md
 include LICENSE
 include requirements.txt
 include pyproject.toml
-recursive-include docs *.md *.png
-recursive-include deepfense/config *.yaml
+recursive-exclude docs *.md *.png
+recursive-exclude deepfense/config *.yaml
 recursive-exclude deepfense/config *.parquet
+
+# Exclude specific config subdirectories
+prune deepfense/config/experiments
+prune deepfense/config/augmentations
+prune deepfense/config/examples
+prune deepfense/config/parquets
+
+# Exclude fairseq and wavlm modules
 exclude deepfense/models/modules/fairseq
 exclude deepfense/models/modules/wavlm
 exclude deepfense/models/modules/*/__pycache__
 exclude deepfense/models/modules/*/*.pyc
+
+# Global excludes
 global-exclude __pycache__
 global-exclude *.pyc
 global-exclude *.pyo

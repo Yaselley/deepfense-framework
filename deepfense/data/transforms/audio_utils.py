@@ -20,7 +20,6 @@ def select_audio(pd_files,
     audio, sr = librosa.load(path, sr=sample_rate, mono=True)
     return audio
 
-
 def select_multiple_audio(csv_file: str, 
                           count: int, 
                           sample_rate: int = 16000) -> List[np.ndarray]:

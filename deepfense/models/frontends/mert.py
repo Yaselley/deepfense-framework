@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 class MERTWrapper(BaseFrontend):
     """
     Wrapper for MERT (Music Audio Pre-training) models.
-    Source: HuggingFace (m-a-p/MERT-v1-95M, etc.)
+    Source: HuggingFace (m-a-p/MERT-v1-330M, etc.)
     """
     def __init__(self, config):
         super().__init__(config)
 
         self.source = config.get("source", "huggingface") 
-        self.ckpt_path = config.get("ckpt_path", "m-a-p/MERT-v1-95M")
+        self.ckpt_path = config.get("ckpt_path", "m-a-p/MERT-v1-330M")
         self.freeze = config.get("freeze", False)
         self.trust_remote_code = config.get("trust_remote_code", True)
 

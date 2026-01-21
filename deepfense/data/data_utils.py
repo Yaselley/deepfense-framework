@@ -57,7 +57,7 @@ def collate_fn(batch, max_pad=None):
     x = torch.stack(padded_xs, dim=0)
     mask = torch.stack(masks, dim=0)
     label = torch.stack(labels, dim=0)
-
+    
     return {
         "x": x,
         "label": label,
