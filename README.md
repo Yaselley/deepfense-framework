@@ -315,6 +315,10 @@ We welcome contributions! See [Extending DeepFense](docs/user_guide/extending.md
 
 Apache 2.0 — see [LICENSE](LICENSE) for details.
 
+## Release Date
+
+**December 25, 2025**
+
 ---
 
 ## Citation
@@ -322,10 +326,10 @@ Apache 2.0 — see [LICENSE](LICENSE) for details.
 If you use DeepFense in your research, please cite:
 
 ```bibtex
-@software{deepfense2025/26,
+@software{deepfense2025,
   title={DeepFense: A Modular Framework for Deepfake Audio Detection},
   author={DeepFense Team},
-  year={2025-2026},
+  year={2025},
   url={https://github.com/Yaselley/deepfense-framework}
 }
 ```
