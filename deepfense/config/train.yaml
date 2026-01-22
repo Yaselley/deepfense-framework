@@ -7,10 +7,11 @@ data:
   label_map: {"bonafide": 1, "spoof": 0}
 
   train:
+    root_dir: "/netscratch/yelkheir/DeepFense/DeepFense/docs/"
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "./data/test.parquet",
+      "./tests/test.parquet",
       ]
     
     batch_size: 10
@@ -22,22 +23,12 @@ data:
         random_pad: False
         pad_type: "repeat"
 
-    augment_transform:
-      - type: "rawboost"
-        noise_ratio: 0.4
-        param2: 3
-        param3: 10
-      
-      # Enable RIR to test optimization (make sure csv exists or is handled gracefully)
-      - type: "rir"
-        noise_ratio: 0.5
-        csv_file: "./data/rirs.csv" 
 
   val:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "./data/test.parquet",
+      "./tests/test.parquet",
       ]
 
     batch_size: 1
@@ -52,16 +43,16 @@ data:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
     parquet_files: [
-      "./data/test.parquet",
+      "./tests/test.parquet",
       ]
       
 model:
   type: "StandardDetector"
 
   frontend: 
-    type: "wavlm"
+    type: "wav2vec2"
     args:
-      ckpt_path: "./models/WavLM-Large.pt"
+      ckpt_path: "/netscratch/yelkheir/ssl_models/xlsr2_300m.pt"
 
   backend: 
     type: "Nes2Net"

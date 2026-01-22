@@ -3,12 +3,12 @@ import yaml
 import copy
 
 # --- Constants ---
-OUTPUT_DIR = "deepfense/config/experiments/batch1"
+OUTPUT_DIR = "deepfense/config/experiments/batch1_EAT"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Base Paths
-TRAIN_PARQUET = "/netscratch/yelkheir/DeepFense/DeepFense/train.parquet"
-VAL_PARQUET = "/netscratch/yelkheir/DeepFense/DeepFense/test.parquet"
+TRAIN_PARQUET = "/netscratch/yelkheir/DeepFense/DeepFense/asvspoof19_train.parquet"
+VAL_PARQUET = "/netscratch/yelkheir/DeepFense/DeepFense/asvspoof19_val.parquet"
 
 # Frontend Checkpoints (Placeholders based on common paths, user can update)
 CKPT_WAV2VEC2 = "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrained/xlsr2_300m.pt"
@@ -17,9 +17,10 @@ CKPT_WAVLM = "/netscratch/yelkheir/DeepFense/DeepFense/deepfense/models/pretrain
 
 # --- Parameters ---
 FRONTENDS = [
-    {"type": "wav2vec2", "args": {"ckpt_path": CKPT_WAV2VEC2, "freeze": False, "source": "fairseq"}},
-    {"type": "hubert", "args": {"ckpt_path": CKPT_HUBERT, "freeze": False, "source": "fairseq"}},
-    {"type": "wavlm", "args": {"ckpt_path": CKPT_WAVLM, "freeze": False, "source": "unil"}}
+    # {"type": "wav2vec2", "args": {"ckpt_path": CKPT_WAV2VEC2, "freeze": False, "source": "fairseq"}},
+    # {"type": "hubert", "args": {"ckpt_path": CKPT_HUBERT, "freeze": False, "source": "fairseq"}},
+    # {"type": "wavlm", "args": {"ckpt_path": CKPT_WAVLM, "freeze": False, "source": "unil"}},
+    {"type": "eat", "args": {"source": "huggingface"}}
 ]
 
 BACKENDS = [
@@ -32,26 +33,12 @@ BACKENDS = [
 SEEDS = [2, 42, 240]
 
 AUGMENTATIONS = [
-    {"name": "NoAug", "augment_transform": []},
-    {"name": "Concat_RawBoost_RIR", "augment_transform": [
-        {
-            "type": "augmentation_pipeline",
-            "mode": "sequential", 
-            "execution": "independent",
-            "p": 1.0, 
-            "concat_original": True,
-            "transforms": [
-                {"type": "rawboost", "noise_ratio": 1.0, "algo": 3},
-                {"type": "rir", "noise_ratio": 1.0, "csv_file": "rirs.csv"} 
-            ]
-        }
-    ]}
-]
+    {"name": "NoAug", "augment_transform": []}]
 
 # --- Template ---
 BASE_CONFIG = {
     "exp_name": "",
-    "output_dir": "./outputs/batch1/",
+    "output_dir": "./outputs/batch1_EAT/",
     "seed": 42,
     "data": {
         "sampling_rate": 16000,
