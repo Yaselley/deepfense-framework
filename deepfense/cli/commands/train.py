@@ -124,6 +124,12 @@ def train(config, resume):
         if "test" in cfg.data:
             cfg.data.test.sampling_rate = cfg.data.sampling_rate
 
+    if "target_sr" in cfg.data:
+        cfg.data.train.target_sr = cfg.data.target_sr
+        cfg.data.val.target_sr = cfg.data.target_sr
+        if "test" in cfg.data:
+            cfg.data.test.target_sr = cfg.data.target_sr
+
     train_loader = build_dataloader(OmegaConf.to_container(cfg.data.train, resolve=True))
     val_loader = build_dataloader(OmegaConf.to_container(cfg.data.val, resolve=True))
 

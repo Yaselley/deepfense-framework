@@ -219,6 +219,8 @@ def test(config, checkpoint):
             test_cfg["label_map"] = OmegaConf.to_container(cfg.data.label_map, resolve=True)
         if "sampling_rate" in cfg.data:
             test_cfg["sampling_rate"] = cfg.data.sampling_rate
+        if "target_sr" in cfg.data:
+            test_cfg["target_sr"] = cfg.data.target_sr
     except Exception:
         logger.error("Could not configure test dataset.")
         return
