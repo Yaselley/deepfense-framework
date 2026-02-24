@@ -389,6 +389,35 @@ class DropChunk:
         return dropped_audio
 
 
+@register_transform("trim_silence")
+class TrimSilence:
+    """Trim leading and trailing silence from audio using librosa.effects.trim."""
+
+    def __init__(
+        self,
+        noise_ratio: float = 1.0,
+        top_db: float = 30.0,
+        frame_length: int = 1024,
+        hop_length: int = 256,
+    ):
+        self.noise_ratio = noise_ratio
+        self.top_db = top_db
+        self.frame_length = frame_length
+        self.hop_length = hop_length
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        if np.random.random() > self.noise_ratio:
+            return x
+
+        trimmed, _ = librosa.effects.trim(
+            y=x,
+            top_db=self.top_db,
+            frame_length=self.frame_length,
+            hop_length=self.hop_length,
+        )
+
+        return trimmed
+
 @register_transform("do_clip")
 class DoClip:
     def __init__(self, 
