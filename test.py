@@ -1,7 +1,6 @@
 import os
 import json
 import argparse
-import yaml
 import logging
 from datetime import datetime
 from omegaconf import OmegaConf
@@ -26,7 +25,7 @@ def setup_logging_test(output_dir):
     log_file = os.path.join(output_dir, "test.log")
 
     log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
-    datefmt = "%Y-%m-d %H:%M:%S"
+    datefmt = "%Y-%m-%d %H:%M:%S"
     formatter = logging.Formatter(log_format, datefmt)
 
     root_logger = logging.getLogger()

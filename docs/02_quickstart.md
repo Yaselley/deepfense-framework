@@ -1,93 +1,83 @@
-# Quick Start: Train in 5 Minutes
+# Quick Start
 
-This guide gets you from zero to a trained model as fast as possible.
-
----
-
-## Prerequisites
-
-- DeepFense installed ([Installation Guide](01_installation.md))
-- A dataset in Parquet format (or we'll create a dummy one)
+Train your first model in 5 minutes.
 
 ---
 
-## Step 1: Create Sample Data
+## 1. Generate Test Data
 
-If you don't have a dataset yet, create a dummy Parquet file for testing:
+DeepFense includes a helper to create dummy data for testing:
 
-```python
-import pandas as pd
-
-# Create dummy training data
-train_data = pd.DataFrame({
-    "path": [
-        "/path/to/audio1.flac",
-        "/path/to/audio2.flac",
-        "/path/to/audio3.flac",
-        "/path/to/audio4.flac",
-    ],
-    "label": ["bonafide", "spoof", "bonafide", "spoof"],
-    "ID": ["train_001", "train_002", "train_003", "train_004"]
-})
-train_data.to_parquet("train.parquet")
-
-# Create dummy validation data
-val_data = pd.DataFrame({
-    "path": [
-        "/path/to/val_audio1.flac",
-        "/path/to/val_audio2.flac",
-    ],
-    "label": ["bonafide", "spoof"],
-    "ID": ["val_001", "val_002"]
-})
-val_data.to_parquet("val.parquet")
-
-print("Created train.parquet and val.parquet")
+```bash
+python tests/create_samples.py --output-dir ./tests
 ```
 
-> **Important**: Replace `/path/to/audioX.flac` with actual paths to your audio files!
+This creates `tests/test.parquet` with 20 samples pointing to a dummy WAV file.
 
 ---
 
-## Step 2: Update Config
+## 2. Check the Config
 
-Edit `deepfense/config/train.yaml` to point to your data:
+The example config at `deepfense/config/train.yaml` is already set up to use this test data. Open it and check:
 
-```yaml
-data:
-  train:
-    parquet_files: ["/absolute/path/to/train.parquet"]
-  val:
-    parquet_files: ["/absolute/path/to/val.parquet"]
-```
+- **Frontend**: Wav2Vec2 from HuggingFace (downloads automatically)
+- **Backend**: Nes2Net
+- **Loss**: CrossEntropy + AMSoftmax
+- **Data**: Points to `./tests/test.parquet`
 
 ---
 
-## Step 3: Run Training
+## 3. Train
 
 ```bash
 python train.py --config deepfense/config/train.yaml
 ```
 
-You'll see output like:
+You'll see:
 ```
-[2024-01-15 10:30:00] [INFO] [train] Experiment directory: outputs/default_exp_20240115_103000
-[2024-01-15 10:30:05] [INFO] [trainer] Trainable parameters: 1,234,567
-Epoch 1/50: 100%|██████████| 125/125 [02:30<00:00]
-[2024-01-15 10:32:35] [INFO] [trainer] --- End-of-Epoch Validation (Epoch 1) ---
-[2024-01-15 10:32:35] [INFO] [trainer] 📈 Average Metrics: loss: 0.4532, EER: 15.23
+[INFO] Experiment directory: outputs/Wav2Vec2_Nes2Net_Example_20250401_120000
+[INFO] Trainable parameters: 1,234,567
+Epoch 1/10: 100%|██████████| 2/2 [00:05<00:00]
+[INFO] Average Metrics: loss: 0.6931, EER: 50.00
 ```
+
+(EER = 50% is expected on random dummy data.)
 
 ---
 
-## Step 4: Test Your Model
-
-After training completes:
+## 4. Test
 
 ```bash
 python test.py \
     --config deepfense/config/train.yaml \
-    --checkpoint outputs/default_exp_20240115_103000/best_model.pth
+    --checkpoint outputs/Wav2Vec2_Nes2Net_Example_*/best_model.pth
+```
+
+---
+
+## 5. Use Your Own Data
+
+Replace the dummy data with your real dataset:
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    "ID": ["utt_001", "utt_002", "utt_003"],
+    "path": ["/data/audio1.flac", "/data/audio2.flac", "/data/audio3.flac"],
+    "label": ["bonafide", "spoof", "bonafide"],
+})
+df.to_parquet("my_train.parquet")
+```
+
+Then update the config:
+
+```yaml
+data:
+  train:
+    parquet_files: ["my_train.parquet"]
+  val:
+    parquet_files: ["my_val.parquet"]
 ```
 
 ---
@@ -97,28 +87,15 @@ python test.py \
 After training, check `outputs/YOUR_EXP_NAME/`:
 
 ```
-outputs/default_exp_20240115_103000/
-├── config.yaml          # Saved configuration
+outputs/Wav2Vec2_Nes2Net_Example_20250401_120000/
+├── config.yaml          # Saved config (for reproducibility)
 ├── train.log            # Full training log
-├── best_model.pth       # Best checkpoint
+├── best_model.pth       # Best checkpoint (by monitor_metric)
 ├── ckpts/               # All checkpoints
-│   ├── ckpt_epoch001_step000125.pth
-│   └── ...
 ├── results/             # Metrics JSON files
-│   └── metrics_epoch1_step125.json
-└── plots/               # Training curves
-    ├── trend_loss.png
-    └── trend_EER.png
+└── plots/               # Training curves (loss, EER, etc.)
 ```
 
 ---
 
-## What's Next?
-
-- 📚 **[Full Tutorial](03_full_tutorial.md)** — Complete walkthrough with real data
-- 🏗️ **[Architecture](04_architecture.md)** — Understand how DeepFense works
-- ⚙️ **[Configuration](05_configuration.md)** — Customize your experiments
-
----
-
-> **Need help?** Check the [Troubleshooting](#troubleshooting) section in the Installation guide.
+**Next:** [Full Tutorial](03_full_tutorial.md) -- complete walkthrough of every config option

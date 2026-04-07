@@ -7,7 +7,7 @@ This tutorial shows how to use DeepFense as an installed Python library. Instead
 ## Installation
 
 ```bash
-pip install deepfense==0.1
+pip install -e .   # from the repo root
 ```
 
 ---

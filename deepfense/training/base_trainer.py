@@ -41,11 +41,11 @@ class BaseTrainer:
         raise NotImplementedError
 
     def _build_optimizer(self, opt_cfg):
-        # Expecting DictConfig or dict
         opt_name = opt_cfg.get("type", "adam") if isinstance(opt_cfg, dict) else opt_cfg.type
         opt_name = opt_name.lower()
-        
-        params = self.model.parameters()
+
+        unwrapped = self.model.module if hasattr(self.model, "module") else self.model
+        params = unwrapped.parameters()
         
         # Prepare config dict
         if hasattr(opt_cfg, "type"):

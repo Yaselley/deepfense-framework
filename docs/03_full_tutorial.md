@@ -618,14 +618,20 @@ python test.py \
     --checkpoint outputs/your_exp/best_model.pth
 ```
 
-For a different test set:
+To test on a different dataset, update the `data.test` section in your config:
 
-```bash
-python test.py \
-    --config deepfense/config/train.yaml \
-    --checkpoint outputs/your_exp/best_model.pth \
-    --test_parquet ./data/eval.parquet
+```yaml
+data:
+  test:
+    dataset_type: "StandardDataset"
+    parquet_files: ["./data/eval.parquet"]
+    batch_size: 64
+    base_transform:
+      - type: "pad"
+        max_len: 64600
 ```
+
+Then run the same test command -- it reads the test split from the config.
 
 ---
 

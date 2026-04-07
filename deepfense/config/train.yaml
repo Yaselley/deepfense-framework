@@ -1,38 +1,30 @@
-exp_name : "W2V_AASIST"
+exp_name: "Wav2Vec2_Nes2Net_Example"
 output_dir: "./outputs/"
-seed: 1234
+seed: 42
 
 data:
   sampling_rate: 16000
   label_map: {"bonafide": 1, "spoof": 0}
 
   train:
-    root_dir: "/netscratch/yelkheir/DeepFense/DeepFense/docs/"
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
-    parquet_files: [
-      "./tests/test.parquet",
-      ]
-    
+    parquet_files:
+      - "./tests/test.parquet"    # Replace with your train parquet
     batch_size: 10
     shuffle: True
-
     base_transform:
       - type: "pad"
-        max_len: 64600
+        max_len: 64600              # ~4 seconds at 16kHz
         random_pad: False
         pad_type: "repeat"
-
 
   val:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
-    parquet_files: [
-      "./tests/test.parquet",
-      ]
-
+    parquet_files:
+      - "./tests/test.parquet"    # Replace with your val parquet
     batch_size: 1
-
     base_transform:
       - type: "pad"
         max_len: 64600
@@ -42,40 +34,36 @@ data:
   test:
     dataset_type: "StandardDataset"
     dataset_names: ["ASVSpoof19"]
-    parquet_files: [
-      "./tests/test.parquet",
-      ]
-      
+    parquet_files:
+      - "./tests/test.parquet"    # Replace with your test parquet
+
 model:
   type: "StandardDetector"
 
-  frontend: 
+  frontend:
     type: "wav2vec2"
     args:
-      ckpt_path: "/netscratch/yelkheir/ssl_models/xlsr2_300m.pt"
+      source: "huggingface"
+      ckpt_path: "facebook/wav2vec2-xls-r-300m"  # HuggingFace model ID
 
-  backend: 
+  backend:
     type: "Nes2Net"
     args:
-      input_dim: 1024 
-      pool: mean 
-      
-  loss:
-    - # --- Loss 1: Cross Entropy ---
-      type: "CrossEntropy"
-      weight: 0.5
+      input_dim: 1024
+      pool: mean
 
+  loss:
+    - type: "CrossEntropy"
+      weight: 0.5
       embedding_dim: 1024
       n_classes: 2
       class_weights: [0.1, 0.9]
 
-    - # --- Loss 2: AMSoftmax ---
-      type: "AMSoftmax"
-      weight: 0.5                
-
+    - type: "AMSoftmax"
+      weight: 0.5
       embedding_dim: 1024
       n_classes: 2
-      s: 30.0                       
+      s: 30.0
       m: 0.4
 
 training:
@@ -84,11 +72,10 @@ training:
   device: "cuda"
   num_workers: 4
   batch_log_interval: 10
-  # eval_every_epochs: 1
   eval_every_steps: 1
   monitor_metric: "EER"
   monitor_mode: "min"
-  output_dir: "./outputs/" # Will be overridden
+  output_dir: "./outputs/"
 
   optimizer:
     type: "adam"
@@ -103,11 +90,6 @@ training:
     ACC: {}
     F1_SCORE: {}
     EER: {}
-    EER_CI: {}
-    actDCF:
-      Pspoof: 0.05
-      Cmiss: 1
-      Cfa: 1
     minDCF:
       Pspoof: 0.05
       Cmiss: 1

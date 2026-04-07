@@ -1,11 +1,10 @@
-site_name: DeepFense Framework
-site_description: A modular, configuration-driven framework for Deepfake Audio Detection.
+site_name: DeepFense
+site_description: A modular framework for deepfake audio detection.
 site_author: DeepFense Team
 site_url: https://deepfense.github.io/
 
 repo_url: https://github.com/Yaselley/deepfense-framework
 repo_name: deepfense-framework
-edit_uri: edit/main/docs/
 
 theme:
   name: readthedocs
@@ -35,19 +34,34 @@ plugins:
 
 nav:
   - Home: index.md
-  - 01 Installation: 01_installation.md
-  - 02 Quick Start: 02_quickstart.md
-  - 03 Full Tutorial: 03_full_tutorial.md
-  - 04 Architecture: 04_architecture.md
-  - 05 Configuration: 05_configuration.md
-  - 06 Library Usage: 06_library_usage.md
-  - Component Reference:
+  - Getting Started:
+    - Installation: 01_installation.md
+    - Quick Start: 02_quickstart.md
+    - Full Tutorial: 03_full_tutorial.md
+  - Reference:
+    - Architecture: 04_architecture.md
+    - Configuration: 05_configuration.md
+    - Library Usage: 06_library_usage.md
+    - HuggingFace Hub: 07_huggingface_hub.md
+    - Pipeline Flow: pipeline_flow.md
+    - Data Transforms: data_transforms.md
+    - CLI: cli_reference.md
+  - Components:
     - Frontends: components/frontends.md
     - Backends: components/backends.md
     - Losses: components/losses.md
     - Augmentations: components/augmentations.md
     - Optimizers & Schedulers: components/optimizers_schedulers.md
   - User Guides:
-    - Training Workflow: user_guide/training.md
-    - Inference: user_guide/inference.md
     - Extending DeepFense: user_guide/extending.md
+    - Adding Frontends: user_guide/adding_frontends.md
+    - Adding Backends: user_guide/adding_backends.md
+    - Adding Losses: user_guide/adding_losses.md
+    - Adding Datasets: user_guide/adding_datasets.md
+    - Adding Augmentations: user_guide/adding_augmentations.md
+    - Adding Optimizers: user_guide/adding_optimizers.md
+    - Adding Schedulers: user_guide/adding_schedulers.md
+    - Adding Metrics: user_guide/adding_metrics.md
+    - Training Workflow: user_guide/training.md
+    - Training with CLI: user_guide/training_with_cli.md
+    - Inference: user_guide/inference.md

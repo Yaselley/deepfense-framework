@@ -24,9 +24,9 @@ LA_0079 LA_T_1138215 - - bonafide
 LA_0080 LA_T_1138216 - - spoof
 ```
 
-**Process**: Run data generation script
+**Process**: Run the dataset-specific generation script
 ```bash
-deepfense generate-data deepfense/config/parquets/generate_asv19.py
+python deepfense/config/parquets/generate_asv19.py
 ```
 
 **Output**: Parquet files with metadata
@@ -320,7 +320,7 @@ LA_T_1138216,0,0.9123,0.0877
 └──────┬───────┘
        │
        ▼
-┌──────────────┐      deepfense generate-data
+┌──────────────┐      python generate_asv19.py
 │ Parquet      │ ◄──────────────────────────────
 │ Files        │
 └──────┬───────┘

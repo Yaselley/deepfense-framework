@@ -1,6 +1,6 @@
 import torch
 import logging
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from deepfense.utils.registry import build_dataset
 
 logger = logging.getLogger(__name__)
@@ -91,11 +91,21 @@ def build_dataloader(config):
     shuffle = config.get("shuffle", False)
     num_workers = config.get("num_workers", 0)
 
-    # Return DataLoader
+    sampler = None
+    if config.get("distributed", False):
+        sampler = DistributedSampler(
+            ds,
+            num_replicas=config.get("world_size", 1),
+            rank=config.get("rank", 0),
+            shuffle=shuffle,
+        )
+        shuffle = False
+
     return DataLoader(
         ds,
         batch_size=batch_size,
         shuffle=shuffle,
+        sampler=sampler,
         collate_fn=lambda b: collate_fn(b, max_pad=config.get("max_len", None)),
-        num_workers=num_workers
+        num_workers=num_workers,
     )

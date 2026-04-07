@@ -45,19 +45,24 @@ class StandardTrainer(BaseTrainer):
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-        # Output dirs (inherited/setup in BaseTrainer, but specialized here)
+        self.ddp = config.get("_ddp", False)
+        self.rank = config.get("_rank", 0)
+        self.is_main = (self.rank == 0)
+
         self.results_dir = os.path.join(self.config.output_dir, "results")
         self.ckpts_dir = os.path.join(self.config.output_dir, "ckpts")
         self.plots_dir = os.path.join(self.config.output_dir, "plots")
-        os.makedirs(self.results_dir, exist_ok=True)
-        os.makedirs(self.ckpts_dir, exist_ok=True)
-        os.makedirs(self.plots_dir, exist_ok=True)
+        if self.is_main:
+            os.makedirs(self.results_dir, exist_ok=True)
+            os.makedirs(self.ckpts_dir, exist_ok=True)
+            os.makedirs(self.plots_dir, exist_ok=True)
 
         # Optimizers / Schedulers
+        self.use_sam = self.config.get("use_sam_optimization", False)
         self.optimizer = self._build_optimizer(config.optimizer)
-        if self.config.use_sam_optimization:
+        if self.use_sam:
             print("Using SAM optimization with base optimizer as {}".format(self.optimizer.__class__.__name__))
-            self.optimizer = SAM(self.model.parameters(), self.optimizer, rho=config.rho_sam,
+            self.optimizer = SAM(self._unwrapped_model().parameters(), self.optimizer, rho=config.get("rho_sam", 0.05),
                                  lr=config.get("lr", 1e-6),
                                  weight_decay=config.get("weight_decay", 1e-04),
                                  betas=config.get("betas", (0.9, 0.999)))
@@ -69,8 +74,8 @@ class StandardTrainer(BaseTrainer):
 
         # Evaluator
         metrics_config = config.get("metrics", None)
-        if metrics_config and hasattr(self.model, "main_loss_type"):
-            metrics_config["loss"] = self.model.main_loss_type
+        if metrics_config and hasattr(self._unwrapped_model(), "main_loss_type"):
+            metrics_config["loss"] = self._unwrapped_model().main_loss_type
 
         self.evaluator = Evaluator(metrics_config) if metrics_config else None
 
@@ -103,17 +108,33 @@ class StandardTrainer(BaseTrainer):
         self.early_stopping_counter = 0
         self.best_metric_val = None  # Separate from self.best_metric which is tracked for saving best model
 
+    def _unwrapped_model(self):
+        """Return the raw detector, unwrapping DDP and _DDPForwardWrapper."""
+        if self.ddp:
+            return self.model.module.detector
+        return self.model
+
     def train(self):
         self.model.train()
 
-        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        self.logger.info(f"Trainable parameters: {num_params:,}")
+        num_params = sum(p.numel() for p in self._unwrapped_model().parameters() if p.requires_grad)
+        if self.is_main:
+            self.logger.info(f"Trainable parameters: {num_params:,}")
+            if self.ddp:
+                import torch.distributed as dist
+                self.logger.info(f"Training with DDP on {dist.get_world_size()} GPUs")
 
         for epoch in range(self.start_epoch, self.config.epochs):
             current_epoch = epoch + 1
 
+            if self.ddp and hasattr(self.train_loader, "sampler"):
+                sampler = self.train_loader.sampler
+                if hasattr(sampler, "set_epoch"):
+                    sampler.set_epoch(epoch)
+
             loop = tqdm(
-                self.train_loader, desc=f"Epoch {current_epoch}/{self.config.epochs}"
+                self.train_loader, desc=f"Epoch {current_epoch}/{self.config.epochs}",
+                disable=not self.is_main,
             )
 
             epoch_loss_sum = 0.0
@@ -128,9 +149,9 @@ class StandardTrainer(BaseTrainer):
                 epoch_loss_sum += loss
                 epoch_train_losses.append(loss)
 
-                # Logging
                 if (
-                        self.config.get("batch_log_interval") is not None
+                        self.is_main
+                        and self.config.get("batch_log_interval") is not None
                         and batch_idx != 0
                         and batch_idx % self.config.batch_log_interval == 0
                 ):
@@ -149,15 +170,14 @@ class StandardTrainer(BaseTrainer):
                             }
                         )
 
-                    # If in Step-based mode, record Train Loss here for finer granularity
                     if self.use_steps_for_viz:
                         self.metric_history["loss"]["Train"].append((self.global_step, running_avg_loss))
 
-                # Step-based eval (check on global_step, which is updated in _train_step on actual updates)
                 if (
-                        self.config.get("eval_every_steps")
+                        self.is_main
+                        and self.config.get("eval_every_steps")
                         and self.global_step % self.config.eval_every_steps == 0
-                        and (batch_idx + 1) % self.accum_steps == 0  # Ensure we only eval after an update
+                        and (batch_idx + 1) % self.accum_steps == 0
                 ):
                     metrics = self.evaluate(
                         current_epoch, self.global_step, eval_reason="step"
@@ -165,40 +185,45 @@ class StandardTrainer(BaseTrainer):
                     self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
                 if self.config.get("max_steps") and self.global_step >= self.config.max_steps:
-                    self.logger.info("Reached max steps; exiting.")
+                    if self.is_main:
+                        self.logger.info("Reached max steps; exiting.")
                     return
 
-            # Epoch Summary
             avg_epoch_loss = np.mean(epoch_train_losses)
-            self.logger.info(f"--- Epoch {current_epoch} Summary ---")
-            self.logger.info(f"Average Train Loss: {avg_epoch_loss:.4f}")
+            if self.is_main:
+                self.logger.info(f"--- Epoch {current_epoch} Summary ---")
+                self.logger.info(f"Average Train Loss: {avg_epoch_loss:.4f}")
 
-            # Track Train Loss (Only if in Epoch mode to avoid double tracking or mixed scales)
-            if not self.use_steps_for_viz:
-                self.metric_history["loss"]["Train"].append((current_epoch, avg_epoch_loss))
+                if not self.use_steps_for_viz:
+                    self.metric_history["loss"]["Train"].append((current_epoch, avg_epoch_loss))
 
-            if self.wandb:
-                self.wandb.log(
-                    {"train/epoch_loss": avg_epoch_loss, "epoch": current_epoch},
-                    step=self.global_step,
-                )
+                if self.wandb:
+                    self.wandb.log(
+                        {"train/epoch_loss": avg_epoch_loss, "epoch": current_epoch},
+                        step=self.global_step,
+                    )
 
-            # Per-epoch eval
             eval_interval = self.config.get("eval_every_epochs", 1)
             stop_training = False
-            if current_epoch % eval_interval == 0:
+            if current_epoch % eval_interval == 0 and self.is_main:
                 metrics = self.evaluate(
                     current_epoch, self.global_step, eval_reason="epoch"
                 )
                 self._maybe_checkpoint(metrics, current_epoch, self.global_step)
 
-                # Early Stopping Check
                 if self.early_stopping_patience is not None:
                     stop_training = self._check_early_stopping(metrics)
 
+            if self.ddp:
+                import torch.distributed as dist
+                stop_tensor = torch.tensor([1 if stop_training else 0], device=self.device)
+                dist.broadcast(stop_tensor, src=0)
+                stop_training = stop_tensor.item() == 1
+
             if stop_training:
-                self.logger.info(
-                    f"Early stopping triggered after {self.early_stopping_patience} epochs of no improvement.")
+                if self.is_main:
+                    self.logger.info(
+                        f"Early stopping triggered after {self.early_stopping_patience} epochs of no improvement.")
                 break
 
             if self.scheduler and not isinstance(
@@ -226,40 +251,46 @@ class StandardTrainer(BaseTrainer):
         if mask is not None:
             mask = mask.to(self.device)
 
-        outputs = self.model(x, mask) if mask is not None else self.model(x)
-        loss = self.model.compute_loss(outputs, labels)
+        if self.ddp:
+            outputs = self.model(x, mask=mask, labels=labels)
+            loss = outputs["loss"]
+        else:
+            outputs = self.model(x, mask) if mask is not None else self.model(x)
+            loss = self.model.compute_loss(outputs, labels)
 
-        # Scale loss for accumulation
         loss = loss / self.accum_steps
         loss.backward()
 
-        # Step if accumulation boundary
         if (batch_idx + 1) % self.accum_steps == 0:
-            if not self.config.use_sam_optimization:
+            if not self.use_sam:
                 self.optimizer.step()
             else:
-                if epoch < self.start_epoch + 2 :
+                if epoch < self.start_epoch + 2:
                     self.optimizer.base_optimizer.step()
                 else:
                     self.optimizer.first_step(zero_grad=True)
                     self.disable_running_stats()
-                    outputs = self.model(x, mask) if mask is not None else self.model(x)
-                    loss = self.model.compute_loss(outputs, labels)
+                    if self.ddp:
+                        outputs = self.model(x, mask=mask, labels=labels)
+                        loss = outputs["loss"]
+                    else:
+                        outputs = self.model(x, mask) if mask is not None else self.model(x)
+                        loss = self.model.compute_loss(outputs, labels)
                     loss.backward()
                     self.optimizer.second_step(zero_grad=True)
             self.optimizer.zero_grad()
             self.global_step += 1
 
-            # Step scheduler if it's per-step (like OneCycleLR)
             if self.scheduler and isinstance(
                 self.scheduler, torch.optim.lr_scheduler.OneCycleLR
             ):
                 self.scheduler.step()
-            
+
         return loss.item() * self.accum_steps
 
     def evaluate(self, epoch, step, eval_reason: str = None):
         self.model.eval()
+        detector = self._unwrapped_model()
         all_labels, all_scores, all_names, all_losses = [], [], [], []
 
         with torch.no_grad():
@@ -270,11 +301,11 @@ class StandardTrainer(BaseTrainer):
                 names = batch["dataset_name"]
 
                 outputs = (
-                    self.model(x, mask=mask) if mask is not None else self.model(x)
+                    detector(x, mask=mask) if mask is not None else detector(x)
                 )
                 scores = outputs["scores"]
 
-                batch_loss = self.model.compute_loss(outputs, labels)
+                batch_loss = detector.compute_loss(outputs, labels)
                 all_losses.append(batch_loss.detach().cpu().item())
 
                 if torch.is_tensor(scores):
@@ -495,9 +526,12 @@ class StandardTrainer(BaseTrainer):
         return opt.param_groups[0]["lr"]
 
     def save_checkpoint(self, epoch, step, is_best=False):
+        if not self.is_main:
+            return None
+
         state = {
-            "model_state": self.model.state_dict(),
-            "optimizer_state": (self.optimizer.state_dict()),
+            "model_state": self._unwrapped_model().state_dict(),
+            "optimizer_state": self.optimizer.state_dict(),
             "epoch": epoch,
             "step": step,
             "best_metric": self.best_metric,
@@ -516,7 +550,7 @@ class StandardTrainer(BaseTrainer):
 
     def load_checkpoint(self, path, load_optimizer=True):
         state = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(state["model_state"])
+        self._unwrapped_model().load_state_dict(state["model_state"])
         if load_optimizer:
             opt_state = state.get("optimizer_state", None)
             if opt_state:
@@ -524,7 +558,8 @@ class StandardTrainer(BaseTrainer):
         self.start_epoch = state.get("epoch", 0)
         self.global_step = state.get("step", 0)
         self.best_metric = state.get("best_metric", self.best_metric)
-        self.logger.info(f"Loaded checkpoint from {path}")
+        if self.is_main:
+            self.logger.info(f"Loaded checkpoint from {path}")
 
     def infer(self, x):
         self.model.eval()

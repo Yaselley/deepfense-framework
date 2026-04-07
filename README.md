@@ -4,18 +4,13 @@
 
 <div align="center">
 
-# DeepFense Framework
+# DeepFense
 
-**A Modular, Extensible Framework for Deepfake Audio Detection**
+**A Modular Framework for Deepfake Audio Detection**
 
-[![Website](https://img.shields.io/badge/🌐-Website-blue)](https://deepfense.github.io/)
-[![HuggingFace](https://img.shields.io/badge/🤗-HuggingFace-yellow)](https://huggingface.co/DeepFense)
-[![Documentation](https://img.shields.io/badge/📚-Documentation-green)](https://deepfense.readthedocs.io/)
-[![Recipes](https://img.shields.io/badge/📖-Recipes-orange)](recipes/)
-
+[![Python](https://img.shields.io/badge/Python-3.10%2B-navy.svg)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-navy.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-navy.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-navy.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-navy.svg)](https://pytorch.org/)
 
 </div>
 
@@ -23,257 +18,235 @@
 
 ## What is DeepFense?
 
-**DeepFense** is a modular framework for building and training deepfake audio detection models. It provides a plug-and-play architecture where you can easily combine different **Frontends** (feature extractors), **Backends** (classifiers), and **Loss Functions** to create state-of-the-art detection systems.
+DeepFense lets you build deepfake audio detectors by combining **frontends** (pretrained feature extractors), **backends** (classifiers), and **loss functions** -- all defined in a single YAML config. No code changes needed to run new experiments.
 
-### Key Features
-
-- 🔄 **Modular Architecture** — Swap components with a single config change
-- ⚙️ **Configuration-Driven** — All experiments defined in YAML
-- 🎛️ **Advanced Augmentations** — RawBoost, RIR, Codec, Noise, and more
-- 📊 **Built-in Metrics** — EER, minDCF, F1-score, Accuracy
-- 🚀 **Simple CLI** — Train and test models with command-line interface
-- 📚 **Recipes** — Pre-configured training setups and example models ([see recipes](recipes/))
-
-**New to DeepFense?** Check out our [recipes](recipes/) for pre-configured training setups and example models to get started quickly!
+```
+Raw Audio --> Frontend (Wav2Vec2, WavLM, HuBERT, ...) --> Backend (AASIST, MLP, ...) --> Loss --> Score
+```
 
 ---
 
-## Table of Contents
-
-1. [Installation](#installation)
-2. [Understanding DeepFense Architecture](#understanding-deepfense-architecture)
-3. [Available Components](#available-components)
-4. [Training Models](#training-models)
-5. [Evaluating and Testing Models](#evaluating-and-testing-models)
-6. [Data Preparation](#data-preparation)
-7. [Extending DeepFense](#extending-deepfense)
-8. [Using the CLI (Alternative)](#using-the-cli-alternative)
-9. [Complete Pipeline Flow](#complete-pipeline-flow)
-10. [Documentation](#documentation)
-
----
-
-## Installation
+## Install
 
 ```bash
-# From source (recommended for development)
+conda create -n deepfense python=3.10
+conda activate deepfense
+pip install deepfense
+```
+
+Or install from source (for development):
+
+```bash
+conda create -n deepfense python=3.10
+conda activate deepfense
 git clone https://github.com/Yaselley/deepfense-framework
 cd deepfense-framework
 pip install -e .
-
-# Or From PyPI 
-pip install deepfense==0.1
 ```
-
-See [Installation Guide](docs/01_installation.md) for detailed instructions.
 
 ---
 
-## Understanding DeepFense Architecture
+## Quick Start
 
-DeepFense uses a **modular pipeline** architecture:
+### 1. Generate dummy test data
 
+```bash
+python tests/create_samples.py
 ```
-Raw Audio → Frontend → Features → Backend → Embeddings → Loss → Scores
-```
 
-**Key Components**:
-- **Frontend**: Extracts features from audio (Wav2Vec2, WavLM, HuBERT, etc.)
-- **Backend**: Processes features into embeddings (AASIST, ECAPA-TDNN, MLP, etc.)
-- **Loss Function**: Computes loss and scores (CrossEntropy, OC-Softmax, etc.)
-
-See [Architecture Overview](docs/04_architecture.md) for detailed architecture explanation, or [Pipeline Flow](docs/pipeline_flow.md) for complete pipeline walkthrough.
-
----
-
-## Available Components
-
-DeepFense provides a modular set of components that can be mixed and matched:
-
-- **Frontends**: Wav2Vec2, WavLM, HuBERT, EAT, MERT - See [Frontends Documentation](docs/components/frontends.md)
-- **Backends**: AASIST, ECAPA-TDNN, RawNet2, MLP, Nes2Net, TCM - See [Backends Documentation](docs/components/backends.md)
-- **Losses**: CrossEntropy, OC-Softmax, AM-Softmax, A-Softmax - See [Losses Documentation](docs/components/losses.md)
-- **Augmentations**: RawBoost, RIR, Codec, Noise, SpeedPerturb - See [Augmentations Documentation](docs/components/augmentations.md)
-
-See [Component Reference](docs/index.md#-component-reference) for complete details.
-
-**Looking for example configurations?** Check out our [recipes](recipes/) for pre-configured training setups and trained models.
-
----
-
-## Training Models
-
-Train models using Python scripts:
+### 2. Train
 
 ```bash
 python train.py --config deepfense/config/train.yaml
 ```
 
-Training creates an experiment directory with checkpoints, logs, and metrics.
-
-**Alternative**: You can also use the CLI (see [Using the CLI](#using-the-cli) section below).
-
-See [Quick Start Guide](docs/02_quickstart.md) for detailed instructions and [Configuration Reference](docs/05_configuration.md) for all YAML parameters.
-
----
-
-## Evaluating and Testing Models
-
-Test a trained model using Python scripts:
+### 3. Test
 
 ```bash
 python test.py \
     --config deepfense/config/train.yaml \
-    --checkpoint outputs/my_experiment/best_model.pth
+    --checkpoint outputs/Wav2Vec2_Nes2Net_Example_*/best_model.pth
 ```
 
-DeepFense computes metrics automatically (EER, minDCF, F1, ACC) and saves results to the experiment directory.
+### 4. Multi-GPU Training
 
-**Alternative**: You can also use the CLI (see [Using the CLI](#using-the-cli) section below).
+DeepFense supports multi-GPU training out of the box via PyTorch DDP. Just use `torchrun`:
 
-See [Evaluation & Inference Guide](docs/user_guide/inference.md) for details.
+```bash
+# 2 GPUs on a single node
+torchrun --nproc_per_node=2 train.py --config deepfense/config/train.yaml
 
----
-
-## Data Preparation
-
-DeepFense uses **Parquet files** for dataset metadata. Each parquet file should contain:
-- `ID`: Unique identifier
-- `path`: Path to audio file
-- `label`: Label string ("bonafide" or "spoof")
-- `dataset_name`: (Optional) Dataset identifier
-
-Example:
-```python
-import pandas as pd
-data = pd.DataFrame({
-    "ID": ["sample_001", "sample_002"],
-    "path": ["/path/to/audio1.flac", "/path/to/audio2.flac"],
-    "label": ["bonafide", "spoof"]
-})
-data.to_parquet("train.parquet")
+# 4 GPUs
+torchrun --nproc_per_node=4 train.py --config deepfense/config/train.yaml
 ```
 
-### Data Transforms, Padding, and Cropping
+No config changes required -- DDP is detected automatically. Checkpoints, logs, and evaluation run on rank 0 only. The saved checkpoints are identical to single-GPU ones and can be loaded without any DDP-specific handling.
 
-DeepFense applies transforms in two stages:
-1. **Base Transforms** (always): Padding, cropping, resampling
-2. **Augmentations** (training only): RawBoost, RIR, Noise, etc.
+### 5. Use real data
 
-**Critical**: All audio must be padded/cropped to the same length for batching. Configure this in your YAML:
+Create a Parquet file with columns `ID`, `path`, `label` (`"bonafide"` / `"spoof"`), then update the config:
 
 ```yaml
 data:
   train:
+    parquet_files: ["/path/to/train.parquet"]
+  val:
+    parquet_files: ["/path/to/val.parquet"]
+```
+
+---
+
+## How Configuration Works
+
+Everything is controlled by a single YAML file. Here is the anatomy:
+
+```yaml
+# ---------- experiment ----------
+exp_name: "my_experiment"
+output_dir: "./outputs/"
+seed: 42
+
+# ---------- data ----------
+data:
+  sampling_rate: 16000
+  label_map: {"bonafide": 1, "spoof": 0}
+  train:
+    parquet_files: ["train.parquet"]
+    batch_size: 32
     base_transform:
       - type: "pad"
-        args:
-          max_len: 160000       # 10 seconds @ 16kHz
-          random_pad: True      # Random crop if longer
-          pad_type: "repeat"    # Repeat if shorteror
+        max_len: 64600          # ~4 sec at 16 kHz
+    augment_transform:          # training only
+      - type: "rawboost"
+        noise_ratio: 0.4
+  val:
+    parquet_files: ["val.parquet"]
+    batch_size: 64
+    base_transform:
+      - type: "pad"
+        max_len: 64600
+
+# ---------- model ----------
+model:
+  type: "StandardDetector"
+  frontend:
+    type: "wav2vec2"                    # or wavlm, hubert, mert, eat
+    args:
+      source: "huggingface"             # or "fairseq" for local .pt files
+      ckpt_path: "facebook/wav2vec2-xls-r-300m"
+      freeze: True
+  backend:
+    type: "AASIST"                      # or MLP, Nes2Net, ECAPA_TDNN, RawNet2
+    args:
+      input_dim: 1024                   # must match frontend output dim
+  loss:
+    - type: "OCSoftmax"                 # or CrossEntropy, AMSoftmax, ASoftmax
+      weight: 1.0
+      embedding_dim: 32                 # must match backend output dim
+
+# ---------- training ----------
+training:
+  epochs: 50
+  device: "cuda"
+  optimizer:
+    type: "adam"
+    lr: 0.0001
+  scheduler:
+    type: "cosine_annealing"
+    T_max: 50
+  monitor_metric: "EER"
+  monitor_mode: "min"
+  metrics:
+    EER: {}
+    ACC: {}
+    minDCF: {Pspoof: 0.05}
 ```
 
-**See [Data Transforms Guide](docs/data_transforms.md)** for complete transform parameters, padding/cropping options, augmentations, and how to check/modify configurations.
+See the [Full Tutorial](docs/03_full_tutorial.md) for a detailed walkthrough of every parameter.
 
 ---
 
-## Extending DeepFense
+## Available Components
 
-DeepFense makes it easy to add custom components using the registry pattern. Each component type has a detailed guide:
+| Category | Options |
+|----------|---------|
+| **Frontends** | Wav2Vec2, WavLM, HuBERT, MERT, EAT |
+| **Backends** | AASIST, ECAPA-TDNN, Nes2Net, RawNet2, MLP, TCM |
+| **Losses** | CrossEntropy, OC-Softmax, AM-Softmax, A-Softmax |
+| **Augmentations** | RawBoost, RIR, Codec, AdditiveNoise, SpeedPerturb, AddBabble, DropChunk, DropFreq |
+| **Metrics** | EER, minDCF, actDCF, ACC, F1 |
 
-- [Adding Backends](docs/user_guide/adding_backends.md) | [Adding Frontends](docs/user_guide/adding_frontends.md) | [Adding Losses](docs/user_guide/adding_losses.md)
-- [Adding Datasets](docs/user_guide/adding_datasets.md) | [Adding Augmentations](docs/user_guide/adding_augmentations.md)
-- [Adding Optimizers](docs/user_guide/adding_optimizers.md) | [Adding Metrics](docs/user_guide/adding_metrics.md) | [Adding Schedulers](docs/user_guide/adding_schedulers.md)
-
-See [Extending DeepFense (Quick Reference)](docs/user_guide/extending.md) for a quick overview of all component types.
-
----
-
-## Using the CLI (Alternative)
-
-DeepFense provides a CLI as an alternative to Python scripts. The CLI supports:
+List them from the CLI:
 
 ```bash
-# Train a model (alternative to python train.py)
-deepfense train --config config/train.yaml
-
-# Test a model (alternative to python test.py)
-deepfense test --config config/train.yaml --checkpoint outputs/exp/best_model.pth
-
-# List available components
 deepfense list
+deepfense list --component-type backends
 ```
 
-**Note**: The CLI currently supports training and testing existing models with different parameters. Future versions will support adding components via CLI.
+---
 
-See [CLI Reference](docs/cli_reference.md) for complete documentation.
+## Pretrained Models & Datasets (HuggingFace Hub)
+
+DeepFense publishes **455+ pretrained models** and **12 datasets** at [huggingface.co/DeepFense](https://huggingface.co/DeepFense).
+
+```bash
+# See what's available
+deepfense download list-datasets
+deepfense download list-models --filter WavLM
+
+# Download a dataset (parquet files)
+deepfense download dataset CompSpoof
+
+# Download a pretrained model (checkpoint + config)
+deepfense download model ASV19_WavLM_Nes2Net_NoAug_Seed42
+
+# Test the downloaded model
+python test.py \
+    --config models/ASV19_WavLM_Nes2Net_NoAug_Seed42/config.yaml \
+    --checkpoint models/ASV19_WavLM_Nes2Net_NoAug_Seed42/best_model.pth
+```
+
+Or in Python:
+
+```python
+from deepfense.hub import download_dataset, download_model
+
+parquets = download_dataset("CompSpoof")           # returns list of local paths
+files    = download_model("ASV19_WavLM_Nes2Net_NoAug_Seed42")  # returns {"checkpoint": ..., "config": ...}
+```
+
+See the [HuggingFace Hub Guide](docs/07_huggingface_hub.md) for full workflows (training, evaluation, inference).
 
 ---
 
-## Complete Pipeline Flow
+## Adding Your Own Component
 
-The DeepFense pipeline: **Data → Transforms → Frontend → Backend → Loss → Training → Evaluation**
+Every component type follows the same pattern:
 
-See [Pipeline Flow Documentation](docs/pipeline_flow.md) for the complete detailed pipeline with all stages, data shapes, and configuration flow.
+1. Create a file (e.g. `deepfense/models/backends/my_backend.py`)
+2. Decorate with the registry:
+   ```python
+   from deepfense.utils.registry import register_backend
+   from deepfense.models.base_model import BaseBackend
 
----
+   @register_backend("MyBackend")
+   class MyBackend(BaseBackend):
+       def __init__(self, config):
+           super().__init__()
+           # ...
 
-## Documentation
+       def forward(self, x):
+           # ...
+   ```
+3. Import it in the package `__init__.py`
+4. Use it in your config:
+   ```yaml
+   backend:
+     type: "MyBackend"
+     args: { ... }
+   ```
 
-### Getting Started
-
-| Guide | Description |
-|-------|-------------|
-| [Installation](docs/01_installation.md) | Full installation instructions |
-| [Quick Start](docs/02_quickstart.md) | Train your first model in 5 minutes |
-| [Full Tutorial](docs/03_full_tutorial.md) | Complete config-driven training guide |
-| [Architecture](docs/04_architecture.md) | How DeepFense works internally |
-
-### Component Reference
-
-| Component | Documentation |
-|-----------|--------------|
-| [Frontends](docs/components/frontends.md) | Wav2Vec2, WavLM, HuBERT, MERT, EAT |
-| [Backends](docs/components/backends.md) | AASIST, ECAPA_TDNN, RawNet2, MLP, Pool, Nes2Net, TCM |
-| [Losses](docs/components/losses.md) | CrossEntropy, OC-Softmax, AM-Softmax, A-Softmax |
-| [Augmentations](docs/components/augmentations.md) | RawBoost, RIR, Codec, Noise, SpeedPerturb |
-| [Optimizers & Schedulers](docs/components/optimizers_schedulers.md) | Adam, SGD, CosineAnnealing, StepLR |
-
-### User Guides
-
-| Guide | Description |
-|-------|-------------|
-| [Training with CLI](docs/user_guide/training_with_cli.md) | How to train models using the CLI |
-| [Training Workflow](docs/user_guide/training.md) | Detailed training loop explanation |
-| [Evaluation & Inference](docs/user_guide/inference.md) | Testing and deployment |
-| [Configuration Reference](docs/05_configuration.md) | All YAML parameters explained |
-| [Library Usage](docs/06_library_usage.md) | Use DeepFense programmatically in Python |
-
-### Extending DeepFense
-
-| Guide | Description |
-|-------|-------------|
-| [Adding a New Backend](docs/user_guide/adding_backends.md) | Step-by-step guide to create custom backends |
-| [Adding a New Frontend](docs/user_guide/adding_frontends.md) | Step-by-step guide to create custom frontends |
-| [Adding a New Loss](docs/user_guide/adding_losses.md) | Step-by-step guide to create custom loss functions |
-| [Adding a New Dataset](docs/user_guide/adding_datasets.md) | Step-by-step guide to create custom datasets |
-| [Adding Augmentations](docs/user_guide/adding_augmentations.md) | Step-by-step guide to create custom data augmentations |
-| [Adding Optimizers](docs/user_guide/adding_optimizers.md) | Step-by-step guide to add custom optimizers |
-| [Adding Metrics](docs/user_guide/adding_metrics.md) | Step-by-step guide to add custom evaluation metrics |
-| [Adding Schedulers](docs/user_guide/adding_schedulers.md) | Step-by-step guide to add custom learning rate schedulers |
-| [Extending DeepFense (Quick Reference)](docs/user_guide/extending.md) | Quick reference for all component types |
-
-### CLI Reference
-
-| Guide | Description |
-|-------|-------------|
-| [CLI Reference](docs/cli_reference.md) | Complete CLI documentation |
-
-### Recipes
-
-| Resource | Description |
-|----------|-------------|
-| [Recipes](recipes/) | Pre-configured training setups and example models |
+The same pattern applies to frontends, losses, augmentations, datasets, optimizers, and metrics. See the [user guides](docs/user_guide/) for detailed walkthroughs.
 
 ---
 
@@ -281,49 +254,38 @@ See [Pipeline Flow Documentation](docs/pipeline_flow.md) for the complete detail
 
 ```
 deepfense/
-├── config/          # YAML configurations
-├── data/            # Data handling & transforms
-├── models/          # Frontends, backends, losses
-├── training/        # Training loop & evaluation
-├── utils/           # Registry & helpers
-└── cli/             # Command-line interface
+├── cli/             # CLI commands (train, test, list)
+├── config/          # YAML configs + parquet generators
+├── data/            # Dataset loading + transforms/augmentations
+├── models/
+│   ├── frontends/   # Wav2Vec2, WavLM, HuBERT, MERT, EAT
+│   ├── backends/    # AASIST, ECAPA-TDNN, Nes2Net, MLP, ...
+│   ├── losses/      # OC-Softmax, AM-Softmax, CrossEntropy, ...
+│   └── modules/     # Shared layers (pooling, conformer, fairseq_local)
+├── training/        # Trainer, evaluator, metrics, seed
+└── utils/           # Registry, visualization
 ```
 
-See [Architecture Overview](docs/04_architecture.md) for detailed structure and component organization.
-
 ---
 
-## Recipes
+## Documentation
 
-DeepFense provides example recipes (pre-configured training setups) to help you get started quickly. Each recipe includes:
-- Complete configuration files
-- Pre-trained model checkpoints (where available)
-- Training scripts and evaluation results
-- Documentation on architecture choices and hyperparameters
-
-See the [recipes](recipes/) folder for available recipes. Each recipe includes detailed README files explaining the configuration and how to reproduce the results.
-
----
-
-## Contributing
-
-We welcome contributions! See [Extending DeepFense](docs/user_guide/extending.md) for guidelines on adding new components.
-
----
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE) for details.
-
-## Release Date
-
-**December 25, 2025**
+| Guide | Description |
+|-------|-------------|
+| [Installation](docs/01_installation.md) | Setup instructions |
+| [Quick Start](docs/02_quickstart.md) | First model in 5 minutes |
+| [Full Tutorial](docs/03_full_tutorial.md) | Every config option explained |
+| [Architecture](docs/04_architecture.md) | How DeepFense works internally |
+| [Configuration Reference](docs/05_configuration.md) | All YAML parameters |
+| [Library Usage](docs/06_library_usage.md) | Use DeepFense as a Python library |
+| [HuggingFace Hub](docs/07_huggingface_hub.md) | Download datasets & pretrained models |
+| [CLI Reference](docs/cli_reference.md) | CLI commands |
+| [Components](docs/components/) | Frontend, backend, loss, augmentation reference |
+| [User Guides](docs/user_guide/) | Adding custom components, training workflows |
 
 ---
 
 ## Citation
-
-If you use DeepFense in your research, please cite:
 
 ```bibtex
 @software{deepfense2025,
@@ -333,3 +295,7 @@ If you use DeepFense in your research, please cite:
   url={https://github.com/Yaselley/deepfense-framework}
 }
 ```
+
+## License
+
+Apache 2.0 -- see [LICENSE](LICENSE) for details.

@@ -5,6 +5,9 @@ __pycache__/
 
 # Pre-trained checkpoints
 deepfense/models/pretrained/*.pt
+*.pth
+*.pt
+*.ckpt
 
 # C extensions
 *.so
@@ -70,8 +73,24 @@ outputs/
 # Ignore all __pycache__ anywhere
 **/__pycache__/
 
-# Ignore Pycharm files
+# Ignore IDE files
 .idea/
 
-#Arnab's adhoc scripts
-not_to_checkin/
+# Generated experiment configs (regenerate with scripts in experiments/)
+deepfense/config/experiments/batch*/
+deepfense/config/experiments/FakeMusicCaps/
+deepfense/config/experiments/ADD23/
+
+# Data files (not source)
+*.xlsx
+
+# Generated parquet metadata (regenerate with scripts in parquets/)
+deepfense/config/parquets/**/*.parquet
+tests/*.parquet
+
+# Ad-hoc scripts
+scripts/
+
+# OS files
+.DS_Store
+Thumbs.db
