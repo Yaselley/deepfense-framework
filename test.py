@@ -202,7 +202,7 @@ def main():
 
     try:
         state = torch.load(args.checkpoint, map_location=device)
-        model.load_state_dict(state["model_state"])
+        model.load_state_dict(state["model_state"], strict=False)
         logger.info(f"Successfully loaded model state.")
     except Exception as e:
         logger.error(f"Failed to load checkpoint: {e}")
