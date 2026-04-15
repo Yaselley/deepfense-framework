@@ -6,7 +6,7 @@
 
 # DeepFense
 
-**A Modular Framework for Deepfake Audio Detection**
+**DeepFense: A Unified, Modular, and Extensible Framework for Robust Deepfake Audio Detection**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-navy.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.1%2B-navy.svg)](https://pytorch.org/)
@@ -288,11 +288,11 @@ deepfense/
 ## Citation
 
 ```bibtex
-@software{deepfense2025,
-  title={DeepFense: A Modular Framework for Deepfake Audio Detection},
-  author={DeepFense Team},
-  year={2025},
-  url={https://github.com/Yaselley/deepfense-framework}
+@article{kheir2026deepfense,
+  title={DeepFense: A Unified, Modular, and Extensible Framework for Robust Deepfake Audio Detection},
+  author={Kheir, Yassine El and Das, Arnab and Xiao, Yixuan and Wang, Xin and Kallel, Feidi and Erdogan, Enes Erdem and Vu, Ngoc Thang and Polzehl, Tim and Moeller, Sebastian},
+  journal={arXiv preprint arXiv:2604.08450},
+  year={2026}
 }
 ```
 
