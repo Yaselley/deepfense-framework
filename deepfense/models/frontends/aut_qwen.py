@@ -113,8 +113,3 @@ class AuTWrapper(nn.Module):
         hidden_states = hidden_states.view(batch_size, -1, self.output_dim)
 
         return hidden_states
-
-model = AuTWrapper({})
-input_data = torch.randn(16, 64600)
-output = model(input_data)
-print(output.shape)
