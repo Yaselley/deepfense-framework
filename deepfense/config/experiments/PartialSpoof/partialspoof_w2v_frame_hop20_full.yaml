@@ -1,0 +1,101 @@
+# PartialSpoof temporal training — 20 ms source & target hop, full-length clips.
+# Run: deepfense train --config deepfense/config/experiments/PartialSpoof/partialspoof_w2v_frame_hop20_full.yaml
+#
+# No max_len crop and no pad transform — each clip is loaded at full length;
+# variable-length batches are zero-padded by collate_fn.
+
+exp_name: PartialSpoof_W2V_Frame_Hop20_Full
+output_dir: ./outputs/
+seed: 42
+
+data:
+  sampling_rate: 16000
+
+  label_hop_ms: 20                  # 320 samples @ 16 kHz → model output rate
+  source_label_hop_ms: 20           # 320 samples @ 16 kHz → parquet annotation rate
+  label_merge_rule: any_spoof
+
+  label_map:
+    bonafide: 1
+    spoof: 0
+
+  train:
+    dataset_type: TemporalSegmentationDataset
+    parquet_files:
+      - /netscratch/yelkheir/DeepFense/DeepFense/deepfense/config/parquets/PartialSpoof/train.parquet
+    dataset_names: [PartialSpoof_train]
+
+    batch_size: 16
+    shuffle: true
+    num_workers: 4
+    base_transform: null
+    augment_transform: null
+
+  val:
+    dataset_type: TemporalSegmentationDataset
+    parquet_files:
+      - /netscratch/yelkheir/DeepFense/DeepFense/deepfense/config/parquets/PartialSpoof/dev.parquet
+    dataset_names: [PartialSpoof_dev]
+
+    batch_size: 16
+    shuffle: false
+    num_workers: 4
+    base_transform: null
+
+  test:
+    dataset_type: TemporalSegmentationDataset
+    parquet_files:
+      - /netscratch/yelkheir/DeepFense/DeepFense/deepfense/config/parquets/PartialSpoof/eval.parquet
+    dataset_names: [PartialSpoof_eval]
+
+    batch_size: 16
+    shuffle: false
+    num_workers: 4
+    base_transform: null
+
+model:
+  type: TemporalDetector
+  pool_mode: mean
+  frontend:
+    type: wav2vec2
+    args:
+      source: fairseq
+      ckpt_path: /netscratch/yelkheir/ssl_models/xlsr2_300m.pt
+      freeze: false
+  backend:
+    type: FrameMLP
+    args:
+      input_dim: 1024
+      projection: [512]
+      activation: relu
+      norm_type: layer
+  loss:
+    - type: FramewiseCrossEntropy
+      weight: 1.0
+      embedding_dim: 512
+      n_classes: 2
+      ignore_index: -100
+
+training:
+  trainer: StandardTrainer
+  epochs: 50
+  device: cuda
+  num_workers: 4
+  batch_log_interval: 50
+  eval_every_epochs: 1
+  early_stopping_patience: 10
+  monitor_metric: FRAME_F1
+  monitor_mode: max
+  optimizer:
+    type: adam
+    lr: 1.0e-06
+    weight_decay: 1.0e-04
+  scheduler:
+    type: exponential
+    gamma: 0.9
+  metrics:
+    FRAME_ACC: {}
+    FRAME_F1: { f1_average: macro }
+    FRAME_AUC: {}
+    FRAME_JACCARD_SPOOF: { spoof_label: 0 }
+  wandb: false

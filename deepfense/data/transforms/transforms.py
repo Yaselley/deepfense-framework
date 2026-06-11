@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import soundfile as sf
 import librosa
@@ -46,39 +48,54 @@ def load_audio(path: str, target_sr: int = 16000, mono: bool = True):
 @register_transform("pad")
 def pad_combined(
     x: np.ndarray,
-    max_len: int = 64000,
+    max_len: int | None = 64000,
     random_pad: bool = False,
-    pad_type: str = "repeat",  # "repeat"
+    pad_type: str = "repeat",
+    truncate: bool = True,
 ):
     """
-    Pad or truncate a waveform to a fixed length.
+    Optionally pad / truncate a waveform.
 
     Args:
-        x (np.ndarray): Input waveform, shape (L,) or (L, 1)
-        max_len (int): Target length
-        random_pad (bool): If True, randomly select start when truncating
-        pad_type (str): "repeat" to repeat waveform
+        x: Input waveform, shape ``(L,)`` or ``(L, 1)`` (first dim is time).
+        max_len: Target length for padding shorter clips when set. If ``None``,
+            the waveform is returned unchanged (full clip; rely on batch collate).
+        random_pad: If True and ``truncate`` is True, random crop when truncating.
+        pad_type: ``"repeat"`` (tile), ``"zeros"`` / ``"zero"`` / ``"constant"`` (zero-fill).
+        truncate: If True (default), trim inputs longer than ``max_len``.
+            Set False for **full-audio / partial-deepfake** training so the file
+            is never cropped in the dataset (variable length; pad in collate).
 
     Returns:
-        np.ndarray: Padded or truncated waveform
+        Padded/truncated array, or the original waveform if ``max_len`` is ``None``.
     """
-    x_len = x.shape[0]
+    x = np.asarray(x)
+    x_len = int(x.shape[0])
+
+    if max_len is None:
+        return x
 
     # Truncate if longer than max_len
     if x_len > max_len:
+        if not truncate:
+            return x
         if random_pad:
             start = np.random.randint(0, x_len - max_len)
             return x[start : start + max_len]
-        else:
-            return x[:max_len]
+        return x[:max_len]
 
-    # Pad if shorter than max_len
-    if pad_type == "repeat":
-        repeats = int(np.ceil(max_len / x_len))
+    if x_len == max_len:
+        return x
+
+    if pad_type in ("repeat",):
+        repeats = int(np.ceil(max_len / max(x_len, 1)))
         padded = np.tile(x, repeats)[:max_len]
+    elif pad_type in ("zeros", "zero", "constant"):
+        padded = np.zeros((max_len,), dtype=x.dtype)
+        padded[:x_len] = x
     else:
         raise ValueError(
-            f"Unknown pad_type: {pad_type}. Only 'repeat' is supported for now."
+            f"Unknown pad_type: {pad_type}. Use 'repeat' or 'zeros'."
         )
 
     return padded

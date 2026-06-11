@@ -1,4 +1,5 @@
 from .mlp import MLP
+from . import frame_mlp  # noqa: F401
 from .aasist import AASIST
 from .nes2net import Nes2Net
 from .tcm import TCM_Conformer

@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 @register_frontend("hubert")
 class HubertWrapper(BaseFrontend):
+    # HuBERT-Base/Large/XL share the same conv stack with stride 320.
+    frontend_hop: int = 320
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -41,8 +44,17 @@ class HubertWrapper(BaseFrontend):
                 param.requires_grad = False
 
     def forward(self, input_data, mask=None):
+        """``mask``: 1 = valid sample, 0 = padding. See Wav2VecWrapper."""
         if self.source == "fairseq":
-            emb = self.model(input_data, mask=False, features_only=True)
+            padding_mask = None
+            if mask is not None:
+                padding_mask = mask.eq(0)
+            emb = self.model(
+                input_data,
+                padding_mask=padding_mask,
+                mask=False,
+                features_only=True,
+            )
             return emb["x"]
 
         elif self.source == "huggingface":

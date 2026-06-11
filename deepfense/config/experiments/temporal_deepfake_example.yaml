@@ -1,0 +1,98 @@
+# Example: temporal / partial-deepfake training (per-frame labels).
+# Run: deepfense train --config deepfense/config/experiments/temporal_deepfake_example.yaml
+
+exp_name: TemporalDeepfake_Example
+output_dir: ./outputs/
+seed: 42
+
+data:
+  sampling_rate: 16000
+
+  label_hop_ms: 40                  # 640 samples @ 16 kHz  → model output rate
+  source_label_hop_ms: 20           # 320 samples @ 16 kHz  → annotation rate (e.g. PartialSpoof)
+  label_merge_rule: any_spoof       # any_spoof | all_spoof | majority | any_non_bonafide (multiclass)
+
+  label_map:
+    bonafide: 1
+    spoof: 0
+
+  train:
+    dataset_type: TemporalSegmentationDataset
+    parquet_files:
+      - ./deepfense/config/experiments/temporal_deepfake_dummy.parquet
+    dataset_names: [Train]
+
+    # --- Crop (optional) ---
+    # Clips longer than max_len are cropped; shorter clips are kept as-is.
+    # The label vector is sliced with the same sample offset → always in sync.
+    # Omit both to use full clips (variable-length batches, collate pads).
+    max_len: 64600                  # ~4 s @ 16 kHz
+    random_crop: true               # true = random window (train); false = from start (val/test)
+
+    # --- Frame cap (optional, independent of crop) ---
+    # max_frames: 200               # hard cap on frame_labels length after crop
+
+    # --- Class balancing (optional) ---
+    # max_per_class: 5000
+
+    batch_size: 4
+    shuffle: true
+    num_workers: 2
+    base_transform: null
+    augment_transform: null
+
+  val:
+    dataset_type: TemporalSegmentationDataset
+    parquet_files:
+      - ./deepfense/config/experiments/temporal_deepfake_dummy.parquet
+    dataset_names: [Val]
+    max_len: 64600
+    random_crop: false              # deterministic: always crop from start for val
+    batch_size: 2
+    shuffle: false
+    num_workers: 2
+    base_transform: null
+
+model:
+  type: TemporalDetector
+  pool_mode: mean                 # mean (default) | max
+  frontend:
+    type: wav2vec2
+    args:
+      source: fairseq
+      ckpt_path: /netscratch/yelkheir/ssl_models/xlsr2_300m.pt
+      freeze: false
+  backend:
+    type: FrameMLP
+    args:
+      input_dim: 1024
+      projection: [512]
+      activation: relu
+      norm_type: layer
+  loss:
+    - type: FramewiseCrossEntropy
+      weight: 1.0
+      embedding_dim: 512            # must match last FrameMLP projection dim
+      n_classes: 2
+      ignore_index: -100
+      # class_weights: [1.0, 1.0]  # optional per-class weighting [spoof, bonafide]
+
+training:
+  trainer: StandardTrainer
+  epochs: 5
+  device: cuda
+  batch_log_interval: 10
+  eval_every_epochs: 1
+  monitor_metric: FRAME_F1
+  monitor_mode: max
+  optimizer:
+    type: adam
+    lr: 1e-5
+    weight_decay: 1e-4
+  scheduler: null
+  metrics:
+    FRAME_ACC: {}
+    FRAME_F1: { f1_average: macro }
+    FRAME_AUC: {}
+    FRAME_JACCARD_SPOOF: { spoof_label: 0 }
+  wandb: false

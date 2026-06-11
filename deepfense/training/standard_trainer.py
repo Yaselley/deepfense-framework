@@ -16,6 +16,7 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from deepfense.training.base_trainer import BaseTrainer
 from deepfense.utils.registry import register_trainer
 from deepfense.training.evaluations.evaluator import Evaluator
+from deepfense.training.evaluations.utils import _metric_get_1d_scores
 from deepfense.utils.visualization import plot_metric_trend
 from deepfense.training.optimizers.utils import SAM
 
@@ -61,7 +62,10 @@ class StandardTrainer(BaseTrainer):
         self.use_sam = self.config.get("use_sam_optimization", False)
         self.optimizer = self._build_optimizer(config.optimizer)
         if self.use_sam:
-            print("Using SAM optimization with base optimizer as {}".format(self.optimizer.__class__.__name__))
+            self.logger.info(
+                "Using SAM optimization with base optimizer as %s",
+                self.optimizer.__class__.__name__,
+            )
             self.optimizer = SAM(self._unwrapped_model().parameters(), self.optimizer, rho=config.get("rho_sam", 0.05),
                                  lr=config.get("lr", 1e-6),
                                  weight_decay=config.get("weight_decay", 1e-04),
@@ -235,6 +239,12 @@ class StandardTrainer(BaseTrainer):
         x = batch["x"].to(self.device)
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
+        frame_labels = batch.get("frame_labels")
+        if frame_labels is not None:
+            frame_labels = frame_labels.to(self.device)
+        frame_mask = batch.get("frame_mask")
+        if frame_mask is not None:
+            frame_mask = frame_mask.to(self.device)
 
         # Handle 'concat' augmentation (x: [B, N_aug, T])
         if x.ndim == 3 and labels.shape[0] == x.shape[0]:
@@ -247,16 +257,22 @@ class StandardTrainer(BaseTrainer):
                     mask = mask.view(B * N, T)
                 elif mask.ndim == 2:
                     mask = mask.repeat_interleave(N, dim=0)
+            if frame_labels is not None:
+                frame_labels = frame_labels.repeat_interleave(N, dim=0)
+            if frame_mask is not None:
+                frame_mask = frame_mask.repeat_interleave(N, dim=0)
 
         if mask is not None:
             mask = mask.to(self.device)
 
+        loss_targets = frame_labels if frame_labels is not None else labels
+
         if self.ddp:
-            outputs = self.model(x, mask=mask, labels=labels)
+            outputs = self.model(x, mask=mask, labels=loss_targets)
             loss = outputs["loss"]
         else:
             outputs = self.model(x, mask) if mask is not None else self.model(x)
-            loss = self.model.compute_loss(outputs, labels)
+            loss = self.model.compute_loss(outputs, loss_targets)
 
         loss = loss / self.accum_steps
         loss.backward()
@@ -271,18 +287,18 @@ class StandardTrainer(BaseTrainer):
                     self.optimizer.first_step(zero_grad=True)
                     self.disable_running_stats()
                     if self.ddp:
-                        outputs = self.model(x, mask=mask, labels=labels)
+                        outputs = self.model(x, mask=mask, labels=loss_targets)
                         loss = outputs["loss"]
                     else:
                         outputs = self.model(x, mask) if mask is not None else self.model(x)
-                        loss = self.model.compute_loss(outputs, labels)
+                        loss = self.model.compute_loss(outputs, loss_targets)
                     loss.backward()
                     self.optimizer.second_step(zero_grad=True)
             self.optimizer.zero_grad()
             self.global_step += 1
 
             if self.scheduler and isinstance(
-                self.scheduler, torch.optim.lr_scheduler.OneCycleLR
+                    self.scheduler, torch.optim.lr_scheduler.OneCycleLR
             ):
                 self.scheduler.step()
 
@@ -293,29 +309,66 @@ class StandardTrainer(BaseTrainer):
         detector = self._unwrapped_model()
         all_labels, all_scores, all_names, all_losses = [], [], [], []
 
+        if len(detector.losses):
+            bona = detector.losses[detector.main_loss_idx].bonafide_label
+        else:
+            bona = 1
+
         with torch.no_grad():
-            for batch in tqdm(self.val_loader, desc="Evaluating", leave=False):
+            for batch_idx, batch in enumerate(tqdm(self.val_loader, desc="Evaluating", leave=False)):
                 x = batch["x"].to(self.device)
                 labels = batch["label"].to(self.device)
                 mask = batch.get("mask", None)
+                if mask is not None:
+                    mask = mask.to(self.device)
                 names = batch["dataset_name"]
+                frame_labels_bt = batch.get("frame_labels")
 
                 outputs = (
                     detector(x, mask=mask) if mask is not None else detector(x)
                 )
                 scores = outputs["scores"]
 
-                batch_loss = detector.compute_loss(outputs, labels)
+                if frame_labels_bt is not None:
+                    fl = frame_labels_bt.to(self.device)
+                    batch_loss = detector.compute_loss(outputs, fl)
+                    logits_t = outputs["logits"]
+                    if logits_t is None:
+                        raise RuntimeError(
+                            "Temporal evaluation requires outputs['logits'] (framewise head)."
+                        )
+                    logits_np = logits_t.detach().cpu().numpy()
+                    fl_np = fl.detach().cpu().numpy()
+                    fm = batch.get("frame_mask")
+                    fm_np = fm.numpy() if fm is not None else np.ones_like(fl_np, dtype=np.float32)
+
+                    B, T_log, C = logits_np.shape
+                    flat_logits = logits_np.reshape(-1, C)
+                    score_params = {"loss": "crossentropy", "bonafide_label": bona}
+                    flat_scores = _metric_get_1d_scores(flat_logits, score_params)
+                    scores_bt = flat_scores.reshape(B, T_log)
+
+                    T_min = min(scores_bt.shape[1], fl_np.shape[1], fm_np.shape[1])
+                    scores_bt = scores_bt[:, :T_min]
+                    fl_np = fl_np[:, :T_min]
+                    fm_np = fm_np[:, :T_min]
+                    valid = (fl_np != -100) & (fm_np > 0)
+                    all_labels.append(fl_np[valid])
+                    all_scores.append(scores_bt[valid])
+                    for i in range(B):
+                        n_valid = int(valid[i].sum())
+                        all_names.extend([names[i]] * n_valid)
+                else:
+                    batch_loss = detector.compute_loss(outputs, labels)
+                    if torch.is_tensor(scores):
+                        scores = scores.detach().cpu().numpy()
+                    if torch.is_tensor(labels):
+                        labels = labels.detach().cpu().numpy()
+                    all_labels.append(labels)
+                    all_scores.append(scores)
+                    all_names.extend(names)
+
                 all_losses.append(batch_loss.detach().cpu().item())
-
-                if torch.is_tensor(scores):
-                    scores = scores.detach().cpu().numpy()
-                if torch.is_tensor(labels):
-                    labels = labels.detach().cpu().numpy()
-
-                all_labels.append(labels)
-                all_scores.append(scores)
-                all_names.extend(names)
 
         labels = np.concatenate(all_labels, axis=0)
         scores = np.concatenate(all_scores, axis=0)
@@ -329,10 +382,10 @@ class StandardTrainer(BaseTrainer):
             results.update(average_metrics)
         else:
             results["average"] = average_metrics
-
         for ds in np.unique(names):
             mask_ds = names == ds
-            results[str(ds)] = self._compute_metrics(labels[mask_ds], scores[mask_ds])
+            ds_metrics = self._compute_metrics(labels[mask_ds], scores[mask_ds])
+            results[str(ds)] = ds_metrics
 
         # --- History Tracking & Trend Plotting ---
         # Use Step or Epoch as x-axis

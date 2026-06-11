@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 @register_frontend("wavlm")
 class WavLMWrapper(BaseFrontend):
+    # WavLM-Base/Large feature extractor: stride 5*2*2*2*2*2*2 = 320 samples.
+    frontend_hop: int = 320
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -34,10 +37,21 @@ class WavLMWrapper(BaseFrontend):
                 param.requires_grad = False
 
     def forward(self, input_data, mask=None):
+        """
+        ``mask``: ``(B, T_audio)`` 1 = valid, 0 = padding (collate convention).
+        Both UniL ``WavLM.extract_features`` and HuggingFace ``WavLMModel`` accept
+        a padding mask; we just translate polarity here so partial-deepfake
+        batches don't leak padding into features.
+        """
         if self.source == "unil":
-
+            padding_mask = None
+            if mask is not None:
+                padding_mask = mask.eq(0)
             x, layers = self.model.extract_features(
-                input_data, mask=False, ret_layer_results=True
+                input_data,
+                padding_mask=padding_mask,
+                mask=False,
+                ret_layer_results=True,
             )[0]
             return x
 

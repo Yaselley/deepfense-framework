@@ -179,6 +179,28 @@ def main():
         if "test" in cfg.data:
             cfg.data.test.sampling_rate = cfg.data.sampling_rate
 
+    # Partial-deepfake / temporal: propagate label-resolution knobs from the
+    # top-level data block to every split. The ``label_hop`` (and its ms
+    # counterpart) is also propagated to ``model`` so the dataset and detector
+    # agree on a single prediction rate. ``source_label_hop`` and
+    # ``label_merge_rule`` are dataset-side only (they govern label
+    # downsampling, which the model is unaware of -- it just sees labels at
+    # ``label_hop``).
+    for hop_key in (
+        "label_hop", "label_hop_ms",
+        "source_label_hop", "source_label_hop_ms",
+        "label_merge_rule",
+    ):
+        if hop_key in cfg.data and cfg.data.get(hop_key) is not None:
+            cfg.data.train[hop_key] = cfg.data[hop_key]
+            cfg.data.val[hop_key] = cfg.data[hop_key]
+            if "test" in cfg.data:
+                cfg.data.test[hop_key] = cfg.data[hop_key]
+            if hop_key in ("label_hop", "label_hop_ms"):
+                cfg.model[hop_key] = cfg.data[hop_key]
+    if "sampling_rate" in cfg.data:
+        cfg.model.sampling_rate = cfg.data.sampling_rate
+
     train_cfg = OmegaConf.to_container(cfg.data.train, resolve=True)
     val_cfg = OmegaConf.to_container(cfg.data.val, resolve=True)
 

@@ -1,4 +1,7 @@
 import numpy as np
+
+import deepfense.training.evaluations  # noqa: F401 — register built-in metrics (EER, ACC, FRAME_*, …)
+
 from deepfense.utils.registry import METRIC_REGISTRY
 
 

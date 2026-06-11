@@ -12,6 +12,7 @@ from deepfense.data.data_utils import build_dataloader
 from deepfense.utils.registry import build_detector
 from deepfense.models import * 
 from deepfense.training.evaluations.evaluator import Evaluator
+from deepfense.training.evaluations.utils import _metric_get_1d_scores
 
 
 def load_config(config_path):
@@ -61,9 +62,15 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
     """
     model.eval()
     all_labels, all_scores, all_names, all_losses = [], [], [], []
-    all_keys = [] 
+    all_keys = []
+    temporal_eval = False
 
     logger.info("Starting evaluation on the test set...")
+
+    if len(model.losses):
+        bona = model.losses[model.main_loss_idx].bonafide_label
+    else:
+        bona = 1
 
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Testing"):
@@ -72,24 +79,51 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
             mask = batch.get("mask", None)
             names = batch["dataset_name"]
             keys = batch["ID"]
+            frame_bt = batch.get("frame_labels")
 
             outputs = model(x, mask=mask) if mask is not None else model(x)
             scores = outputs["scores"]
 
-            # Compute loss for this batch
-            batch_loss = model.compute_loss(outputs, labels)
+            if frame_bt is not None:
+                temporal_eval = True
+                fl = frame_bt.to(device)
+                batch_loss = model.compute_loss(outputs, fl)
+                logits_t = outputs["logits"]
+                if logits_t is None:
+                    raise RuntimeError("Temporal test requires outputs['logits'].")
+                logits_np = logits_t.detach().cpu().numpy()
+                fl_np = fl.detach().cpu().numpy()
+                fm = batch.get("frame_mask")
+                fm_np = fm.numpy() if fm is not None else np.ones_like(fl_np, dtype=np.float32)
+                B, T_log, C = logits_np.shape
+                flat_logits = logits_np.reshape(-1, C)
+                flat_scores = _metric_get_1d_scores(
+                    flat_logits, {"loss": "crossentropy", "bonafide_label": bona}
+                )
+                scores_bt = flat_scores.reshape(B, T_log)
+                T_min = min(scores_bt.shape[1], fl_np.shape[1], fm_np.shape[1])
+                scores_bt = scores_bt[:, :T_min]
+                fl_np = fl_np[:, :T_min]
+                fm_np = fm_np[:, :T_min]
+                valid = (fl_np != -100) & (fm_np > 0)
+                all_labels.append(fl_np[valid])
+                all_scores.append(scores_bt[valid])
+                for i in range(B):
+                    n_valid = int(valid[i].sum())
+                    all_names.extend([names[i]] * n_valid)
+                    all_keys.extend([keys[i]] * n_valid)
+            else:
+                batch_loss = model.compute_loss(outputs, labels)
+                if torch.is_tensor(scores):
+                    scores = scores.detach().cpu().numpy()
+                if torch.is_tensor(labels):
+                    labels = labels.detach().cpu().numpy()
+                all_labels.append(labels)
+                all_scores.append(scores)
+                all_names.extend(names)
+                all_keys.extend(keys)
+
             all_losses.append(batch_loss.detach().cpu().item())
-
-            # Detach and move to CPU
-            if torch.is_tensor(scores):
-                scores = scores.detach().cpu().numpy()
-            if torch.is_tensor(labels):
-                labels = labels.detach().cpu().numpy()
-
-            all_labels.append(labels)
-            all_scores.append(scores)
-            all_names.extend(names)
-            all_keys.extend(keys)
     # Concatenate all results
     labels = np.concatenate(all_labels, axis=0)
     scores = np.concatenate(all_scores, axis=0)
@@ -118,8 +152,10 @@ def run_evaluation(model, test_loader, evaluator, device, logger, output_dir):
         ds_scores = scores[mask_ds]
         ds_keys = keys[mask_ds] if keys.size > 0 else []
 
-        # Compute metrics
         results[str(ds)] = _compute_metrics(evaluator, ds_labels, ds_scores)
+
+        if temporal_eval:
+            continue
 
         # --- Save predictions to a single .txt file per dataset ---
         if len(ds_keys) != len(ds_labels):

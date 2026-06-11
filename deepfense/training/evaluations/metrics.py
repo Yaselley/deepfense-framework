@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import f1_score, accuracy_score, roc_auc_score, jaccard_score
 from deepfense.utils.registry import register_metric
 
 
@@ -40,3 +40,46 @@ def compute_accuracy(labels, scores, params):
 
     acc = accuracy_score(labels, predictions)
     return {"ACC": acc}
+
+
+@register_metric("FRAME_ACC")
+def compute_frame_accuracy(labels, scores, params):
+    r = compute_accuracy(labels, scores, params)
+    return {"FRAME_ACC": r["ACC"]}
+
+
+@register_metric("FRAME_F1")
+def compute_frame_f1(labels, scores, params):
+    r = compute_f1(labels, scores, params)
+    return {"FRAME_F1": r["F1_SCORE"]}
+
+
+@register_metric("FRAME_AUC")
+def compute_frame_auc(labels, scores, params):
+    """ROC-AUC on frame-level scores (LLR ranking)."""
+    try:
+        if len(np.unique(labels)) < 2:
+            return {"FRAME_AUC": float("nan")}
+        auc = roc_auc_score(labels, scores)
+    except ValueError:
+        auc = float("nan")
+    return {"FRAME_AUC": auc}
+
+
+@register_metric("FRAME_JACCARD_SPOOF")
+def compute_frame_jaccard_spoof(labels, scores, params):
+    """
+    Jaccard index on binary *fake* detection (label 0 = spoof, 1 = bonafide):
+    predictions are spoof where LLR < 0 (or argmax class for 2D scores).
+    """
+    spoof_label = int(params.get("spoof_label", 0))
+    if scores.ndim == 2:
+        pred_fake = (np.argmax(scores, axis=1) == spoof_label).astype(int)
+    else:
+        pred_fake = (scores < 0).astype(int)
+    true_fake = (labels == spoof_label).astype(int)
+    try:
+        jac = jaccard_score(true_fake, pred_fake, average="binary", zero_division=0)
+    except ValueError:
+        jac = float("nan")
+    return {"FRAME_JACCARD_SPOOF": jac}

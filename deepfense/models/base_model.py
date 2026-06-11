@@ -8,9 +8,14 @@ class BaseFrontend(nn.Module, ABC):
     Base class for all Frontends.
     Frontends take raw audio waveform and return features.
     """
+
+    frontend_hop: int = 320
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
         self.config = config
+        if "frontend_hop" in (config or {}):
+            self.frontend_hop = int(config["frontend_hop"])
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:

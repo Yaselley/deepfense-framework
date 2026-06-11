@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 @register_frontend("wav2vec2")
 class Wav2VecWrapper(BaseFrontend):
+    # Wav2Vec2 / XLS-R conv stack [(512,10,5)] + [(512,3,2)] * 4 + [(512,2,2)] * 2
+    # has stride 5*2*2*2*2*2*2 = 320 samples (= 20 ms at 16 kHz).
+    frontend_hop: int = 320
+
     def __init__(self, config):
         super().__init__(config)
 
@@ -41,8 +45,27 @@ class Wav2VecWrapper(BaseFrontend):
                 param.requires_grad = False
 
     def forward(self, input_data, mask=None):
+        """
+        ``mask`` (optional): ``(B, T_audio)`` float / bool with ``1 = valid sample,
+        0 = padding`` (the convention emitted by the dataloader's collate).
+
+        Both the local fairseq ``Wav2Vec2Model`` and HuggingFace ``Wav2Vec2Model``
+        natively support a padding mask -- they're just expressed in opposite
+        polarities (HF wants ``attention_mask`` = 1 for valid; fairseq wants
+        ``padding_mask`` = True for padded). We honor whichever the underlying
+        model expects so that batch-padding never leaks into features. Critical
+        for variable-length partial-deepfake training.
+        """
         if self.source == "fairseq":
-            emb = self.model(input_data, mask=False, features_only=True)
+            padding_mask = None
+            if mask is not None:
+                padding_mask = mask.eq(0)  # True where padded
+            emb = self.model(
+                input_data,
+                padding_mask=padding_mask,
+                mask=False,
+                features_only=True,
+            )
             return emb["x"]
 
         elif self.source == "huggingface":
