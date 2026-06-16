@@ -32,9 +32,9 @@
 #
 # Timing rules:
 #   - label_hop must be an integer multiple of source_label_hop
-#   - label_hop must be an integer multiple of frontend hop (320 samples ≈ 20 ms
-#     for wav2vec2 / wavlm / hubert @ 16 kHz)
-#   - PartialSpoof annotations are typically 20 ms → set source_label_hop_ms: 20
+#   - label_hop must be an integer multiple of model.frontend_hop (SSL frame stride)
+#   - Set model.frontend_hop explicitly (320 for wav2vec2/wavlm/hubert @ 16 kHz)
+#   - PartialSpoof annotations are typically 20 ms → source_label_hop_ms: 20
 # =============================================================================
 
 # ---------- experiment (same keys as clip-level) ----------
@@ -106,7 +106,13 @@ data:
 # ---------- model (TemporalDetector — NOT StandardDetector) ----------
 model:
   type: TemporalDetector               # clip-level: StandardDetector
-  pool_mode: mean                      # pool SSL features when label_hop > frontend_hop (320):
+
+  # SSL native frame stride in samples (REQUIRED for temporal / masking).
+  # Wav2Vec2 / WavLM / HuBERT @ 16 kHz: 320 (= 20 ms). Must match your frontend
+  # class; used to pool features to label_hop and to align batch audio mask → frames.
+  frontend_hop: 320
+
+  pool_mode: mean                      # pool SSL features when label_hop > frontend_hop:
                                        #   mean (default) | max | avg | average
 
   # label_hop_ms / label_hop are copied from data: by train.py — do not duplicate here
