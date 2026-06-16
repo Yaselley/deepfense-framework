@@ -14,11 +14,24 @@
 
 </div>
 
+<div align="center">
+  <img src="docs/architecture_flow.svg" alt="DeepFense architecture — YAML config, frontend × backend × loss, clip-level and partial deepfake pipelines" width="900">
+</div>
+
+> **Partial deepfake / PartialSpoof:** This README and the default `master` branch cover **clip-level** detection. For per-frame labels, `TemporalDetector`, Range EER, PartialSpoof metrics, and related configs, switch to the **`deepfense-partial`** branch:
+>
+> ```bash
+> git fetch origin
+> git checkout deepfense-partial
+> ```
+
 ---
 
 ## What is DeepFense?
 
-DeepFense lets you build deepfake audio detectors by combining **frontends** (pretrained feature extractors), **backends** (classifiers), and **loss functions** -- all defined in a single YAML config. No code changes needed to run new experiments.
+DeepFense lets you build deepfake audio detectors by combining **frontends** (pretrained feature extractors), **backends** (classifiers), and **loss functions** — all defined in a single YAML config. No code changes needed to run new experiments.
+
+The diagram above shows both **clip-level** and **partial deepfake** pipelines. On `master`, training and docs focus on clip-level detection (one score per utterance). For partial deepfake, use **`git checkout deepfense-partial`** (see note above).
 
 ```
 Raw Audio --> Frontend (Wav2Vec2, WavLM, HuBERT, ...) --> Backend (AASIST, MLP, ...) --> Loss --> Score
