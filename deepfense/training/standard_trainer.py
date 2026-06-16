@@ -308,6 +308,8 @@ class StandardTrainer(BaseTrainer):
         self.model.eval()
         detector = self._unwrapped_model()
         all_labels, all_scores, all_names, all_losses = [], [], [], []
+        all_keys = []
+        temporal_eval = False
 
         if len(detector.losses):
             bona = detector.losses[detector.main_loss_idx].bonafide_label
@@ -353,11 +355,13 @@ class StandardTrainer(BaseTrainer):
                     fl_np = fl_np[:, :T_min]
                     fm_np = fm_np[:, :T_min]
                     valid = (fl_np != -100) & (fm_np > 0)
+                    temporal_eval = True
                     all_labels.append(fl_np[valid])
                     all_scores.append(scores_bt[valid])
                     for i in range(B):
                         n_valid = int(valid[i].sum())
                         all_names.extend([names[i]] * n_valid)
+                        all_keys.extend([batch["ID"][i]] * n_valid)
                 else:
                     batch_loss = detector.compute_loss(outputs, labels)
                     if torch.is_tensor(scores):
@@ -373,18 +377,26 @@ class StandardTrainer(BaseTrainer):
         labels = np.concatenate(all_labels, axis=0)
         scores = np.concatenate(all_scores, axis=0)
         names = np.array(all_names)
+        keys = np.array(all_keys) if temporal_eval else None
 
         results = {}
         results["loss"] = float(np.mean(all_losses))
 
-        average_metrics = self._compute_metrics(labels, scores)
+        metric_ctx = self._metric_context(keys, temporal_eval)
+        average_metrics = self._compute_metrics(labels, scores, **metric_ctx)
         if isinstance(average_metrics, dict):
             results.update(average_metrics)
         else:
             results["average"] = average_metrics
         for ds in np.unique(names):
             mask_ds = names == ds
-            ds_metrics = self._compute_metrics(labels[mask_ds], scores[mask_ds])
+            ds_ctx = self._metric_context(
+                keys[mask_ds] if keys is not None else None,
+                temporal_eval,
+            )
+            ds_metrics = self._compute_metrics(
+                labels[mask_ds], scores[mask_ds], **ds_ctx
+            )
             results[str(ds)] = ds_metrics
 
         # --- History Tracking & Trend Plotting ---
@@ -502,9 +514,22 @@ class StandardTrainer(BaseTrainer):
                 {f"{ds_name}/{k}": v for k, v in metrics_dict.items()}, step=step
             )
 
-    def _compute_metrics(self, labels, scores):
+    def _metric_context(self, keys, temporal_eval: bool):
+        ctx = {}
+        if temporal_eval and keys is not None:
+            ctx["keys"] = keys
+            ctx["temporal"] = True
+            label_hop_ms = self.config.get("label_hop_ms")
+            if label_hop_ms is not None:
+                ctx["label_hop_ms"] = float(label_hop_ms)
+            label_merge_rule = self.config.get("label_merge_rule")
+            if label_merge_rule is not None:
+                ctx["label_merge_rule"] = str(label_merge_rule)
+        return ctx
+
+    def _compute_metrics(self, labels, scores, **context):
         if self.evaluator:
-            results = self.evaluator.evaluate(labels, scores)
+            results = self.evaluator.evaluate(labels, scores, **context)
         else:
             results = {}
         return results

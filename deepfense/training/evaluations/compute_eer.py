@@ -127,47 +127,76 @@ def compute_det_curve(labels, scores, bonafide_label=1):
     return frr, far, thresholds
 
 
+def _det_curve_for_eer(labels, scores_1d, bonafide_label):
+    """Pick DET implementation: legacy sort is O(n log n); grouped unique is slow on float LLRs."""
+    if labels.size >= 50_000:
+        return compute_det_curve_legacy(labels, scores_1d, bonafide_label)
+    return compute_det_curve(labels, scores_1d, bonafide_label)
+
+
+def _eer_from_labels_scores(labels, scores_1d, bonafide_label, params, precise=False):
+    """Core EER computation on 1D scores and integer labels."""
+    labels = np.asarray(labels).astype(int)
+    scores_1d = np.asarray(scores_1d, dtype=float)
+    bonafide_label = int(bonafide_label)
+
+    frr, far, thresholds = _det_curve_for_eer(labels, scores_1d, bonafide_label)
+    abs_diffs = np.abs(frr - far)
+    min_index = int(np.argmin(abs_diffs))
+    eer = float(np.mean((frr[min_index], far[min_index])))
+
+    precise = params.get("precise", precise)
+    if precise:
+        return {
+            "EER": eer,
+            "EER_threshold": float(thresholds[min_index]),
+            "FRR": frr.tolist(),
+            "FAR": far.tolist(),
+            "thresholds": thresholds.tolist(),
+        }
+    return {"EER": eer}
+
 
 @register_metric("EER")
 def compute_eer(labels, scores, params, precise=False):
     """
     Compute Equal Error Rate (EER) and the corresponding threshold.
 
+    Clip-level by default. For temporal / partial-spoof evaluation, set
+    ``pool: min`` (or ``max`` / ``mean``) to derive utterance-level EER from
+    framewise scores — same as PartialSpoof ``get_utteer_by_seg``.
+
     Args:
         labels (np.ndarray): Binary ground-truth labels
                              (1 = bonafide, 0 = spoof by default)
         scores (np.ndarray): Raw [N, C] model prediction scores.
         params (dict):
-            - bonafide_label (int, optional): Label for bonafide class (default: 0)
+            - bonafide_label (int, optional): Label for bonafide class (default: 1)
             - loss (str, optional): 'crossentropy' or 'amsoftmax'.
+            - pool (str, optional): min/max/mean — pool frames per utterance when
+              ``keys`` are provided (PartialSpoof utterance EER from segments).
+            - keys (array-like): utterance id per frame (from temporal eval)
+            - ignore_index (int): padded frame label to skip when pooling (default -100)
             - precise (bool, optional): From config, to return full DET data.
 
     Returns:
         dict: { "EER": ... }
     """
-
-    # Convert raw [N, C] scores to 1D based on the loss_type in params
     scores_1d = _metric_get_1d_scores(scores, params)
-
     bonafide_label = params.get("bonafide_label", 1)
 
-    frr, far, thresholds = compute_det_curve(labels, scores_1d, bonafide_label)
+    pool = params.get("pool")
+    keys = params.get("keys")
+    if pool and keys is not None and len(keys) == len(labels):
+        from deepfense.training.evaluations.temporal_eer_utils import pool_frames_to_utterances
 
-    abs_diffs = np.abs(frr - far)
-    min_index = np.argmin(abs_diffs)
-    eer = np.mean((frr[min_index], far[min_index]))
+        labels, scores_1d = pool_frames_to_utterances(
+            keys,
+            np.asarray(labels).astype(int),
+            scores_1d,
+            bonafide_label=int(bonafide_label),
+            pool=str(pool),
+            ignore_index=int(params.get("ignore_index", -100)),
+        )
 
-    precise = params.get("precise", precise)
-
-    if precise:
-        return {
-            "EER": float(eer),
-            "EER_threshold": float(thresholds[min_index]),
-            "FRR": frr.tolist(),
-            "FAR": far.tolist(),
-            "thresholds": thresholds.tolist(),
-        }
-    else:
-        return {
-            "EER": float(eer),
-        }
+    return _eer_from_labels_scores(labels, scores_1d, bonafide_label, params, precise)

@@ -200,6 +200,13 @@ def main():
                 cfg.model[hop_key] = cfg.data[hop_key]
     if "sampling_rate" in cfg.data:
         cfg.model.sampling_rate = cfg.data.sampling_rate
+    if "label_hop_ms" in cfg.data and cfg.data.get("label_hop_ms") is not None:
+        cfg.training.label_hop_ms = cfg.data.label_hop_ms
+    elif "label_hop" in cfg.data and cfg.data.get("label_hop") is not None:
+        sr = int(cfg.data.get("sampling_rate", 16000))
+        cfg.training.label_hop_ms = float(cfg.data.label_hop) * 1000.0 / sr
+    if "label_merge_rule" in cfg.data and cfg.data.get("label_merge_rule") is not None:
+        cfg.training.label_merge_rule = cfg.data.label_merge_rule
 
     train_cfg = OmegaConf.to_container(cfg.data.train, resolve=True)
     val_cfg = OmegaConf.to_container(cfg.data.val, resolve=True)

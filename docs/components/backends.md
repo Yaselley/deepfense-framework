@@ -122,7 +122,59 @@ backend:
 
 ---
 
-### 5. Res2Net (`Nes2Net`)
+### 5. gMLP (`GMLP`)
+Spatial gating MLP stack from *Pay Attention to MLPs*. Supports per-frame output for partial deepfake (`pooling: none`) or utterance pooling for clip-level detection.
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: GMLP
+  args:
+    input_dim: int
+    d_ffn: int
+    seq_len: int
+    gmlp_layers: int
+    pooling: string
+```
+
+**Parameters:**
+
+* **input_dim** - (*int*) SSL feature dimension (e.g. 1024 for XLS-R).
+* **d_ffn** - (*int*) Hidden FFN width. Negative values divide `input_dim` by `abs(d_ffn)` (e.g. `-2` → half size).
+* **seq_len** - (*int*) Max frame length for spatial gating weights (default: 512).
+* **gmlp_layers** - (*int*) Number of gMLP blocks (default: 1).
+* **pooling** - (*str*) `none` (per-frame), `mean` / `ap` (utterance average), or `sap` (self-attention pooling).
+* **output_dim** - (*int*) Final embedding size (defaults to `d_ffn`).
+
+**Example (partial deepfake / temporal):**
+```yaml
+backend:
+  type: GMLP
+  args:
+    input_dim: 1024
+    d_ffn: -2
+    seq_len: 512
+    gmlp_layers: 5
+    pooling: none
+    output_dim: 512
+```
+
+**Example (clip-level):**
+```yaml
+backend:
+  type: GMLP
+  args:
+    input_dim: 1024
+    d_ffn: -2
+    seq_len: 512
+    gmlp_layers: 5
+    pooling: mean
+    output_dim: 512
+```
+
+---
+
+### 6. Res2Net (`Nes2Net`)
 A Res2Net-based convolutional architecture.
 
 **Configuration Signature:**

@@ -25,6 +25,22 @@ logger = logging.getLogger(__name__)
 
 _IGNORE = -100
 
+_NULLISH = frozenset({"none", "null", ""})
+
+
+def _optional_int(value: Any) -> int | None:
+    """Parse optional int config values; treat YAML/OmegaConf nullish strings as None."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in _NULLISH:
+            return None
+        return int(s)
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return int(value)
+
 
 def _parse_label_vector(raw: Any) -> np.ndarray:
     if raw is None:
@@ -161,11 +177,10 @@ class TemporalSegmentationDataset(BaseDataset):
 
         # Optional synchronized crop: slice audio + labels with the same offset.
         # Shorter clips are returned as-is; collate_fn pads the batch.
-        self.crop_max_len = int(self.config_data["max_len"]) if self.config_data.get("max_len") is not None else None
+        self.crop_max_len = _optional_int(self.config_data.get("max_len"))
         self.random_crop = bool(self.config_data.get("random_crop", False))
 
-        max_frames_raw = self.config_data.get("max_frames", None)
-        self.max_frames_cap = int(max_frames_raw) if max_frames_raw is not None else None
+        self.max_frames_cap = _optional_int(self.config_data.get("max_frames", None))
 
         self.random_pad = False
 

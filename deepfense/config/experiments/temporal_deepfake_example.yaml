@@ -1,45 +1,68 @@
-# Example: temporal / partial-deepfake training (per-frame labels).
-# Run: deepfense train --config deepfense/config/experiments/temporal_deepfake_example.yaml
+# =============================================================================
+# Partial deepfake / PartialSpoof — reference config (per-frame labels)
+# =============================================================================
+#
+# Unlike clip-level DeepFense (StandardDetector + one label per clip), this
+# config trains TemporalDetector: dense frame_labels, framewise loss, FRAME_*
+# metrics. Full walkthrough: README.md § "Partial Deepfake / PartialSpoof".
+#
+# Run:
+#   deepfense train --config deepfense/config/experiments/temporal_deepfake_example.yaml
+#   deepfense test  --config ... --checkpoint outputs/TemporalDeepfake_Example_*/best_model.pth
+#
+# Parquet columns (TemporalSegmentationDataset):
+#   path (required), frame_labels OR frame_labels_path (required),
+#   label (optional weak clip label), ID (optional utterance id)
+#
+# Timing rules:
+#   - label_hop must be an integer multiple of source_label_hop
+#   - label_hop must be an integer multiple of frontend hop (320 samples ≈ 20 ms
+#     for wav2vec2 / wavlm / hubert @ 16 kHz)
+#   - PartialSpoof annotations are typically 20 ms → set source_label_hop_ms: 20
+# =============================================================================
 
-exp_name: TemporalDeepfake_Example
-output_dir: ./outputs/
-seed: 42
+# ---------- experiment (same keys as clip-level) ----------
+exp_name: TemporalDeepfake_Example   # run name → outputs/{exp_name}_{timestamp}/
+output_dir: ./outputs/                 # root for checkpoints, logs, plots
+seed: 42                               # global RNG seed
 
+# ---------- data (temporal-specific keys under data:) ----------
 data:
-  sampling_rate: 16000
+  sampling_rate: 16000                 # Hz; must match audio files
 
-  label_hop_ms: 40                  # 640 samples @ 16 kHz  → model output rate
-  source_label_hop_ms: 20           # 320 samples @ 16 kHz  → annotation rate (e.g. PartialSpoof)
-  label_merge_rule: any_spoof       # any_spoof | all_spoof | majority | any_non_bonafide (multiclass)
+  # --- frame timing (set under data:; train.py copies label_hop* into model) ---
+  label_hop_ms: 40                     # model PREDICTION rate (ms); 40 → 640 samples @ 16 kHz
+  # label_hop: 640                       # sample-based alias for label_hop_ms (use one or the other)
+  source_label_hop_ms: 20              # parquet ANNOTATION rate; PartialSpoof = 20 ms (320 samples)
+  # source_label_hop: 320              # sample-based alias for source_label_hop_ms
+  label_merge_rule: any_spoof          # when label_hop > source_label_hop, merge fine frames:
+                                       #   any_spoof | all_spoof | majority | any_non_bonafide
 
-  label_map:
+  label_map:                           # string → int; used for clip label + frame label values
     bonafide: 1
     spoof: 0
 
   train:
-    dataset_type: TemporalSegmentationDataset
+    dataset_type: TemporalSegmentationDataset   # required (clip-level uses StandardDataset)
     parquet_files:
       - ./deepfense/config/experiments/temporal_deepfake_dummy.parquet
-    dataset_names: [Train]
+    dataset_names: [Train]             # optional tags for logging / exports
+    # root_dir: /data/audio            # optional prefix for relative paths in parquet
 
-    # --- Crop (optional) ---
-    # Clips longer than max_len are cropped; shorter clips are kept as-is.
-    # The label vector is sliced with the same sample offset → always in sync.
-    # Omit both to use full clips (variable-length batches, collate pads).
-    max_len: 64600                  # ~4 s @ 16 kHz
-    random_crop: true               # true = random window (train); false = from start (val/test)
+    # --- crop (optional; clip-level usually uses base_transform pad instead) ---
+    # Omit max_len for full utterances (variable-length batches, collate zero-pads).
+    max_len: 64600                     # crop long clips to N samples (~4 s @ 16 kHz)
+    random_crop: true                  # true: random window aligned to label_hop (train)
+                                       # false: crop from start (val/test)
 
-    # --- Frame cap (optional, independent of crop) ---
-    # max_frames: 200               # hard cap on frame_labels length after crop
-
-    # --- Class balancing (optional) ---
-    # max_per_class: 5000
+    # max_frames: 200                   # optional cap on frame_labels length after crop
+    # max_per_class: 5000               # optional class balancing subsample
 
     batch_size: 4
-    shuffle: true
+    shuffle: true                      # false for val/test
     num_workers: 2
-    base_transform: null
-    augment_transform: null
+    base_transform: null               # null or list; avoid pad+max_len (dataset forces no truncate)
+    augment_transform: null            # train-only: rawboost, rir, codec, drop_chunk, …
 
   val:
     dataset_type: TemporalSegmentationDataset
@@ -47,52 +70,115 @@ data:
       - ./deepfense/config/experiments/temporal_deepfake_dummy.parquet
     dataset_names: [Val]
     max_len: 64600
-    random_crop: false              # deterministic: always crop from start for val
+    random_crop: false                 # deterministic eval: always crop from start
     batch_size: 2
     shuffle: false
     num_workers: 2
     base_transform: null
 
-model:
-  type: TemporalDetector
-  pool_mode: mean                 # mean (default) | max
-  frontend:
-    type: wav2vec2
-    args:
-      source: fairseq
-      ckpt_path: /netscratch/yelkheir/ssl_models/xlsr2_300m.pt
-      freeze: false
-  backend:
-    type: FrameMLP
-    args:
-      input_dim: 1024
-      projection: [512]
-      activation: relu
-      norm_type: layer
-  loss:
-    - type: FramewiseCrossEntropy
-      weight: 1.0
-      embedding_dim: 512            # must match last FrameMLP projection dim
-      n_classes: 2
-      ignore_index: -100
-      # class_weights: [1.0, 1.0]  # optional per-class weighting [spoof, bonafide]
+  # test:                               # optional third split (same keys as val)
+  #   dataset_type: TemporalSegmentationDataset
+  #   parquet_files: [./path/to/test.parquet]
+  #   dataset_names: [Test]
+  #   max_len: 64600
+  #   random_crop: false
+  #   batch_size: 2
+  #   shuffle: false
+  #   num_workers: 2
+  #   base_transform: null
 
+# ---------- model (TemporalDetector — NOT StandardDetector) ----------
+model:
+  type: TemporalDetector               # clip-level: StandardDetector
+  pool_mode: mean                      # pool SSL features when label_hop > frontend_hop (320):
+                                       #   mean (default) | max | avg | average
+
+  # label_hop_ms / label_hop are copied from data: by train.py — do not duplicate here
+  # unless overriding intentionally.
+
+  frontend:
+    type: wav2vec2                     # recommended: wav2vec2 | wavlm | hubert
+                                       # (mask + frontend_hop=320); mert/eat: limited temporal support
+    args:
+      source: fairseq                  # fairseq (local .pt) | huggingface (HF model id)
+      ckpt_path: /netscratch/yelkheir/ssl_models/xlsr2_300m.pt   # or facebook/wav2vec2-xls-r-300m
+      freeze: false                    # true: freeze SSL weights
+
+  backend:
+    type: FrameMLP                     # temporal backends (keep time dim):
+                                       #   FrameMLP | GMLP (pooling: none)
+                                       # clip-level pooled backends (AASIST, MLP, Nes2Net, …) do NOT apply
+    args:
+      input_dim: 1024                  # must match frontend output dim (XLS-R = 1024)
+      projection: [512]                # hidden dims; [] = no MLP stack
+      activation: relu                 # relu | selu | tanh | sigmoid
+      norm_type: layer                 # layer | batch
+      # output_dim: 512                # optional final linear; default = last projection dim
+
+  # --- GMLP alternative (comment FrameMLP above, uncomment below) ---
+  # backend:
+  #   type: GMLP
+  #   args:
+  #     input_dim: 1024
+  #     d_ffn: -2                      # hidden width; negative = input_dim / abs(d_ffn) → 512
+  #     # embed_dim: -2                # alias for d_ffn
+  #     seq_len: 512                   # max frames for gating weights (≥ longest clip in frames)
+  #     gmlp_layers: 5
+  #     pooling: none                  # required for temporal: none | mean | sap (mean/sap = clip-level)
+  #     output_dim: 512
+
+  loss:
+    - type: FramewiseCrossEntropy      # primary temporal loss (margin losses not wired for B,T,D yet)
+      weight: 1.0
+      embedding_dim: 512               # must match backend output dim (last projection / GMLP output_dim)
+      n_classes: 2
+      ignore_index: -100               # padded / invalid frames (do not change lightly)
+      # class_weights: [1.0, 1.0]      # optional CE weights [spoof, bonafide]
+      # reduction: mean                # PyTorch CE reduction
+
+# ---------- training ----------
 training:
-  trainer: StandardTrainer
+  trainer: StandardTrainer             # same trainer for clip-level and temporal
   epochs: 5
-  device: cuda
-  batch_log_interval: 10
-  eval_every_epochs: 1
-  monitor_metric: FRAME_F1
-  monitor_mode: max
+  device: cuda                         # cuda | cpu
+  batch_log_interval: 10               # log every N batches (optional)
+  eval_every_epochs: 1                 # validate every N epochs
+  # eval_every_steps: 500              # step-based eval (optional; overrides epoch schedule)
+  # early_stopping_patience: 10        # stop if monitor_metric stalls N evals
+
+  monitor_metric: FRAME_F1             # FRAME_F1 | FRAME_AUC (max) | RANGE_EER | RANGE_EER_20ms (min)
+  monitor_mode: max                    # max for FRAME_*; min for RANGE_EER / SEGMENT_EER / *_EER_*ms
+
   optimizer:
-    type: adam
+    type: adam                         # adam | sgd | … (see deepfense list --component-type optimizers)
     lr: 1e-5
     weight_decay: 1e-4
-  scheduler: null
+
+  scheduler: null                      # null | {type: cosine, T_max: 50} | {type: exponential, gamma: 0.9}
+
   metrics:
+    # --- Tier 1: framewise classification (training feedback) ---
     FRAME_ACC: {}
     FRAME_F1: { f1_average: macro }
     FRAME_AUC: {}
     FRAME_JACCARD_SPOOF: { spoof_label: 0 }
-  wandb: false
+
+    # --- Tier 2: PartialSpoof protocol EER (standalone, native resolution) ---
+    # SEGMENT_EER: {}                   # point-based segment EER (one trial per frame)
+    # RANGE_EER:                         # range EER (localization; monitor_mode: min)
+    #   bonafide_label: 1
+    #   ignore_index: -100
+    #   prec: 0.0001
+
+    # --- Tier 3: multi-resolution (recommended) — logs SEGMENT_EER_*ms, RANGE_EER_*ms, UTTERANCE_EER ---
+    MULTIRES_EER:
+      bonafide_label: 1
+      pool: min                          # min | max | mean
+      label_merge_rule: any_spoof
+      resolutions_ms: [20, 40, 80, 160]
+      prec: 0.0001
+      # types: [segment, range, utterance]   # default: all three
+      # Output keys: RANGE_EER_20ms, SEGMENT_EER_40ms, RANGE_EER_CONCAT_pct, UTTERANCE_EER, …
+
+  wandb: false                         # true: log to Weights & Biases
+  # wandb_project: DeepFense

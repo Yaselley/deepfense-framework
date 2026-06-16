@@ -137,11 +137,6 @@ class Nes2Net(BaseBackend):
         self.bn = nn.BatchNorm1d(self.input_dim)
         self.relu = nn.ReLU()
 
-        # 4. Pooling Layer
-        # Uses the factory from modules.py (supports 'mean', 'stats', 'asp', etc.)
-        self.pool_layer = pooling_modules.get_pooling_layer(config, self.input_dim)
-        self.out_dim = self.pool_layer.get_output_dim()
-
     def forward(self, x, **kwargs):
         """
         Args:
@@ -182,8 +177,4 @@ class Nes2Net(BaseBackend):
         out = self.bn(out)
         out = self.relu(out)
 
-        # Pooling
-        # Pool layer expects [B, C, T] which matches current shape `out`
-        embedding = self.pool_layer(out)
-
-        return embedding
+        return out

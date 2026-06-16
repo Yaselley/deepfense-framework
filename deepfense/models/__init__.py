@@ -11,6 +11,7 @@ from deepfense.models.backends import (
     nes2net,
     tcm,
     frame_mlp,  # noqa: F401 — FrameMLP
+    gmlp,  # noqa: F401 — GMLP
 )
 from deepfense.models.losses import (
     cross_entropy,

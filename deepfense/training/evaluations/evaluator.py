@@ -43,18 +43,24 @@ class Evaluator:
                     print(f"[Warning] Metric '{name}' not found in registry. Skipping.")
         return metrics
 
-    def evaluate(self, labels, scores):
+    def evaluate(self, labels, scores, **context):
         """
         Evaluate all registered metrics.
         Each metric is called with its own parameters + shared kwargs.
 
+        Optional context (e.g. for temporal metrics):
+            keys: utterance id per sample/frame
+            temporal: bool, framewise evaluation path
+            label_hop_ms: frame hop in milliseconds
+
         Example:
-            evaluator.evaluate(bonafide_scores=bona, spoof_scores=spoof)
+            evaluator.evaluate(labels, scores, keys=keys, temporal=True)
         """
         results = {}
         for name, metric_fn in self.metrics.items():
-            params = self.config.get(name, {})
+            params = dict(self.config.get(name, {}))
             params["loss"] = self.config.get("loss")
+            params.update(context)
 
             try:
                 metric_result = metric_fn(labels, scores, params)

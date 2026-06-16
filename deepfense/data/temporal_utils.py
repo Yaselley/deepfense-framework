@@ -51,6 +51,36 @@ def _majority_class(labels: np.ndarray) -> int:
     return int(uniq[counts.argmax()])
 
 
+def merge_label_window(
+    labels: np.ndarray,
+    rule: str = "any_spoof",
+    spoof_label: int = 0,
+    bonafide_label: int = 1,
+    ignore_value: int = -100,
+) -> int:
+    """Merge one label window (same rules as ``downsample_frame_labels``)."""
+    if rule not in _VALID_LABEL_MERGE_RULES:
+        raise ValueError(
+            f"Unknown label merge rule '{rule}'. Use one of {_VALID_LABEL_MERGE_RULES}."
+        )
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+    valid = labels != ignore_value
+    if not np.any(valid):
+        return ignore_value
+    w = labels[valid]
+    if rule == "any_spoof":
+        return spoof_label if np.any(w == spoof_label) else bonafide_label
+    if rule == "all_spoof":
+        return spoof_label if np.all(w == spoof_label) else bonafide_label
+    if rule == "majority":
+        spoof_count = int(np.sum(w == spoof_label))
+        return spoof_label if spoof_count >= (w.size - spoof_count) else bonafide_label
+    # any_non_bonafide
+    if np.all(w == bonafide_label):
+        return bonafide_label
+    return _majority_class(w[w != bonafide_label])
+
+
 def downsample_frame_labels(
     labels: np.ndarray,
     factor: int,

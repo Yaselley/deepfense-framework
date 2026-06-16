@@ -1,0 +1,182 @@
+<svg viewBox="0 0 1240 896" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad_rg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d75050"/>
+      <stop offset="1" stop-color="#2f9e5b"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9aa7c2"/>
+    </marker>
+    <clipPath id="stripClip"><rect x="1003" y="720" width="152" height="22" rx="6"/></clipPath>
+  </defs>
+  <style>
+    text{font-family:'DejaVu Sans','Helvetica Neue',Arial,sans-serif}
+    .mono{font-family:'DejaVu Sans Mono',monospace}
+  </style>
+
+  <!-- background (carries its own light bg => safe on light/dark READMEs) -->
+  <rect x="0" y="0" width="1240" height="896" fill="#f5f7fb"/>
+
+  <!-- ===================== HEADER ===================== -->
+  <rect x="52" y="54" width="44" height="44" rx="12" fill="#15264d"/>
+  <rect x="62" y="69" width="4" height="14" rx="2" fill="#ffffff"/>
+  <rect x="69" y="64" width="4" height="24" rx="2" fill="#ffffff"/>
+  <rect x="76" y="67" width="4" height="18" rx="2" fill="#ffffff"/>
+  <rect x="83" y="71" width="4" height="10" rx="2" fill="#ffffff"/>
+  <text x="112" y="84" font-size="40" font-weight="bold" fill="#15264d">DeepFense</text>
+  <text x="113" y="110" font-size="17" fill="#1c2333">Modular deepfake-audio detection.</text>
+  <text x="113" y="131" font-size="14" fill="#62708c">One YAML config &#183; swap any frontend &#215; backend &#215; loss with no code &#183; two detection modes.</text>
+
+  <!-- ===================== CONFIG -> PIPELINE BAND ===================== -->
+  <!-- YAML card -->
+  <rect x="48" y="170" width="250" height="152" rx="14" fill="#ffffff" stroke="#dbe1ee" stroke-width="1.5"/>
+  <text x="68" y="198" class="mono" font-size="14" font-weight="bold" fill="#1c2333">config.yaml</text>
+  <line x1="64" y1="208" x2="282" y2="208" stroke="#e7ebf4" stroke-width="1.2"/>
+  <circle cx="70" cy="232" r="4" fill="#15264d"/>
+  <text x="84" y="236" class="mono" font-size="13" fill="#1c2333">frontend: wav2vec2</text>
+  <circle cx="70" cy="258" r="4" fill="#2f5cb0"/>
+  <text x="84" y="262" class="mono" font-size="13" fill="#1c2333">backend:  FrameMLP</text>
+  <circle cx="70" cy="284" r="4" fill="#5b76a6"/>
+  <text x="84" y="288" class="mono" font-size="13" fill="#1c2333">loss:     FramewiseCE</text>
+  <text x="84" y="312" class="mono" font-size="12.5" fill="#62708c">training: { &#8230; }</text>
+  <text x="173" y="343" font-size="11.5" font-style="italic" fill="#62708c" text-anchor="middle">edit YAML, not code</text>
+
+  <!-- card -> pipeline arrow -->
+  <text x="317" y="233" font-size="10.5" fill="#62708c" text-anchor="middle">builds</text>
+  <line x1="300" y1="242" x2="334" y2="242" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <!-- pipeline chips -->
+  <rect x="338" y="196" width="250" height="92" rx="14" fill="#15264d"/>
+  <text x="463" y="222" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">FRONTEND</text>
+  <text x="463" y="240" font-size="11" fill="#cdd6ea" text-anchor="middle">pretrained SSL</text>
+  <text x="463" y="262" font-size="11" fill="#ffffff" text-anchor="middle">Wav2Vec2 &#183; WavLM &#183; HuBERT</text>
+  <text x="463" y="279" font-size="11" fill="#cdd6ea" text-anchor="middle">MERT &#183; EAT</text>
+
+  <line x1="588" y1="242" x2="640" y2="242" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="640" y="196" width="250" height="92" rx="14" fill="#2f5cb0"/>
+  <text x="765" y="222" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">BACKEND</text>
+  <text x="765" y="240" font-size="11" fill="#d6e0f5" text-anchor="middle">classifier head</text>
+  <text x="765" y="262" font-size="11" fill="#ffffff" text-anchor="middle">AASIST &#183; Nes2Net &#183; MLP</text>
+  <text x="765" y="279" font-size="11" fill="#d6e0f5" text-anchor="middle">FrameMLP &#183; GMLP &#183; &#8230;</text>
+
+  <line x1="890" y1="242" x2="942" y2="242" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="942" y="196" width="250" height="92" rx="14" fill="#5b76a6"/>
+  <text x="1067" y="222" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">LOSS</text>
+  <text x="1067" y="240" font-size="11" fill="#e2e8f4" text-anchor="middle">training objective</text>
+  <text x="1067" y="262" font-size="11" fill="#ffffff" text-anchor="middle">CE &#183; OC-Softmax</text>
+  <text x="1067" y="279" font-size="11" fill="#e2e8f4" text-anchor="middle">AM/A-Softmax &#183; FramewiseCE</text>
+
+  <text x="765" y="309" font-size="13.5" fill="#62708c" text-anchor="middle">Choose any frontend &#215; backend &#215; loss in the YAML &#8212; DeepFense wires the model for you.</text>
+
+  <!-- dotted connector down to modes -->
+  <line x1="765" y1="320" x2="765" y2="350" stroke="#c2cbe0" stroke-width="2" stroke-dasharray="3 3"/>
+
+  <!-- ===================== MODES SECTION LABEL ===================== -->
+  <rect x="48" y="362" width="12" height="12" rx="2" fill="#15264d"/>
+  <text x="68" y="372" font-size="13" font-weight="bold" fill="#1c2333" letter-spacing="0.4">TWO DETECTION MODES</text>
+  <text x="292" y="372" font-size="13" fill="#62708c">&#183; same pipeline, different handling of the time axis</text>
+
+  <!-- ===================== MODE 1: CLIP-LEVEL ===================== -->
+  <rect x="48" y="386" width="1144" height="212" rx="16" fill="#ffffff" stroke="#dbe1ee" stroke-width="1.5"/>
+  <rect x="72" y="402" width="92" height="26" rx="13" fill="#15264d"/>
+  <text x="118" y="419" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">MODE 1</text>
+  <text x="178" y="421" font-size="18" font-weight="bold" fill="#1c2333">Clip-level detection</text>
+  <text x="1168" y="420" class="mono" font-size="12.5" fill="#62708c" text-anchor="end">StandardDetector</text>
+  <text x="178" y="441" font-size="12.5" fill="#62708c">Is the whole clip real or fake?</text>
+
+  <!-- stage boxes -->
+  <rect x="72"  y="452" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="161" y="494" font-size="13" font-weight="bold" fill="#1c2333" text-anchor="middle">Raw audio</text>
+  <text x="161" y="514" font-size="11" fill="#62708c" text-anchor="middle">16 kHz waveform</text>
+
+  <line x1="250" y1="502" x2="301" y2="502" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="301" y="452" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="390" y="486" font-size="13" font-weight="bold" fill="#15264d" text-anchor="middle">Frontend</text>
+  <text x="390" y="506" font-size="11" fill="#62708c" text-anchor="middle">SSL features</text>
+  <text x="390" y="525" class="mono" font-size="11" fill="#2f5cb0" text-anchor="middle">(B, T, D)</text>
+
+  <line x1="479" y1="502" x2="530" y2="502" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="530" y="452" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="619" y="484" font-size="13" font-weight="bold" fill="#2f5cb0" text-anchor="middle">Backend</text>
+  <text x="619" y="504" font-size="11.5" font-weight="bold" fill="#c47a09" text-anchor="middle">pools over time</text>
+  <text x="619" y="524" class="mono" font-size="10.5" fill="#1c2333" text-anchor="middle">(B,T,D) &#8594; (B,D)</text>
+
+  <line x1="708" y1="502" x2="760" y2="502" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="760" y="452" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="849" y="486" font-size="12.5" font-weight="bold" fill="#5b76a6" text-anchor="middle">CrossEntropy /</text>
+  <text x="849" y="503" font-size="12.5" font-weight="bold" fill="#5b76a6" text-anchor="middle">OC-Softmax</text>
+  <text x="849" y="523" font-size="10.5" fill="#62708c" text-anchor="middle">clip objective</text>
+
+  <line x1="938" y1="502" x2="990" y2="502" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="990" y="452" width="178" height="100" rx="10" fill="#ecf8f1" stroke="#bfe3cf" stroke-width="1.4"/>
+  <text x="1079" y="480" font-size="12" font-weight="bold" fill="#1f7a47" text-anchor="middle">One score per clip</text>
+  <rect x="1006" y="492" width="146" height="10" rx="5" fill="url(#grad_rg)"/>
+  <path d="M1136,485 L1146,485 L1141,491 z" fill="#1f7a47"/>
+  <text x="1079" y="515" font-size="10.5" fill="#62708c" text-anchor="middle">bonafide vs spoof</text>
+
+  <!-- ===================== MODE 2: PARTIAL DEEPFAKE ===================== -->
+  <rect x="48" y="614" width="1144" height="244" rx="16" fill="#ffffff" stroke="#dbe1ee" stroke-width="1.5"/>
+  <rect x="72" y="630" width="92" height="26" rx="13" fill="#e8920c"/>
+  <text x="118" y="647" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">MODE 2</text>
+  <text x="178" y="649" font-size="18" font-weight="bold" fill="#1c2333">Partial deepfake &#8212; localization</text>
+  <text x="1168" y="648" class="mono" font-size="12.5" fill="#62708c" text-anchor="end">TemporalDetector</text>
+  <text x="178" y="669" font-size="12.5" fill="#62708c">Which parts of the clip are fake?</text>
+
+  <!-- stage boxes -->
+  <rect x="72"  y="684" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="161" y="726" font-size="13" font-weight="bold" fill="#1c2333" text-anchor="middle">Raw audio</text>
+  <text x="161" y="746" font-size="11" fill="#62708c" text-anchor="middle">16 kHz waveform</text>
+
+  <line x1="250" y1="734" x2="301" y2="734" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="301" y="684" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="390" y="718" font-size="13" font-weight="bold" fill="#15264d" text-anchor="middle">Frontend</text>
+  <text x="390" y="738" font-size="11" fill="#62708c" text-anchor="middle">SSL features</text>
+  <text x="390" y="757" class="mono" font-size="11" fill="#2f5cb0" text-anchor="middle">(B, T, D)</text>
+  <text x="390" y="802" font-size="10.5" fill="#62708c" text-anchor="middle">&#9650; audio mask (padding)</text>
+
+  <line x1="479" y1="734" x2="530" y2="734" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="530" y="684" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="619" y="712" font-size="12.5" font-weight="bold" fill="#2f5cb0" text-anchor="middle">Frame backend</text>
+  <text x="619" y="730" font-size="11.5" font-weight="bold" fill="#c47a09" text-anchor="middle">keeps time</text>
+  <text x="619" y="748" font-size="10.5" fill="#62708c" text-anchor="middle">FrameMLP / GMLP</text>
+  <text x="619" y="767" class="mono" font-size="10" fill="#1c2333" text-anchor="middle">(B, T, D)</text>
+  <text x="619" y="802" font-size="10.5" fill="#62708c" text-anchor="middle">&#9650; label_hop align + frame mask</text>
+
+  <line x1="708" y1="734" x2="760" y2="734" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="760" y="684" width="178" height="100" rx="10" fill="#eef2fa" stroke="#d6deee" stroke-width="1.2"/>
+  <text x="849" y="722" font-size="12.5" font-weight="bold" fill="#5b76a6" text-anchor="middle">Framewise</text>
+  <text x="849" y="739" font-size="12.5" font-weight="bold" fill="#5b76a6" text-anchor="middle">CrossEntropy</text>
+  <text x="849" y="758" font-size="10" fill="#62708c" text-anchor="middle">per-frame objective</text>
+
+  <line x1="938" y1="734" x2="990" y2="734" stroke="#c2cbe0" stroke-width="2.2" marker-end="url(#arrow)"/>
+
+  <rect x="990" y="684" width="178" height="100" rx="10" fill="#fbf7ef" stroke="#ead9bd" stroke-width="1.4"/>
+  <text x="1079" y="708" font-size="12" font-weight="bold" fill="#b9760a" text-anchor="middle">Score per frame</text>
+  <!-- per-frame heatmap strip: green=bonafide, red=spoofed region -->
+  <g clip-path="url(#stripClip)">
+    <rect x="1003.00" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1015.67" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1028.33" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1041.00" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1053.67" y="720" width="12.7" height="22" fill="#d75050"/>
+    <rect x="1066.33" y="720" width="12.7" height="22" fill="#d75050"/>
+    <rect x="1079.00" y="720" width="12.7" height="22" fill="#d75050"/>
+    <rect x="1091.67" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1104.33" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1117.00" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1129.67" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+    <rect x="1142.33" y="720" width="12.7" height="22" fill="#2f9e5b"/>
+  </g>
+  <rect x="1003" y="720" width="152" height="22" rx="6" fill="none" stroke="#ead9bd" stroke-width="1"/>
+  <path d="M1053.7,744 L1053.7,748 L1091.7,748 L1091.7,744" stroke="#d75050" stroke-width="1.4" fill="none"/>
+  <text x="1072.7" y="762" font-size="10" font-weight="bold" fill="#d75050" text-anchor="middle">spoofed</text>
+</svg>
