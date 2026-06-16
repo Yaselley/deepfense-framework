@@ -38,7 +38,7 @@ Clip-level:
 Partial deepfake:
   Raw Audio → Frontend → Frame backend (keeps time) → FramewiseCrossEntropy → frame scores
                 ↑                              ↑
-         audio mask (padding)          label_hop alignment + frame_mask
+         audio mask (padding)          frontend_hop + label_hop + frame_mask
 ```
 
 **Reference config (annotated):** [`deepfense/config/experiments/temporal_deepfake_example.yaml`](deepfense/config/experiments/temporal_deepfake_example.yaml)
@@ -189,7 +189,7 @@ Below follows the structure of [`temporal_deepfake_example.yaml`](deepfense/conf
 | `label_merge_rule` | `any_spoof` | When downsampling labels: `any_spoof` \| `all_spoof` \| `majority` \| `any_non_bonafide` | **Not used** |
 | `label_map` | `{bonafide: 1, spoof: 0}` | String → int for clip + frame labels | Same |
 
-**Timing rules:** `label_hop` must be a multiple of `source_label_hop` and of the SSL frontend hop (320 samples ≈ 20 ms for Wav2Vec2). `train.py` copies `label_hop*` into `model` automatically.
+**Timing rules:** `label_hop` must be a multiple of `source_label_hop` **and** of **`model.frontend_hop`** (SSL frame stride in samples). Set `frontend_hop: 320` for Wav2Vec2 / WavLM / HuBERT @ 16 kHz. `train.py` copies `label_hop*` from `data:` into `model` automatically; **`frontend_hop` must be set under `model:`** (not inferred silently).
 
 **Parquet columns**
 
@@ -237,13 +237,15 @@ Label length = number of frames at **`source_label_hop_ms`** (e.g. PartialSpoof 
 | Key | Example | Allowed / meaning | Clip-level? |
 |-----|---------|-------------------|-------------|
 | `type` | `TemporalDetector` | **Required** | `StandardDetector` |
-| `pool_mode` | `mean` | Pool SSL features when `label_hop` > frontend hop: `mean` \| `max` | **Not used** |
+| **`frontend_hop`** | **`320`** | **SSL frame stride (samples). Required.** Wav2Vec2/WavLM/HuBERT @ 16 kHz → 320 (20 ms). Drives feature pooling to `label_hop` and batch **mask → frame** alignment. | **Not used** |
+| `pool_mode` | `mean` | Pool SSL features when `label_hop` > `frontend_hop`: `mean` \| `max` | **Not used** |
 
 **Frontend** (`model.frontend`)
 
 | Key | Example | Allowed |
 |-----|---------|---------|
 | `type` | `wav2vec2` | `wav2vec2`, `wavlm`, `hubert` (recommended); `mert`, `eat` have limited mask/temporal support |
+| *(with `model.frontend_hop`)* | `320` | Must match SSL stride; set on **`model:`**, not only on frontend class |
 | `args.source` | `fairseq` | `fairseq` (local `.pt`) \| `huggingface` (model id) |
 | `args.ckpt_path` | path or HF id | e.g. `xlsr2_300m.pt` or `facebook/wav2vec2-xls-r-300m` |
 | `args.freeze` | `false` | `true` \| `false` |

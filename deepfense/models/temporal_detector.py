@@ -21,8 +21,24 @@ class TemporalDetector(nn.Module):
     """
     SSL frontend + frame-level backend + framewise loss for partial-deepfake detection.
 
-    Pools SSL features from ``frontend_hop`` to ``label_hop`` when they differ.
-    Uses the dataloader audio ``mask`` for SSL attention and frame-level masking.
+    **Timing hops (set explicitly in YAML under ``model:``)**
+
+    - ``frontend_hop`` (samples): native SSL frame stride — one frontend frame every
+      ``frontend_hop`` audio samples. Wav2Vec2 / WavLM / HuBERT @ 16 kHz → **320**
+      (≈20 ms). Used to pool SSL features to ``label_hop`` and to downsample the
+      batch audio ``mask`` onto frame positions (invalid padded frames are zeroed).
+    - ``label_hop`` (samples or ``label_hop_ms``): model prediction / loss frame rate.
+      Must be an **integer multiple** of ``frontend_hop`` (e.g. 640 ms-hop when
+      ``frontend_hop=320`` → ``pool_factor=2``).
+
+    **Masking**
+
+    The dataloader ``collate_fn`` emits an audio ``mask`` (1=valid sample, 0=batch pad).
+    ``forward(x, mask=...)`` passes it to the SSL frontend (attention / padding_mask),
+    then ``downsample_mask_to_frames(mask, label_hop)`` builds a per-frame mask so
+    padded tail frames do not contribute to embeddings or loss (with ``-100`` labels).
+
+    ``pool_mode`` (``mean`` | ``max``) applies when ``label_hop > frontend_hop``.
     """
 
     def __init__(self, config):
@@ -35,10 +51,25 @@ class TemporalDetector(nn.Module):
             config["backend"]["type"], config["backend"].get("args", {})
         )
 
-        self.frontend_hop = int(
-            config.get("frontend_hop")
-            or getattr(self.frontend, "frontend_hop", 320)
-        )
+        inferred_hop = int(getattr(self.frontend, "frontend_hop", 320))
+        if config.get("frontend_hop") is not None:
+            self.frontend_hop = int(config["frontend_hop"])
+        else:
+            self.frontend_hop = inferred_hop
+            logger.warning(
+                "TemporalDetector: model.frontend_hop not set in config — using %d "
+                "from frontend %r. Set model.frontend_hop explicitly in YAML so "
+                "label_hop pooling and batch mask alignment are documented and correct.",
+                self.frontend_hop,
+                config["frontend"]["type"],
+            )
+        if self.frontend_hop != inferred_hop:
+            logger.info(
+                "TemporalDetector: frontend_hop=%d (frontend class default=%d)",
+                self.frontend_hop,
+                inferred_hop,
+            )
+
         self.label_hop = self._resolve_label_hop(config)
 
         if self.label_hop < self.frontend_hop:
@@ -106,20 +137,65 @@ class TemporalDetector(nn.Module):
             return int(config["subsample"])
         return int(config.get("frontend_hop", 320))
 
-    def _pool_features(self, features: torch.Tensor) -> torch.Tensor:
+    def _align_frame_mask(
+        self,
+        frame_mask: torch.Tensor,
+        target_len: int,
+        ref: torch.Tensor,
+    ) -> torch.Tensor:
+        """Crop or zero-pad a ``(B, T)`` mask to ``target_len``."""
+        if frame_mask.shape[1] == target_len:
+            return frame_mask
+        if frame_mask.shape[1] > target_len:
+            return frame_mask[:, :target_len]
+        pad = ref.new_zeros(frame_mask.shape[0], target_len - frame_mask.shape[1])
+        return torch.cat([frame_mask, pad], dim=1)
+
+    def _pool_features(
+        self,
+        features: torch.Tensor,
+        frontend_frame_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Pool SSL frames from ``frontend_hop`` to ``label_hop`` (mask-aware)."""
+        if frontend_frame_mask is not None:
+            ffm = self._align_frame_mask(
+                frontend_frame_mask, features.size(1), features
+            ).unsqueeze(-1).to(dtype=features.dtype)
+            features = features * ffm
+
         if self.pool_factor <= 1:
             return features
+
         b, t, d = features.shape
         n_full = t // self.pool_factor
         if n_full == 0:
             return features.new_zeros((b, 0, d))
+
         feat = features[:, : n_full * self.pool_factor, :]
         feat = feat.reshape(b, n_full, self.pool_factor, d)
+
+        if frontend_frame_mask is None:
+            if self.pool_mode == "max":
+                return feat.max(dim=2).values
+            return feat.mean(dim=2)
+
+        fm = self._align_frame_mask(
+            frontend_frame_mask, n_full * self.pool_factor, features
+        )
+        fm = fm.reshape(b, n_full, self.pool_factor).unsqueeze(-1)
+
         if self.pool_mode == "max":
-            feat = feat.max(dim=2).values
-        else:
-            feat = feat.mean(dim=2)
-        return feat
+            neg_inf = torch.finfo(feat.dtype).min
+            masked = feat.masked_fill(fm.eq(0), neg_inf)
+            out = masked.max(dim=2).values
+            has_valid = fm.any(dim=2).squeeze(-1)
+            return torch.where(has_valid.unsqueeze(-1), out, feat.new_zeros((b, n_full, d)))
+
+        weighted = feat * fm
+        count = fm.sum(dim=2).clamp(min=1e-8)
+        out = weighted.sum(dim=2) / count
+        has_valid = (fm.sum(dim=2) > 0).squeeze(-1)
+        return out * has_valid.unsqueeze(-1).to(dtype=features.dtype)
 
     def _frame_mask_from_audio_mask(
         self, audio_mask: Optional[torch.Tensor], target_frames: int, device: torch.device
@@ -135,7 +211,14 @@ class TemporalDetector(nn.Module):
             mask = mask.to(x.device, non_blocking=True)
 
         features = self.frontend(x, mask=mask)
-        pooled = self._pool_features(features)
+
+        frontend_frame_mask = None
+        if mask is not None:
+            frontend_frame_mask = downsample_mask_to_frames(
+                mask.float(), self.frontend_hop, target_frames=features.size(1)
+            )
+
+        pooled = self._pool_features(features, frontend_frame_mask)
 
         frame_mask = self._frame_mask_from_audio_mask(mask, pooled.size(1), pooled.device)
         if frame_mask is not None:

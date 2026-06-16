@@ -25,7 +25,50 @@ Copy `deepfense/config/experiments/temporal_deepfake_example.yaml` and set parqu
 | Loss | `CrossEntropy` on `(B, C)` | `FramewiseCrossEntropy` on `(B, T, C)` with `ignore_index=-100` |
 | Val metrics | EER / ACC / F1 on one score per clip | `FRAME_*`, `SEGMENT_EER`, `RANGE_EER`, `MULTIRES_EER` |
 
-Audio is **not** pre-windowed at 20 ms in the dataloader. The same **full clip** tensor is fed to the SSL frontend; the frontend’s convolutional stride defines the temporal resolution (≈20 ms per frame for common 16 kHz Wav2Vec2 setups with total stride 320). Dense labels in the parquet must be **aligned to that resolution** (or cropped/padded; see below).
+Audio is **not** pre-windowed at 20 ms in the dataloader. The same **full clip** tensor is fed to the SSL frontend; **`model.frontend_hop`** (samples per SSL frame) must match your frontend — **320** for Wav2Vec2 / WavLM / HuBERT @ 16 kHz. Dense labels in the parquet are at **`source_label_hop_ms`**; the model predicts at **`label_hop_ms`**.
+
+## Timing hops (`frontend_hop`, `label_hop`, `source_label_hop`)
+
+Three related rates — **set `frontend_hop` explicitly in YAML**:
+
+| Key | Where | Meaning | Example @ 16 kHz |
+|-----|--------|---------|------------------|
+| **`model.frontend_hop`** | `model:` | SSL **native** frame stride (samples). One Wav2Vec2 frame every `frontend_hop` samples. Used to pool SSL features → `label_hop` and to map batch **audio mask → frame mask**. | **`320`** (20 ms) |
+| `data.label_hop_ms` / `label_hop` | `data:` → copied to `model` by `train.py` | **Model output** / loss frame rate. Must be an **integer multiple** of `frontend_hop`. | `40` ms → 640 samples → `pool_factor = 2` |
+| `data.source_label_hop_ms` | `data:` (dataset only) | **Parquet annotation** rate. PartialSpoof labels are usually 20 ms. | `20` ms → 320 samples |
+
+**Rules**
+
+1. `label_hop % frontend_hop == 0` (else `TemporalDetector` raises at init).
+2. `label_hop % source_label_hop == 0` (else dataset raises at init).
+3. Always set **`model.frontend_hop: 320`** for standard SSL frontends (do not rely on silent defaults).
+
+```yaml
+model:
+  type: TemporalDetector
+  frontend_hop: 320          # REQUIRED — SSL stride; masking + pooling depend on this
+  pool_mode: mean            # when label_hop > frontend_hop
+  # label_hop_ms copied from data: by train.py
+```
+
+## Batch padding and masks
+
+Variable-length clips are **zero-padded in `collate_fn`**, not fixed-padded in the dataset.
+
+| Tensor | Shape | Values | Role |
+|--------|--------|--------|------|
+| `mask` | `(B, T_audio)` | 1 = real audio, 0 = batch pad | Passed to SSL frontend + downsampled to frames in `TemporalDetector` |
+| `frame_labels` | `(B, T_frames)` | class id or **`-100`** | `FramewiseCrossEntropy` ignores `-100` |
+| `frame_mask` | `(B, T_frames)` | 1 = valid, 0 = batch pad | Used at **eval** metrics only |
+
+Inside `TemporalDetector.forward(x, mask)`:
+
+1. `frontend(x, mask)` — SSL ignores padded audio samples.
+2. Pool SSL features from `frontend_hop` → `label_hop` if needed (`pool_mode`).
+3. `downsample_mask_to_frames(mask, label_hop)` → zero invalid frame embeddings.
+4. Loss uses `frame_labels`; positions with `-100` are skipped.
+
+See `deepfense/models/temporal_detector.py` and `deepfense/data/data_utils.py` (`collate_fn`).
 
 ## Files added or changed
 
@@ -150,7 +193,9 @@ Clips are returned at full length (or cropped with `max_len`); variable-length b
 ```yaml
 model:
   type: TemporalDetector
-  label_hop_ms: 40
+  frontend_hop: 320                  # SSL frame stride (samples); required for masking
+  label_hop_ms: 40                   # or set under data: — copied by train.py
+  pool_mode: mean
   frontend:
     type: wav2vec2
     args:

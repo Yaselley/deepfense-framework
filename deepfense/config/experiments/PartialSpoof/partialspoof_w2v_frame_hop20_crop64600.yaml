@@ -66,6 +66,7 @@ data:
 
 model:
   type: TemporalDetector
+  frontend_hop: 320                    # SSL frame stride (samples); wav2vec2/wavlm/hubert @ 16 kHz
   pool_mode: mean
   frontend:
     type: wav2vec2
