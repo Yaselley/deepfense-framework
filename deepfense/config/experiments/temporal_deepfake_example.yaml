@@ -11,8 +11,24 @@
 #   deepfense test  --config ... --checkpoint outputs/TemporalDeepfake_Example_*/best_model.pth
 #
 # Parquet columns (TemporalSegmentationDataset):
-#   path (required), frame_labels OR frame_labels_path (required),
-#   label (optional weak clip label), ID (optional utterance id)
+#   path (required) — audio file path
+#   frame_labels OR frame_labels_path (one required per row)
+#
+#   frame_labels (inline) — any ONE of these cell formats:
+#     • list / Arrow list<int>     [1, 1, 0, 0, 1]     ← recommended
+#     • comma-separated string     "1,1,0,0,1,1"
+#     • JSON list string           "[1, 1, 0, 0, 1, 1]"
+#     Do NOT put .npy/.npz paths here — use frame_labels_path instead.
+#
+#   frame_labels_path — path to 1D .npy or .npz (first array); for long clips.
+#     If both frame_labels and frame_labels_path are set, path column wins.
+#
+#   label (optional) — clip-level bonafide/spoof; inferred from frames if omitted
+#   ID (optional) — utterance id (useful for MULTIRES_EER exports)
+#
+#   Values are ints from label_map (e.g. spoof: 0, bonafide: 1).
+#   Length = one label per frame at source_label_hop_ms (see data: below).
+#   Full format guide: docs/temporal_deepfake.md § "Parquet schema"
 #
 # Timing rules:
 #   - label_hop must be an integer multiple of source_label_hop

@@ -50,28 +50,100 @@ Audio is **not** pre-windowed at 20 ms in the dataloader. The same **full clip**
 
 ## Parquet schema (`TemporalSegmentationDataset`)
 
-Required:
+Each row is one utterance. Labels are **integer class indices** (same values as `label_map`, e.g. `0` = spoof, `1` = bonafide). One label per frame at **`source_label_hop_ms`** (not at `label_hop_ms` — the dataloader downsamples if those differ).
 
-- `path` — audio path (same as `StandardDataset`).
+### Required columns
 
-One of:
+| Column | Description |
+|--------|-------------|
+| `path` | Audio file path (same as clip-level `StandardDataset`). Relative paths are joined with `root_dir` if set. |
 
-- `frame_labels` — list/array of class indices (length = number of frames for the clip at the chosen resolution), or comma-separated string, or JSON list string.
-- `frame_labels_path` — path to a `.npy` / `.npz` (1D int array).
+### Frame labels — pick **one** of these columns
 
-Optional:
+| Column | When to use |
+|--------|-------------|
+| `frame_labels` | Store labels **inline** in the parquet (short/medium clips). |
+| `frame_labels_path` | Store labels in an external **`.npy` / `.npz`** file (long clips, large datasets). |
 
-- `label` — clip-level class; if omitted, a **weak** label is set to spoof iff any frame equals `label_map[\"spoof\"]`.
+If **both** are present on a row, **`frame_labels_path` wins** (inline `frame_labels` is ignored for that row).
 
-Data config (train/val) should include:
+### `frame_labels` — supported cell formats
+
+The loader accepts several parquet cell types. All parse to a 1D `int` vector (one value per annotated frame).
+
+| Format | Parquet / pandas type | Example cell | Notes |
+|--------|----------------------|--------------|-------|
+| **List (recommended)** | `list` / Arrow `list<int>` | `[1, 1, 0, 0, 1, 1]` | Best when building parquets with PyArrow/pandas. |
+| **NumPy array** | `array` | `array([1, 1, 0, 0])` | Accepted after `read_parquet`. |
+| **Comma-separated string** | `string` | `"1,1,0,0,1,1"` | Spaces optional: `"1, 1, 0, 0"`. |
+| **JSON list string** | `string` | `"[1, 1, 0, 0, 1, 1]"` | Must start with `[` and end with `]`. |
+
+**Do not** put file paths in `frame_labels` — paths ending in `.npy` / `.npz` raise an error. Use the `frame_labels_path` column instead.
+
+**Minimal pandas example (inline list column):**
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    "ID": ["utt_001"],
+    "path": ["/data/audio/utt_001.wav"],
+    "frame_labels": [[1, 1, 0, 0, 1, 1]],  # bonafide=1, spoof=0 @ source_label_hop
+})
+df.to_parquet("train.parquet")
+```
+
+**Minimal pandas example (comma-separated string):**
+
+```python
+df = pd.DataFrame({
+    "path": ["/data/audio/utt_001.wav"],
+    "frame_labels": ["1,1,0,0,1,1"],
+})
+```
+
+### `frame_labels_path` — external label files
+
+| Field | Format |
+|-------|--------|
+| Cell value | Path to a **1D** `.npy` file, or `.npz` (first array in the archive is used). |
+| Path | Absolute, or relative to `root_dir` (same rules as audio `path`). |
+| Contents | 1D integer array, length = number of frames at `source_label_hop_ms`. |
+
+```python
+import numpy as np
+import pandas as pd
+
+np.save("/data/labels/utt_001.npy", np.array([1, 1, 0, 0, 1, 1], dtype=np.int64))
+
+df = pd.DataFrame({
+    "path": ["/data/audio/utt_001.wav"],
+    "frame_labels_path": ["/data/labels/utt_001.npy"],
+})
+```
+
+### Optional columns
+
+| Column | Description |
+|--------|-------------|
+| `label` | Clip-level class (`"bonafide"` / `"spoof"` strings mapped via `label_map`). If omitted, a **weak** clip label is inferred: spoof if **any** frame equals `label_map["spoof"]`, else bonafide. |
+| `ID` | Utterance id (recommended for exports and `MULTIRES_EER`). |
+
+### Length and timing
+
+- Label length should match the audio duration at **`source_label_hop_ms`** (e.g. PartialSpoof @ 20 ms → `source_label_hop_ms: 20`).
+- If length differs by more than 1 frame, a warning is logged and labels are aligned (crop/pad with ignore index `-100` on invalid tail frames).
+- If `label_hop_ms` > `source_label_hop_ms`, fine labels are merged using `label_merge_rule` (`any_spoof`, `all_spoof`, `majority`, `any_non_bonafide`).
+
+### Data config (train/val)
 
 - `dataset_type: TemporalSegmentationDataset`
-- `label_hop` or `label_hop_ms` — prediction rate (default 320 samples ≈ 20 ms @ 16 kHz)
-- `source_label_hop` or `source_label_hop_ms` — annotation rate if labels are stored at a finer resolution (defaults to `label_hop`)
-- `label_merge_rule` — `any_spoof` (default), `all_spoof`, or `majority` when downsampling labels
-- `max_frames` — optional cap on frame labels per clip
+- `label_hop` or `label_hop_ms` — model prediction rate (default 320 samples ≈ 20 ms @ 16 kHz)
+- `source_label_hop` or `source_label_hop_ms` — parquet annotation rate (defaults to `label_hop`)
+- `label_merge_rule` — merge rule when downsampling labels
+- `max_frames` — optional cap on frame labels per clip after crop
 
-Clips are always returned at full length; variable-length batches are padded by `collate_fn`. Invalid tail frames are labeled `-100` and ignored by the loss.
+Clips are returned at full length (or cropped with `max_len`); variable-length batches are padded by `collate_fn`. Invalid tail frames use label `-100` and are ignored by the loss.
 
 ## Example model config (_yaml excerpt_)
 

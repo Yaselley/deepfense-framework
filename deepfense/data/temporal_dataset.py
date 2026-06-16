@@ -120,6 +120,20 @@ class TemporalSegmentationDataset(BaseDataset):
     """
     Per-frame binary classification dataset for partial deepfake detection.
 
+    Parquet columns (one row per utterance):
+        path (required): audio file path.
+        frame_labels OR frame_labels_path (one required per row):
+            - frame_labels: inline labels — Python list (recommended), numpy
+              array, comma-separated string (``"0,1,0,1"``), or JSON list
+              string (``"[0, 1, 0, 1]"``). Do not put ``.npy``/``.npz`` paths here.
+            - frame_labels_path: path to a 1D ``.npy`` or ``.npz`` label file.
+        If both columns are set on a row, ``frame_labels_path`` is used.
+        label (optional): clip-level class; inferred from frames if omitted.
+        ID (optional): utterance id.
+
+    Label values are integer class indices (``label_map``). Length = one frame
+    per ``source_label_hop`` samples (see ``label_hop`` / ``source_label_hop``).
+
     Args:
         cfg (dict): Configuration with keys:
             - parquet_files (list[str]): Paths to parquet metadata files

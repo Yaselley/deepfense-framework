@@ -196,9 +196,23 @@ Below follows the structure of [`temporal_deepfake_example.yaml`](deepfense/conf
 | Column | Required | Format |
 |--------|----------|--------|
 | `path` | yes | Audio path |
-| `frame_labels` or `frame_labels_path` | one required | Dense labels at `source_label_hop_ms` (list, `.npy`, `.npz`) |
+| `frame_labels` **or** `frame_labels_path` | one required | Dense labels at `source_label_hop_ms` (see below) |
 | `label` | no | Clip label; inferred from frames if omitted |
 | `ID` | no | Utterance id (needed for multi-resolution EER) |
+
+**`frame_labels` (inline in parquet)** — integer class indices (`0` = spoof, `1` = bonafide with default `label_map`). Supported cell formats:
+
+| Format | Example |
+|--------|---------|
+| **List (recommended)** | `[1, 1, 0, 0, 1, 1]` as a parquet list column |
+| Comma-separated string | `"1,1,0,0,1,1"` |
+| JSON list string | `"[1, 1, 0, 0, 1, 1]"` |
+
+Do **not** store `.npy` / `.npz` paths in `frame_labels` — use `frame_labels_path` instead.
+
+**`frame_labels_path`** — path to a 1D `.npy` or `.npz` file (better for long utterances). If both columns are set on a row, **`frame_labels_path` is used**.
+
+Label length = number of frames at **`source_label_hop_ms`** (e.g. PartialSpoof annotations @ 20 ms). See [`docs/temporal_deepfake.md`](docs/temporal_deepfake.md) for full schema examples.
 
 #### `data.train` / `data.val` / `data.test`
 
