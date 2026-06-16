@@ -1,6 +1,19 @@
 # Temporal / partial deepfake detection in DeepFense
 
-This note describes how clip-level DeepFense was extended for **dense per-frame (per time-step) labels**, inspired by the framewise localization loop in **wedefense** (flattened `CrossEntropy` on `B×T` logits) while reusing DeepFense’s SSL frontends, YAML/registry wiring, and training CLI.
+This guide covers **dense per-frame (per time-step) labels** for partial deepfake and PartialSpoof: `TemporalSegmentationDataset`, `TemporalDetector`, framewise losses, and localization metrics (`RANGE_EER`, `SEGMENT_EER`, `MULTIRES_EER`).
+
+## Quick start
+
+```bash
+git fetch origin
+git checkout deepfense-partial
+pip install -e .
+deepfense train --config deepfense/config/experiments/temporal_deepfake_example.yaml
+```
+
+Copy `deepfense/config/experiments/temporal_deepfake_example.yaml` and set parquet paths, checkpoint paths, and `output_dir`. Ready-made PartialSpoof configs live under `deepfense/config/experiments/PartialSpoof/`.
+
+**ReadTheDocs:** clip-level docs stay on [`/en/latest/`](https://deepfense.readthedocs.io/en/latest/). After activating the `deepfense-partial` branch as a ReadTheDocs version, partial docs build at `/en/deepfense-partial/` (or your chosen slug).
 
 ## Design summary
 
@@ -10,7 +23,7 @@ This note describes how clip-level DeepFense was extended for **dense per-frame 
 | Waveform | Fixed-length padding; mask `(B, T_audio)` | Same; plus frame targets aligned to approximate SSL frame rate |
 | Model | `StandardDetector` → backend pools to `(B, D)` | `TemporalDetector` → `FrameMLP` keeps `(B, T_frames, D)` |
 | Loss | `CrossEntropy` on `(B, C)` | `FramewiseCrossEntropy` on `(B, T, C)` with `ignore_index=-100` |
-| Val metrics | EER / ACC / F1 on one score per clip | `FRAME_ACC`, `FRAME_F1`, `FRAME_AUC`, `FRAME_JACCARD_SPOOF` on flattened valid frames |
+| Val metrics | EER / ACC / F1 on one score per clip | `FRAME_*`, `SEGMENT_EER`, `RANGE_EER`, `MULTIRES_EER` |
 
 Audio is **not** pre-windowed at 20 ms in the dataloader. The same **full clip** tensor is fed to the SSL frontend; the frontend’s convolutional stride defines the temporal resolution (≈20 ms per frame for common 16 kHz Wav2Vec2 setups with total stride 320). Dense labels in the parquet must be **aligned to that resolution** (or cropped/padded; see below).
 
@@ -79,6 +92,16 @@ model:
       projection: [512]
       activation: relu
       norm_type: layer
+  # Alternative temporal backend:
+  # backend:
+  #   type: GMLP
+  #   args:
+  #     input_dim: 1024
+  #     d_ffn: -2
+  #     seq_len: 512
+  #     gmlp_layers: 5
+  #     pooling: none
+  #     output_dim: 512
   loss:
     - type: FramewiseCrossEntropy
       weight: 1.0
@@ -87,20 +110,37 @@ model:
       ignore_index: -100
 
 training:
-  monitor_metric: FRAME_F1
-  monitor_mode: max
+  monitor_metric: RANGE_EER_20ms
+  monitor_mode: min
   metrics:
     FRAME_ACC: {}
     FRAME_F1: { f1_average: macro }
     FRAME_AUC: {}
     FRAME_JACCARD_SPOOF: { spoof_label: 0 }
+    SEGMENT_EER: {}
+    RANGE_EER:
+      label_hop_ms: 20
+    MULTIRES_EER:
+      resolutions_ms: [20, 40, 80, 160]
 ```
 
-Use `embedding_dim` equal to the **last** dimension after `FrameMLP` (with `projection: [512]` that is `512`; with empty `projection` it is `input_dim`).
+Use `embedding_dim` equal to the **last** dimension after `FrameMLP` or `GMLP` (with `projection: [512]` or `output_dim: 512` that is `512`; with empty `projection` it is `input_dim`).
+
+## Evaluation metrics
+
+Partial spoof evaluation has three tiers (all **lower is better** for EER-style metrics → `monitor_mode: min`):
+
+| Tier | Metrics | Purpose |
+|------|---------|---------|
+| 1 — Framewise | `FRAME_ACC`, `FRAME_F1`, `FRAME_AUC`, `FRAME_JACCARD_SPOOF` | Per-frame classification quality |
+| 2 — Native resolution | `SEGMENT_EER`, `RANGE_EER` | PartialSpoof protocol metrics at training hop |
+| 3 — Multi-resolution | `MULTIRES_EER` | `SEGMENT_EER` + `RANGE_EER` at 20/40/80/160 ms; also `UTTERANCE_EER` |
+
+`MULTIRES_EER` logs keys such as `RANGE_EER_20ms`, `SEGMENT_EER_40ms`, and concatenated percent strings `RANGE_EER_CONCAT_pct`. Common choices for `monitor_metric`: `RANGE_EER`, `RANGE_EER_20ms`, or `MULTIRES_EER`.
 
 ## Relation to wedefense
 
-For rich partial-spoof tooling (range-EER, RTTM IO), see `/netscratch/yelkheir/DeepFense/DeepFense/wedefense/wedefense/metrics/localization/` and `/netscratch/yelkheir/DeepFense/DeepFense/wedefense/wedefense/dataset/processor_time.py`.
+Legacy wedefense localization helpers (RTTM IO, reference range-EER scripts) remain under `wedefense/wedefense/metrics/localization/` in this branch if you need to compare against older tooling.
 
 ## Limitations / next steps
 

@@ -2,6 +2,26 @@
 
 **DeepFense** is a modular, configuration-driven framework for deepfake audio detection. Mix and match frontends, backends, and loss functions via YAML -- no code changes needed.
 
+!!! note "Partial deepfake / PartialSpoof"
+    This documentation version covers **clip-level and partial deepfake** detection. Install the matching code branch:
+
+    ```bash
+    git fetch origin
+    git checkout deepfense-partial
+    ```
+
+    Start with the [Partial Deepfake guide](temporal_deepfake.md) and the annotated config
+    `deepfense/config/experiments/temporal_deepfake_example.yaml`.
+
+---
+
+## Partial Deepfake
+
+| Guide | Description |
+|-------|-------------|
+| [Partial Deepfake / Temporal Detection](temporal_deepfake.md) | `TemporalDetector`, frame labels, Range EER, PartialSpoof metrics |
+| Example config | `deepfense/config/experiments/temporal_deepfake_example.yaml` (annotated YAML) |
+
 ---
 
 ## Getting Started
@@ -33,8 +53,8 @@
 | Component | Description |
 |-----------|-------------|
 | [Frontends](components/frontends.md) | Wav2Vec2, WavLM, HuBERT, MERT, EAT |
-| [Backends](components/backends.md) | AASIST, ECAPA-TDNN, Nes2Net, RawNet2, MLP, TCM |
-| [Losses](components/losses.md) | CrossEntropy, OC-Softmax, AM-Softmax, A-Softmax |
+| [Backends](components/backends.md) | AASIST, ECAPA-TDNN, Nes2Net, RawNet2, MLP, FrameMLP, GMLP, TCM |
+| [Losses](components/losses.md) | CrossEntropy, FramewiseCrossEntropy, OC-Softmax, AM-Softmax, A-Softmax |
 | [Augmentations](components/augmentations.md) | RawBoost, RIR, Codec, Noise, SpeedPerturb, ... |
 | [Optimizers & Schedulers](components/optimizers_schedulers.md) | Adam, SGD, CosineAnnealing, StepLR, ... |
 

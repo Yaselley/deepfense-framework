@@ -137,6 +137,38 @@ loss:
 
 ---
 
+### 5. Framewise Cross-Entropy (`FramewiseCrossEntropy`)
+Masked cross-entropy over time for **partial deepfake** training with `TemporalDetector`. Logits shape `(B, T, C)`; padded or invalid frames use `ignore_index` (default `-100`).
+
+**Configuration Signature:**
+```yaml
+loss:
+  - type: FramewiseCrossEntropy
+    weight: float
+    embedding_dim: int
+    n_classes: int
+    ignore_index: int
+```
+
+**Parameters:**
+
+* **embedding_dim** - (*int*) Must match the backend output dimension (last `FrameMLP` / `GMLP` projection size).
+* **n_classes** - (*int*) Number of classes (usually 2).
+* **ignore_index** - (*int*) Label value to ignore (default: `-100`).
+* **weight** - (*float*) Loss weight in multi-loss setups.
+
+**Example:**
+```yaml
+loss:
+  - type: FramewiseCrossEntropy
+    weight: 1.0
+    embedding_dim: 512
+    n_classes: 2
+    ignore_index: -100
+```
+
+---
+
 ## Adding Custom Losses
 
 See [Extending DeepFense](../user_guide/extending.md) for a guide on creating custom loss modules.

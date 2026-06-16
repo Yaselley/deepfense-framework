@@ -122,7 +122,42 @@ backend:
 
 ---
 
-### 5. gMLP (`GMLP`)
+### 5. FrameMLP (`FrameMLP`)
+Per-frame MLP projection **without temporal pooling**. Use with `TemporalDetector` for partial deepfake / PartialSpoof. Output shape: `(B, T, D)`.
+
+**Configuration Signature:**
+```yaml
+backend:
+  type: FrameMLP
+  args:
+    input_dim: int
+    projection: list[int]
+    activation: string
+    norm_type: string
+```
+
+**Parameters:**
+
+* **input_dim** - (*int*) SSL feature dimension (e.g. 1024 for XLS-R).
+* **projection** - (*list[int]*) Hidden layer sizes (e.g. `[512]`). Empty list passes through `input_dim`.
+* **activation** - (*str*) `relu`, `selu`, `tanh`, or `sigmoid` (default: `relu`).
+* **norm_type** - (*str*) `layer` or `batch` (default: `layer`).
+* **output_dim** - (*int*) Optional final projection size (defaults to last projection dim).
+
+**Example (partial deepfake):**
+```yaml
+backend:
+  type: FrameMLP
+  args:
+    input_dim: 1024
+    projection: [512]
+    activation: relu
+    norm_type: layer
+```
+
+---
+
+### 6. gMLP (`GMLP`)
 Spatial gating MLP stack from *Pay Attention to MLPs*. Supports per-frame output for partial deepfake (`pooling: none`) or utterance pooling for clip-level detection.
 
 **Configuration Signature:**
@@ -174,7 +209,7 @@ backend:
 
 ---
 
-### 6. Res2Net (`Nes2Net`)
+### 7. Res2Net (`Nes2Net`)
 A Res2Net-based convolutional architecture.
 
 **Configuration Signature:**
@@ -202,7 +237,8 @@ backend:
 
 ## Input/Output
 *   **Input**: Features from Frontend `[B, T, C]`.
-*   **Output**: Embedding vector `[B, Embedding_Dim]`.
+*   **Output (clip-level)**: Embedding vector `[B, Embedding_Dim]` (MLP, AASIST, GMLP with pooling, …).
+*   **Output (temporal)**: Per-frame embeddings `[B, T, D]` (`FrameMLP`, `GMLP` with `pooling: none`).
 
 ---
 

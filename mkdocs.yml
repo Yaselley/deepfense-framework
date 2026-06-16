@@ -38,6 +38,7 @@ nav:
     - Installation: 01_installation.md
     - Quick Start: 02_quickstart.md
     - Full Tutorial: 03_full_tutorial.md
+    - Partial Deepfake: temporal_deepfake.md
   - Reference:
     - Architecture: 04_architecture.md
     - Configuration: 05_configuration.md
