@@ -2,6 +2,16 @@
 
 **DeepFense** is a modular, configuration-driven framework for deepfake audio detection. Mix and match frontends, backends, and loss functions via YAML -- no code changes needed.
 
+!!! note "Partial deepfake / PartialSpoof"
+    This version of the docs covers **clip-level** detection (one score per utterance). For per-frame labels, `TemporalDetector`, Range EER, and PartialSpoof metrics, use the **`deepfense-partial`** branch:
+
+    ```bash
+    git fetch origin
+    git checkout deepfense-partial
+    ```
+
+    Documentation for that branch: [ReadTheDocs — deepfense-partial](https://deepfense.readthedocs.io/en/deepfense-partial/) (activate this version in ReadTheDocs if the link 404s).
+
 ---
 
 ## Getting Started
