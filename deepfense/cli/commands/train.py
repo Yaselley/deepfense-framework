@@ -79,15 +79,24 @@ def validate_config(cfg):
 @click.command()
 @click.option("--config", "-c", required=True, type=click.Path(exists=True), help="Path to YAML config file")
 @click.option("--resume", "-r", default=None, type=click.Path(exists=True), help="Resume from checkpoint")
-def train(config, resume):
+@click.option("--resume-mode", type=click.Choice(["1", "2"], case_sensitive=False), default="2", 
+              help="Resume mode: 1 = restart from epoch 0 (new dataset), 2 = continue from checkpoint (default)")
+def train(config, resume, resume_mode):
     """
     Train a DeepFense model.
+    
+    Resume modes:
+    
+        Mode 1 (epoch_restart): Load model weights, start from epoch 0 - useful when changing dataset
+        Mode 2 (continue): Load model weights + training state, continue from checkpoint
     
     Example:
     
         deepfense train --config config/train.yaml
     
         deepfense train --config config/train.yaml --resume outputs/exp/best_model.pth
+        
+        deepfense train --config config/train.yaml --resume outputs/exp/best_model.pth --resume-mode 1
     """
     # Load config
     cfg = load_config(config)
@@ -150,7 +159,10 @@ def train(config, resume):
     )
 
     if resume:
-        trainer.load_checkpoint(resume)
+        resume_mode_int = int(resume_mode)
+        logger.info(f"Loading checkpoint: {resume}")
+        logger.info(f"Resume mode {resume_mode_int}: {'Restart from epoch 0' if resume_mode_int == 1 else 'Continue from checkpoint'}")
+        trainer.load_checkpoint(resume, resume_mode=resume_mode_int)
 
     trainer.train()
 

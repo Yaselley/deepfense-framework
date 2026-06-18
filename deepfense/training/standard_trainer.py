@@ -116,7 +116,9 @@ class StandardTrainer(BaseTrainer):
 
     def train(self):
         self.model.train()
-
+        # Initialize resume tracking
+        resume_batch_idx = getattr(self, '_resume_batch_idx', 0)
+        
         num_params = sum(p.numel() for p in self._unwrapped_model().parameters() if p.requires_grad)
         if self.is_main:
             self.logger.info(f"Trainable parameters: {num_params:,}")
@@ -143,7 +145,13 @@ class StandardTrainer(BaseTrainer):
             # Initialize gradients
             self.optimizer.zero_grad()
 
+            # SKIP BATCHES IF RESUMING MID-EPOCH
+            skip_batches = resume_batch_idx if epoch == self.start_epoch else 0
+            
             for batch_idx, batch in enumerate(loop):
+                # Skip already processed batches
+                if batch_idx < skip_batches:
+                    continue
                 loss = self._train_step(batch, batch_idx, epoch)
 
                 epoch_loss_sum += loss
@@ -548,18 +556,40 @@ class StandardTrainer(BaseTrainer):
 
         return fname
 
-    def load_checkpoint(self, path, load_optimizer=True):
+    def load_checkpoint(self, path, load_optimizer=True, resume_mode=2):
+        """
+        Load checkpoint with different resume modes.
+        
+        Args:
+            path: Path to checkpoint file
+            load_optimizer: Whether to load optimizer state
+            resume_mode:
+                1 = epoch_restart: Load only model weights, reset epoch to 0 and step to 0
+                2 = continue: Load model weights + training state (epoch, step, optimizer)
+        """
         state = torch.load(path, map_location=self.device)
         self._unwrapped_model().load_state_dict(state["model_state"])
-        if load_optimizer:
-            opt_state = state.get("optimizer_state", None)
-            if opt_state:
-                self.optimizer.load_state_dict(opt_state)
-        self.start_epoch = state.get("epoch", 0)
-        self.global_step = state.get("step", 0)
-        self.best_metric = state.get("best_metric", self.best_metric)
-        if self.is_main:
-            self.logger.info(f"Loaded checkpoint from {path}")
+        
+        if resume_mode == 1:
+            # Mode 1: Start from epoch 0 - load model only, reset training state
+            self.start_epoch = 0
+            self.global_step = 0
+            self.best_metric = -math.inf if getattr(self.config, "monitor_mode", "max") == "max" else math.inf
+            if self.is_main:
+                self.logger.info(f"[Resume Mode 1] Loaded model weights from {path}")
+                self.logger.info("[Resume Mode 1] Reset to epoch 0, global_step 0 (new dataset)")
+        else:
+            # Mode 2: Continue from checkpoint - load all training state
+            if load_optimizer:
+                opt_state = state.get("optimizer_state", None)
+                if opt_state:
+                    self.optimizer.load_state_dict(opt_state)
+            self.start_epoch = state.get("epoch", 0)
+            self.global_step = state.get("step", 0)
+            self.best_metric = state.get("best_metric", self.best_metric)
+            if self.is_main:
+                self.logger.info(f"[Resume Mode 2] Loaded checkpoint from {path}")
+                self.logger.info(f"[Resume Mode 2] Resuming from epoch {self.start_epoch}, step {self.global_step}")
 
     def infer(self, x):
         self.model.eval()
@@ -572,3 +602,36 @@ class StandardTrainer(BaseTrainer):
                 module.momentum = 0
 
         self.model.apply(_disable)
+
+    def resume_from_checkpoint(self, checkpoint_path, resume_mode=2):
+        """
+        Load checkpoint and prepare to resume from the saved step or epoch 0.
+        
+        Args:
+            checkpoint_path: Path to checkpoint file
+            resume_mode:
+                1 = epoch_restart: Load model weights only, start from epoch 0
+                2 = continue: Load model weights + training state (epoch, step) - default
+        """
+        self.load_checkpoint(checkpoint_path, resume_mode=resume_mode)
+        
+        # Calculate how many batches to skip in the current epoch (only for mode 2)
+        if resume_mode == 2 and self.start_epoch > 0:
+            # Get total steps per epoch (approximate)
+            steps_per_epoch = len(self.train_loader) // self.accum_steps
+            
+            # Steps completed in the current epoch
+            steps_in_current_epoch = self.global_step % steps_per_epoch
+            
+            # Store to skip in train loop
+            self._resume_batch_idx = steps_in_current_epoch * self.accum_steps
+            self._resume_epoch = self.start_epoch
+        else:
+            self._resume_batch_idx = 0
+            self._resume_epoch = 0
+        
+        if resume_mode == 1:
+            self.logger.info(f"[Resume Mode 1] Starting training from epoch 0 with loaded model weights")
+        else:
+            self.logger.info(f"[Resume Mode 2] Resuming from epoch {self.start_epoch}, global_step {self.global_step}")
+        self.logger.info(f"Will skip {self._resume_batch_idx} batches in epoch {self.start_epoch}")

@@ -127,6 +127,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to YAML config")
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint")
+    parser.add_argument("--resume-mode", type=int, default=2, choices=[1, 2],
+                        help="Resume mode: 1 = restart from epoch 0 (new dataset), 2 = continue from checkpoint (default)")
     args = parser.parse_args()
 
     ddp = setup_distributed()
@@ -231,7 +233,9 @@ def main():
     )
 
     if args.resume:
-        trainer.load_checkpoint(args.resume)
+        logger.info(f"Loading checkpoint: {args.resume}")
+        logger.info(f"Resume mode {args.resume_mode}: {'Restart from epoch 0' if args.resume_mode == 1 else 'Continue from checkpoint'}")
+        trainer.resume_from_checkpoint(args.resume, resume_mode=args.resume_mode)
 
     trainer.train()
 

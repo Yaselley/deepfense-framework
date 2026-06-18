@@ -27,10 +27,29 @@ class BaseTrainer:
             best_path = os.path.join(self.config.output_dir, "best.pth")
             torch.save(state, best_path)
 
-    def load_checkpoint(self, path):
+    def load_checkpoint(self, path, resume_mode=2):
+        """
+        Load checkpoint with different resume modes.
+        
+        Args:
+            path: Path to checkpoint file
+            resume_mode: 
+                1 = epoch_restart: Load only model weights, reset epoch to 0
+                2 = continue: Load model weights + training state (epoch, global_step, etc.)
+        """
         state = torch.load(path, map_location=self.device)
         self.model.load_state_dict(state["model_state_dict"])
-        self.global_step = state.get("global_step", 0)
+        
+        if resume_mode == 1:
+            # Mode 1: Start from epoch 0 - don't load training state
+            self.logger.info("[Resume Mode 1] Loaded model weights. Starting from epoch 0.")
+            self.global_step = 0
+            self.start_epoch = 0
+        else:
+            # Mode 2: Continue from checkpoint - load all training state
+            self.logger.info("[Resume Mode 2] Loaded model weights and training state.")
+            self.global_step = state.get("global_step", 0)
+            self.start_epoch = state.get("start_epoch", 0)
 
     def train_step(self, batch):
         """Override in subclass."""
