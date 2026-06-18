@@ -231,7 +231,7 @@ def main():
     )
 
     if args.resume:
-        trainer.load_checkpoint(args.resume)
+        trainer.resume_from_checkpoint(args.resume)
 
     trainer.train()
 

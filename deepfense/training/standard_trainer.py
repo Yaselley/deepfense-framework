@@ -116,7 +116,9 @@ class StandardTrainer(BaseTrainer):
 
     def train(self):
         self.model.train()
-
+        # Initialize resume tracking
+        resume_batch_idx = getattr(self, '_resume_batch_idx', 0)
+        
         num_params = sum(p.numel() for p in self._unwrapped_model().parameters() if p.requires_grad)
         if self.is_main:
             self.logger.info(f"Trainable parameters: {num_params:,}")
@@ -143,7 +145,13 @@ class StandardTrainer(BaseTrainer):
             # Initialize gradients
             self.optimizer.zero_grad()
 
+            # SKIP BATCHES IF RESUMING MID-EPOCH
+            skip_batches = resume_batch_idx if epoch == self.start_epoch else 0
+            
             for batch_idx, batch in enumerate(loop):
+                # Skip already processed batches
+                if batch_idx < skip_batches:
+                    continue
                 loss = self._train_step(batch, batch_idx, epoch)
 
                 epoch_loss_sum += loss
@@ -572,3 +580,25 @@ class StandardTrainer(BaseTrainer):
                 module.momentum = 0
 
         self.model.apply(_disable)
+
+    def resume_from_checkpoint(self, checkpoint_path):
+        """Load checkpoint and prepare to resume exactly from the saved step."""
+        self.load_checkpoint(checkpoint_path)
+        
+        # Calculate how many batches to skip in the current epoch
+        if self.start_epoch > 0:
+            # Get total steps per epoch (approximate)
+            steps_per_epoch = len(self.train_loader) // self.accum_steps
+            
+            # Steps completed in the current epoch
+            steps_in_current_epoch = self.global_step % steps_per_epoch
+            
+            # Store to skip in train loop
+            self._resume_batch_idx = steps_in_current_epoch * self.accum_steps
+            self._resume_epoch = self.start_epoch
+        else:
+            self._resume_batch_idx = 0
+            self._resume_epoch = 0
+        
+        self.logger.info(f"Resuming from epoch {self.start_epoch}, global_step {self.global_step}")
+        self.logger.info(f"Will skip {self._resume_batch_idx} batches in epoch {self.start_epoch}")
