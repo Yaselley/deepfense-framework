@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from deepfense.utils.registry import register_frontend
 from deepfense.models.base_model import BaseFrontend
+from deepfense.models.frontends.freeze_policy import apply_ssl_freeze_policy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,9 +41,7 @@ class Wav2VecWrapper(BaseFrontend):
         else:
             raise ValueError(f"Unknown source: {self.source}. Must be 'fairseq' or 'huggingface'")
 
-        if self.freeze:
-            for param in self.model.parameters():
-                param.requires_grad = False
+        self.freeze_summary = apply_ssl_freeze_policy(self.model, self.source, config)
 
     def forward(self, input_data, mask=None):
         """

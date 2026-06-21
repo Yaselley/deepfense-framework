@@ -8,7 +8,9 @@ Supported checkpoint formats
 * Old-style (``state["args"]`` — argparse Namespace)
 """
 
+import argparse
 import logging
+import pickle
 from typing import Union
 
 import torch
@@ -16,6 +18,42 @@ import torch
 from .models import Wav2Vec2Model
 
 logger = logging.getLogger(__name__)
+
+
+class _FairseqSafeUnpickler(pickle.Unpickler):
+    """Allow unpickling fairseq checkpoints without installing fairseq."""
+
+    def find_class(self, module, name):
+        if module.startswith("fairseq"):
+            return argparse.Namespace
+        if module.startswith("omegaconf"):
+            from omegaconf import DictConfig, ListConfig
+
+            if name == "DictConfig":
+                return DictConfig
+            if name == "ListConfig":
+                return ListConfig
+        return super().find_class(module, name)
+
+
+class _FairseqSafePickleModule:
+    Unpickler = _FairseqSafeUnpickler
+    Pickler = pickle.Pickler
+
+
+def _load_checkpoint_dict(ckpt_path: str) -> dict:
+    try:
+        return torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    except ModuleNotFoundError as exc:
+        if "fairseq" not in str(exc):
+            raise
+        logger.info("  Retrying checkpoint load with fairseq-safe unpickler")
+        return torch.load(
+            ckpt_path,
+            map_location="cpu",
+            weights_only=False,
+            pickle_module=_FairseqSafePickleModule,
+        )
 
 
 def _get(obj, key, default=None):
@@ -100,7 +138,7 @@ def load_fairseq_model(
         The model in ``eval()`` mode with loaded weights.
     """
     logger.info(f"Loading fairseq checkpoint from {ckpt_path}")
-    state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    state = _load_checkpoint_dict(ckpt_path)
 
     arch_cfg = _parse_model_cfg(state)
 
