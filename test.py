@@ -55,7 +55,7 @@ def setup_logging_test(output_dir):
     return logger
 
 
-def _compute_metrics(evaluator, labels, scores, keys=None, label_hop_ms=None, label_merge_rule=None):
+def _compute_metrics(evaluator, labels, scores, keys=None, label_hop_ms=None, label_merge_rule=None, source_label_hop_ms=None):
     """Helper to run the evaluator."""
     if evaluator:
         ctx = {}
@@ -64,6 +64,8 @@ def _compute_metrics(evaluator, labels, scores, keys=None, label_hop_ms=None, la
             ctx["temporal"] = True
         if label_hop_ms is not None:
             ctx["label_hop_ms"] = float(label_hop_ms)
+        if source_label_hop_ms is not None:
+            ctx["source_label_hop_ms"] = float(source_label_hop_ms)
         if label_merge_rule is not None:
             ctx["label_merge_rule"] = str(label_merge_rule)
         return evaluator.evaluate(labels, scores, **ctx)
@@ -81,6 +83,7 @@ def run_evaluation(
     label_hop_samples=None,
     sampling_rate=None,
     label_merge_rule=None,
+    source_label_hop_ms=None,
 ):
     """
     Runs the evaluation loop.
@@ -192,6 +195,7 @@ def run_evaluation(
         keys=keys if temporal_eval else None,
         label_hop_ms=label_hop_ms,
         label_merge_rule=label_merge_rule,
+        source_label_hop_ms=source_label_hop_ms,
     )
     if isinstance(average_metrics, dict):
         results.update(average_metrics)
@@ -211,6 +215,7 @@ def run_evaluation(
             keys=keys[mask_ds] if temporal_eval else None,
             label_hop_ms=label_hop_ms,
             label_merge_rule=label_merge_rule,
+            source_label_hop_ms=source_label_hop_ms,
         )
 
         prediction_file_path = os.path.join(
@@ -328,6 +333,11 @@ def main():
     if label_hop_ms is not None and label_hop_samples is None:
         label_hop_samples = int(round(label_hop_ms * sampling_rate / 1000.0))
     label_merge_rule = cfg.data.get("label_merge_rule") if "label_merge_rule" in cfg.data else None
+    source_label_hop_ms = None
+    if "source_label_hop_ms" in cfg.data and cfg.data.get("source_label_hop_ms") is not None:
+        source_label_hop_ms = float(cfg.data.source_label_hop_ms)
+    elif "source_label_hop" in cfg.data and cfg.data.get("source_label_hop") is not None:
+        source_label_hop_ms = float(cfg.data.source_label_hop) * 1000.0 / sampling_rate
 
     results = run_evaluation(
         model, test_loader, evaluator, device, logger, output_dir,
@@ -335,6 +345,7 @@ def main():
         label_hop_samples=label_hop_samples,
         sampling_rate=sampling_rate,
         label_merge_rule=label_merge_rule,
+        source_label_hop_ms=source_label_hop_ms,
     )
 
     try:

@@ -16,6 +16,7 @@ from deepfense.training.evaluations.temporal_eer_utils import (
     normalize_resolutions_ms,
     pool_utterance_scores,
     prepare_temporal_scores,
+    resolve_range_hop_sec,
     search_range_eer,
 )
 
@@ -43,6 +44,24 @@ def _resolve_types(params: dict) -> tuple:
 
 def _concat_pct(values: List[float]) -> str:
     return ",".join(f"{v * 100:.4f}" for v in values)
+
+
+def _resolve_reference_ms(params: dict, source_ms: float) -> float:
+    pred_ms = float(params.get("source_ms") or params.get("label_hop_ms") or source_ms)
+    ref_ms = float(
+        params.get("source_label_hop_ms")
+        or params.get("reference_ms")
+        or pred_ms
+    )
+    if ref_ms < pred_ms:
+        logger.debug(
+            "MULTIRES_EER: reference hop %.1f ms finer than eval frames %.1f ms; "
+            "using eval hop for Range-EER.",
+            ref_ms,
+            pred_ms,
+        )
+        ref_ms = pred_ms
+    return ref_ms
 
 
 def _compute_utterance_eer(
@@ -75,6 +94,37 @@ def _compute_utterance_eer(
     )["EER"]
 
 
+def _compute_range_eer(
+    keys,
+    labels: np.ndarray,
+    scores: np.ndarray,
+    params: dict,
+    bonafide_label: int,
+    spoof_label: int,
+    ignore_index: int,
+    prec: float,
+    max_iters: int,
+) -> float:
+    """Single range-based EER at the finest available reference hop."""
+    valid = labels != ignore_index
+    vl = labels[valid]
+    if vl.size == 0 or len(np.unique(vl)) < 2:
+        return float("nan")
+    hop_sec = resolve_range_hop_sec(params)
+    rng, _ = search_range_eer(
+        labels=labels,
+        scores=scores,
+        keys=keys,
+        hop_sec=hop_sec,
+        spoof_label=spoof_label,
+        bonafide_label=bonafide_label,
+        ignore_index=ignore_index,
+        prec=prec,
+        max_iters=max_iters,
+    )
+    return rng
+
+
 @register_metric("MULTIRES_EER")
 def compute_multires_eer(labels, scores, params):
     """
@@ -92,15 +142,17 @@ def compute_multires_eer(labels, scores, params):
               ``any_non_bonafide`` for merging labels when downsampling
               (default ``any_spoof``; inherits from ``data.label_merge_rule``)
         types: subset of ``segment``, ``range``, ``utterance`` (default: all).
-              Utterance EER is always a **single** value from native frames
-              (PartialSpoof ``get_utteer_by_seg``), not per resolution.
+              Utterance EER and Range-EER are each a **single** scalar from
+              native eval frames (PartialSpoof ``get_utteer_by_seg`` /
+              ``RangeEER.py``), not per downsampled resolution.
         bonafide_label: default 1
         ignore_index: default -100
         source_ms / label_hop_ms: native prediction hop in ms
+        source_label_hop_ms / reference_ms: reference hop for Range-EER
         prec / max_iters: RANGE-EER bisection knobs
 
-    Returns per-resolution keys, e.g. ``SEGMENT_EER_40ms``, plus concatenated
-    summaries ``SEGMENT_EER_CONCAT_pct``, ``RESOLUTIONS_ms``, etc.
+    Returns per-resolution ``SEGMENT_EER_*ms`` keys, a single ``RANGE_EER``
+    (plus ``RANGE_EER_{ref}ms`` alias), and concatenated segment summaries.
     """
     keys = params.get("keys")
     if keys is None or len(keys) == 0:
@@ -125,7 +177,7 @@ def compute_multires_eer(labels, scores, params):
 
     results = {}
     res_ms_str = []
-    segment_vals, range_vals = [], []
+    segment_vals = []
 
     if "utterance" in types:
         utt_eer = _compute_utterance_eer(
@@ -133,6 +185,23 @@ def compute_multires_eer(labels, scores, params):
         )
         results["UTTERANCE_EER"] = utt_eer
         results["EER"] = utt_eer  # alias for legacy configs that used EER + pool: min
+
+    if "range" in types:
+        ref_ms = _resolve_reference_ms(params, source_ms)
+        ref_key = int(round(ref_ms))
+        range_eer = _compute_range_eer(
+            keys,
+            labels,
+            scores,
+            params,
+            bonafide_label,
+            spoof_label,
+            ignore_index,
+            prec,
+            max_iters,
+        )
+        results["RANGE_EER"] = range_eer
+        results[f"RANGE_EER_{ref_key}ms"] = range_eer
 
     for target_ms in resolutions:
         ms_key = int(round(target_ms))
@@ -151,17 +220,13 @@ def compute_multires_eer(labels, scores, params):
             )
         except ValueError as exc:
             logger.warning("MULTIRES_EER skipped %sms: %s", ms_key, exc)
-            for kind in ("segment", "range"):
-                if kind in types:
-                    prefix = "SEGMENT_EER" if kind == "segment" else "RANGE_EER"
-                    results[f"{prefix}_{ms_key}ms"] = float("nan")
+            if "segment" in types:
+                results[f"SEGMENT_EER_{ms_key}ms"] = float("nan")
             continue
 
         if dl.size == 0 or len(np.unique(dl)) < 2:
-            for kind in ("segment", "range"):
-                if kind in types:
-                    prefix = "SEGMENT_EER" if kind == "segment" else "RANGE_EER"
-                    results[f"{prefix}_{ms_key}ms"] = float("nan")
+            if "segment" in types:
+                results[f"SEGMENT_EER_{ms_key}ms"] = float("nan")
             continue
 
         if "segment" in types:
@@ -169,25 +234,10 @@ def compute_multires_eer(labels, scores, params):
             results[f"SEGMENT_EER_{ms_key}ms"] = seg
             segment_vals.append(seg)
 
-        if "range" in types:
-            rng, _ = search_range_eer(
-                labels=dl,
-                scores=ds,
-                spoof_label=spoof_label,
-                bonafide_label=bonafide_label,
-                ignore_index=ignore_index,
-                prec=prec,
-                max_iters=max_iters,
-            )
-            results[f"RANGE_EER_{ms_key}ms"] = rng
-            range_vals.append(rng)
-
     results["RESOLUTIONS_ms"] = ",".join(res_ms_str)
     results["POOL"] = pool
     results["LABEL_MERGE_RULE"] = label_merge_rule
     if segment_vals:
         results["SEGMENT_EER_CONCAT_pct"] = _concat_pct(segment_vals)
-    if range_vals:
-        results["RANGE_EER_CONCAT_pct"] = _concat_pct(range_vals)
 
     return results

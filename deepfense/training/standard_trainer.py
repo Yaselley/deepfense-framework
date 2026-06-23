@@ -522,6 +522,9 @@ class StandardTrainer(BaseTrainer):
             label_hop_ms = self.config.get("label_hop_ms")
             if label_hop_ms is not None:
                 ctx["label_hop_ms"] = float(label_hop_ms)
+            source_label_hop_ms = self.config.get("source_label_hop_ms")
+            if source_label_hop_ms is not None:
+                ctx["source_label_hop_ms"] = float(source_label_hop_ms)
             label_merge_rule = self.config.get("label_merge_rule")
             if label_merge_rule is not None:
                 ctx["label_merge_rule"] = str(label_merge_rule)

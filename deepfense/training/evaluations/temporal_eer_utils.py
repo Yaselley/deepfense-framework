@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from deepfense.training.evaluations.compute_eer import _det_curve_for_eer
 from deepfense.training.evaluations.utils import _metric_get_1d_scores
@@ -166,37 +169,70 @@ def frame_eer_threshold(
     return eer, float(thresholds[min_index])
 
 
-def _range_det_rates(
+def utterances_for_range_eer(
+    keys: Sequence | None,
     labels: np.ndarray,
     scores: np.ndarray,
+    ignore_index: int = -100,
+) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+    """Group valid frames by utterance for range-based detection rates."""
+    valid = labels != ignore_index
+    labels = np.asarray(labels[valid], dtype=np.int64)
+    scores = np.asarray(scores[valid], dtype=np.float64)
+    if labels.size == 0:
+        return {}
+    if keys is None:
+        return {"": (labels, scores)}
+    keys = np.asarray(keys)[valid]
+    return group_frames_by_utterance(keys, labels, scores)
+
+
+def resolve_range_hop_sec(params: dict) -> float:
+    """
+    Hop (seconds) for range-based overlap measurement.
+
+    Uses ``source_label_hop_ms`` / ``reference_ms`` when available. When the
+    reference hop is finer than eval frames (``label_hop_ms``), eval frames are
+    used because fine ground truth is not retained at inference.
+    """
+    pred_ms = float(params.get("source_ms") or params.get("label_hop_ms") or 20.0)
+    ref_ms = float(
+        params.get("source_label_hop_ms")
+        or params.get("reference_ms")
+        or pred_ms
+    )
+    if ref_ms < pred_ms:
+        logger.debug(
+            "Range-EER: reference hop %.1f ms is finer than eval frames %.1f ms; "
+            "using eval hop.",
+            ref_ms,
+            pred_ms,
+        )
+        ref_ms = pred_ms
+    return ref_ms / 1000.0
+
+
+def range_detection_rates(
+    utterances: Dict[str, Tuple[np.ndarray, np.ndarray]],
     threshold: float,
+    hop_sec: float,
     spoof_label: int,
-    bonafide_label: int,
-    bona_sorted: np.ndarray | None = None,
-    spoof_sorted: np.ndarray | None = None,
+    ignore_index: int = -100,
 ) -> Tuple[float, float]:
-    """
-    Frame-level range detection rates (equivalent to segment duration at fixed hop).
-
-    False alarm  = bonafide frames scored as spoof (score <= th).
-    Miss         = spoof frames scored as bonafide (score > th).
-    """
-    if bona_sorted is None:
-        bona_sorted = np.sort(scores[labels == bonafide_label])
-    if spoof_sorted is None:
-        spoof_sorted = np.sort(scores[labels == spoof_label])
-    nb, ns = bona_sorted.size, spoof_sorted.size
-    if nb == 0 or ns == 0:
+    """Duration-overlap FPR/FNR (PartialSpoof RangeEER / pyannote-style)."""
+    if not utterances:
         return float("nan"), float("nan")
-
-    fa = int(np.searchsorted(bona_sorted, threshold, side="right"))
-    miss = ns - int(np.searchsorted(spoof_sorted, threshold, side="right"))
-    return fa / nb, miss / ns
+    return aggregate_detection_rates(
+        utterances, threshold, hop_sec, spoof_label, ignore_index
+    )
 
 
 def search_range_eer(
     labels: np.ndarray,
     scores: np.ndarray,
+    *,
+    keys: Sequence | None = None,
+    hop_sec: float,
     spoof_label: int = 0,
     bonafide_label: int = 1,
     ignore_index: int = -100,
@@ -207,31 +243,36 @@ def search_range_eer(
     """
     Binary-search threshold so FPR ~= FNR (Range-EER, Zhang et al., INTERSPEECH 2023).
 
-    Uses vectorized frame counts + searchsorted (fast on millions of frames).
+    FPR/FNR are computed from **duration overlap** between reference spoof segments
+    (ground-truth labels) and hypothesis spoof segments (score <= threshold), pooled
+    per utterance via :func:`aggregate_detection_rates`.
     """
-    valid = labels != ignore_index
-    labels = np.asarray(labels[valid], dtype=np.int64)
-    scores = np.asarray(scores[valid], dtype=np.float64)
-    if labels.size == 0:
+    utterances = utterances_for_range_eer(keys, labels, scores, ignore_index)
+    if not utterances:
         return float("nan"), float("nan")
 
-    bona_sorted = np.sort(scores[labels == bonafide_label])
-    spoof_sorted = np.sort(scores[labels == spoof_label])
-    all_sorted = np.sort(scores)
+    flat_labels = np.concatenate([u[0] for u in utterances.values()])
+    flat_scores = np.concatenate([u[1] for u in utterances.values()])
+    if flat_labels.size == 0:
+        return float("nan"), float("nan")
+    if len(np.unique(flat_labels)) < 2:
+        return float("nan"), float("nan")
+
+    all_sorted = np.sort(flat_scores)
 
     if init_threshold is None:
-        _, init_threshold = frame_eer_threshold(labels, scores, bonafide_label)
+        _, init_threshold = frame_eer_threshold(flat_labels, flat_scores, bonafide_label)
 
     th_lo = float(all_sorted[0])
     th_hi = float(all_sorted[-1])
     lo_p, hi_p = 0.0, 100.0
     th_mid = float(init_threshold)
 
-    fpr_lo, fnr_lo = _range_det_rates(
-        labels, scores, th_lo, spoof_label, bonafide_label, bona_sorted, spoof_sorted
+    fpr_lo, fnr_lo = range_detection_rates(
+        utterances, th_lo, hop_sec, spoof_label, ignore_index
     )
-    fpr_mid, fnr_mid = _range_det_rates(
-        labels, scores, th_mid, spoof_label, bonafide_label, bona_sorted, spoof_sorted
+    fpr_mid, fnr_mid = range_detection_rates(
+        utterances, th_mid, hop_sec, spoof_label, ignore_index
     )
     best = (abs(fpr_mid - fnr_mid), th_mid, fpr_mid, fnr_mid)
 
@@ -247,8 +288,8 @@ def search_range_eer(
             fpr_lo, fnr_lo = fpr_mid, fnr_mid
         mid_p = (lo_p + hi_p) / 2.0
         th_mid = float(np.percentile(all_sorted, mid_p))
-        fpr_mid, fnr_mid = _range_det_rates(
-            labels, scores, th_mid, spoof_label, bonafide_label, bona_sorted, spoof_sorted
+        fpr_mid, fnr_mid = range_detection_rates(
+            utterances, th_mid, hop_sec, spoof_label, ignore_index
         )
         cand = (abs(fpr_mid - fnr_mid), th_mid, fpr_mid, fnr_mid)
         if cand[0] <= best[0]:
