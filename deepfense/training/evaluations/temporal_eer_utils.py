@@ -238,7 +238,6 @@ def search_range_eer(
     ignore_index: int = -100,
     prec: float = 1e-4,
     max_iters: int = 64,
-    init_threshold: float | None = None,
 ) -> Tuple[float, float]:
     """
     Binary-search threshold so FPR ~= FNR (Range-EER, Zhang et al., INTERSPEECH 2023).
@@ -260,13 +259,10 @@ def search_range_eer(
 
     all_sorted = np.sort(flat_scores)
 
-    if init_threshold is None:
-        _, init_threshold = frame_eer_threshold(flat_labels, flat_scores, bonafide_label)
-
     th_lo = float(all_sorted[0])
     th_hi = float(all_sorted[-1])
     lo_p, hi_p = 0.0, 100.0
-    th_mid = float(init_threshold)
+    th_mid = float(np.percentile(all_sorted, 50.0))
 
     fpr_lo, fnr_lo = range_detection_rates(
         utterances, th_lo, hop_sec, spoof_label, ignore_index
