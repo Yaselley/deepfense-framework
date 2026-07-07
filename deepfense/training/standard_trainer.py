@@ -18,6 +18,7 @@ from deepfense.utils.registry import register_trainer
 from deepfense.training.evaluations.evaluator import Evaluator
 from deepfense.utils.visualization import plot_metric_trend
 from deepfense.training.optimizers.utils import SAM
+from deepfense.training.batch_augmentation import build_batch_augmenter
 
 
 @register_trainer("StandardTrainer")
@@ -107,6 +108,18 @@ class StandardTrainer(BaseTrainer):
         self.early_stopping_patience = config.get("early_stopping_patience", None)
         self.early_stopping_counter = 0
         self.best_metric_val = None  # Separate from self.best_metric which is tracked for saving best model
+
+        batch_aug_cfg = config.get("batch_augmentation")
+        if batch_aug_cfg is not None and hasattr(batch_aug_cfg, "items"):
+            from omegaconf import OmegaConf
+
+            batch_aug_cfg = OmegaConf.to_container(batch_aug_cfg, resolve=True)
+        self.batch_augmenter = build_batch_augmenter(batch_aug_cfg)
+        if self.batch_augmenter is not None and self.is_main:
+            self.logger.info(
+                "Trainer batch_augmentation enabled (concat_original=%s)",
+                self.batch_augmenter.concat_original,
+            )
 
     def _unwrapped_model(self):
         """Return the raw detector, unwrapping DDP and _DDPForwardWrapper."""
@@ -231,12 +244,18 @@ class StandardTrainer(BaseTrainer):
             ):
                 self.scheduler.step()
 
+    def _apply_trainer_augmentation(self, x, labels, mask):
+        """Adapters/main.py style: augment waveform in trainer, optional cat([x, aug(x)])."""
+        if self.batch_augmenter is None or not self.model.training:
+            return x, labels, mask
+        return self.batch_augmenter.apply_batch(x, labels, mask)
+
     def _train_step(self, batch, batch_idx, epoch):
         x = batch["x"].to(self.device)
         labels = batch["label"].to(self.device)
         mask = batch.get("mask", None)
 
-        # Handle 'concat' augmentation (x: [B, N_aug, T])
+        # Handle dataset-level stacked augmentations (x: [B, N_aug, T])
         if x.ndim == 3 and labels.shape[0] == x.shape[0]:
             B, N, T = x.shape
             x = x.view(B * N, T)
@@ -250,6 +269,8 @@ class StandardTrainer(BaseTrainer):
 
         if mask is not None:
             mask = mask.to(self.device)
+
+        x, labels, mask = self._apply_trainer_augmentation(x, labels, mask)
 
         if self.ddp:
             outputs = self.model(x, mask=mask, labels=labels)

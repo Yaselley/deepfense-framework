@@ -17,7 +17,12 @@ class BaseTrainer:
 
         self.global_step = 0
         self.start_epoch = 0
-        self.best_metric = -math.inf if getattr(config, "monitor_mode", "max") == "max" else math.inf
+        monitor_mode = (
+            config.get("monitor_mode", "min")
+            if hasattr(config, "get")
+            else getattr(config, "monitor_mode", "min")
+        )
+        self.best_metric = -math.inf if monitor_mode == "max" else math.inf
         self.optimizer = None
 
     def save_checkpoint(self, state, is_best=False):

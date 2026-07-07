@@ -1,10 +1,11 @@
 import torch
-import torch.nn as nn
 from deepfense.utils.registry import register_frontend
 from deepfense.models.base_model import BaseFrontend
+from deepfense.models.frontends.freeze_policy import apply_ssl_freeze_policy
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 @register_frontend("wavlm")
 class WavLMWrapper(BaseFrontend):
@@ -13,7 +14,6 @@ class WavLMWrapper(BaseFrontend):
 
         self.source = config.get("source", "unil")
         self.ckpt_path = config.get("ckpt_path", None)
-        self.freeze = config.get("freeze", False)
 
         if self.source == "unil":
             from deepfense.models.modules.wavlm.wavlm import WavLM, WavLMConfig
@@ -21,30 +21,30 @@ class WavLMWrapper(BaseFrontend):
             cfg = WavLMConfig(checkpoint["cfg"])
             self.model = WavLM(cfg)
             self.model.load_state_dict(checkpoint["model"], strict=False)
-        
+
         elif self.source == "huggingface":
             from transformers import WavLMModel
             self.model = WavLMModel.from_pretrained(self.ckpt_path)
-        
+
         else:
             raise ValueError(f"Unknown source: {self.source}")
 
-        if self.freeze:
-            for param in self.model.parameters():
-                param.requires_grad = False
+        self.freeze_summary = apply_ssl_freeze_policy(self.model, self.source, config)
 
     def forward(self, input_data, mask=None):
         if self.source == "unil":
+            padding_mask = mask.to(input_data.device).eq(0) if mask is not None else None
+            out, _ = self.model.extract_features(
+                input_data,
+                padding_mask=padding_mask,
+                mask=False,
+                ret_layer_results=False,
+            )
+            return out
 
-            x, layers = self.model.extract_features(
-                input_data, mask=False, ret_layer_results=True
-            )[0]
-            return x
-
-        elif self.source == "huggingface":
-            attention_mask = None
-            if mask is not None:
-                attention_mask = mask.long()
-
+        if self.source == "huggingface":
+            attention_mask = mask.to(input_data.device).long() if mask is not None else None
             outputs = self.model(input_data, attention_mask=attention_mask)
             return outputs.last_hidden_state
+
+        raise ValueError(f"Unknown source: {self.source}")

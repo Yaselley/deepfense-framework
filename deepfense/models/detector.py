@@ -99,6 +99,11 @@ class ModularDetector(nn.Module):
                 loss_val = loss_module(embeddings, targets)
                 
             total_loss += w * loss_val
+
+        if hasattr(self.frontend, "get_auxiliary_loss"):
+            aux_loss = self.frontend.get_auxiliary_loss()
+            if aux_loss is not None:
+                total_loss = total_loss + aux_loss
             
         return total_loss
 

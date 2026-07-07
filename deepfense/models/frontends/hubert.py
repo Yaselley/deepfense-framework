@@ -1,8 +1,8 @@
 import os
 import torch
-import torch.nn as nn
 from deepfense.utils.registry import register_frontend
 from deepfense.models.base_model import BaseFrontend
+from deepfense.models.frontends.freeze_policy import apply_ssl_freeze_policy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,6 @@ class HubertWrapper(BaseFrontend):
 
         self.source = config.get("source", "fairseq")
         self.ckpt_path = config.get("ckpt_path", None)
-        self.freeze = config.get("freeze", False)
 
         if self.ckpt_path is None:
             raise ValueError("ckpt_path must be provided in config")
@@ -36,18 +35,22 @@ class HubertWrapper(BaseFrontend):
         else:
             raise ValueError(f"Unknown source: {self.source}. Must be 'fairseq' or 'huggingface'")
 
-        if self.freeze:
-            for param in self.model.parameters():
-                param.requires_grad = False
+        self.freeze_summary = apply_ssl_freeze_policy(self.model, self.source, config)
 
     def forward(self, input_data, mask=None):
         if self.source == "fairseq":
-            emb = self.model(input_data, mask=False, features_only=True)
+            padding_mask = mask.to(input_data.device).eq(0) if mask is not None else None
+            emb = self.model(
+                input_data,
+                padding_mask=padding_mask,
+                mask=False,
+                features_only=True,
+            )
             return emb["x"]
 
-        elif self.source == "huggingface":
-            attention_mask = None
-            if mask is not None:
-                attention_mask = mask.long()
+        if self.source == "huggingface":
+            attention_mask = mask.to(input_data.device).long() if mask is not None else None
             outputs = self.model(input_data, attention_mask=attention_mask)
             return outputs.last_hidden_state
+
+        raise ValueError(f"Unknown source: {self.source}")
