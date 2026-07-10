@@ -21,6 +21,13 @@ class SpacialGatingUnit(nn.Module):
 
     def forward(self, z: torch.Tensor, mask: Optional[torch.Tensor] = None):
         seq_len = z.shape[0]
+        max_seq = self.weight.shape[0]
+        if seq_len > max_seq:
+            raise ValueError(
+                f"gMLP received {seq_len} frames but backend seq_len={max_seq}. "
+                f"Increase model.backend.args.seq_len in your YAML "
+                f"(PartialSpoof full clips need ≥1100; reference configs use 2001)."
+            )
         z1, z2 = torch.chunk(z, 2, dim=-1)
 
         if mask is not None:

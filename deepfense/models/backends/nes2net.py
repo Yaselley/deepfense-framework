@@ -137,12 +137,27 @@ class Nes2Net(BaseBackend):
         self.bn = nn.BatchNorm1d(self.input_dim)
         self.relu = nn.ReLU()
 
+        pool_type = config.get("pool", config.get("pooling_type", "mean"))
+        if pool_type is None:
+            pool_type = "mean"
+        pool_type = str(pool_type).lower()
+        if pool_type in ("none", "null", ""):
+            self.pool_layer = None
+            self.out_dim = self.input_dim
+        else:
+            pool_cfg = dict(config)
+            pool_cfg["pooling_type"] = pool_type
+            self.pool_layer = pooling_modules.get_pooling_layer(
+                pool_cfg, self.input_dim
+            )
+            self.out_dim = self.pool_layer.get_output_dim()
+
     def forward(self, x, **kwargs):
         """
         Args:
             x: [Batch, Time, Dim] (Standard SSL output)
         Returns:
-            embedding: [Batch, Out_Dim]
+            ``pool: none`` → [Batch, Time, Dim]; otherwise pooled [Batch, Out_Dim]
         """
 
         # Transpose for Conv1d: [B, T, D] -> [B, D, T]
@@ -177,4 +192,7 @@ class Nes2Net(BaseBackend):
         out = self.bn(out)
         out = self.relu(out)
 
-        return out
+        if self.pool_layer is None:
+            return out.transpose(1, 2)
+
+        return self.pool_layer(out)
