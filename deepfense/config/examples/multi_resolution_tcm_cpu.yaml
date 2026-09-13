@@ -1,0 +1,79 @@
+# CPU smoke config: dummy frontend + TCM + multi-resolution crops.
+# Loader still pads to 4s; each train batch keeps 0.5s / 1s / 2s / 3s / 4s.
+
+exp_name: "TCM_MultiResolution_CPU"
+output_dir: "./outputs/multi_resolution_cpu/"
+seed: 42
+
+data:
+  sampling_rate: 16000
+  label_map: {"bonafide": 1, "spoof": 0}
+
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Train"]
+    parquet_files: ["./tests/test.parquet"]
+    batch_size: 2
+    shuffle: true
+    num_workers: 0
+    base_transform:
+      - type: "pad"
+        max_len: 64000
+        random_pad: true
+        pad_type: "repeat"
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Val"]
+    parquet_files: ["./tests/test.parquet"]
+    batch_size: 2
+    num_workers: 0
+    base_transform:
+      - type: "pad"
+        max_len: 64000
+        pad_type: "repeat"
+
+model:
+  type: "StandardDetector"
+  frontend:
+    type: "dummy"
+    args:
+      output_dim: 64
+      hop_length: 320
+  backend:
+    type: "TCM"
+    args:
+      input_dim: 64
+      emb_size: 32
+      heads: 2
+      num_encoders: 1
+      kernel_size: 8
+  loss:
+    - type: "CrossEntropy"
+      weight: 1.0
+      embedding_dim: 32
+      n_classes: 2
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 1
+  device: "cpu"
+  max_steps: 3
+  batch_log_interval: 1
+  eval_every_epochs: 1
+  monitor_metric: "ACC"
+  monitor_mode: "max"
+
+  multi_resolution:
+    enabled: true
+    durations_sec: [0.5, 1.0, 2.0, 3.0, 4.0]
+    sample_rate: 16000
+    random_crop: true
+
+  optimizer:
+    type: "adam"
+    lr: 0.0001
+
+  metrics:
+    ACC: {}
+    EER: {}

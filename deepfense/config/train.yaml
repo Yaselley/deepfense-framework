@@ -70,6 +70,12 @@ training:
   trainer: "StandardTrainer"
   epochs: 10
   device: "cuda"
+  # Optional: keep pad.max_len as the proposed clip (e.g. 4s), then each
+  # training batch randomly crops to 0.5s / 1s / 2s / 3s / 4s.
+  # multi_resolution:
+  #   enabled: true
+  #   durations_sec: [0.5, 1.0, 2.0, 3.0, 4.0]
+  #   random_crop: true
   num_workers: 4
   batch_log_interval: 10
   eval_every_steps: 1

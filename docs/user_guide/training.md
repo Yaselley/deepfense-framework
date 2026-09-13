@@ -15,6 +15,7 @@ The `StandardTrainer` executes the following loop:
     *   **Train Step**:
         *   Load batch.
         *   Apply augmentations (if not applied in dataset).
+        *   Optional multi-resolution crop (`training.multi_resolution`): keep one random duration per batch (0.5s / 1s / 2s / 3s / 4s by default). Validation stays at full `max_len`.
         *   Forward pass through `Detector`.
         *   Compute Loss (weighted sum of all losses).
         *   Backprop & Optimizer Step.

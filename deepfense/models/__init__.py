@@ -1,5 +1,6 @@
 from deepfense.models.detector import ModularDetector
 from deepfense.models.frontends import (
+    dummy,
     hubert,
     hubert_layer_sum,
     wav2vec2,

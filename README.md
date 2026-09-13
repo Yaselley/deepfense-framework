@@ -128,7 +128,7 @@ data:
     batch_size: 32
     base_transform:
       - type: "pad"
-        max_len: 64600          # ~4 sec at 16 kHz
+        max_len: 64600          # ~4 sec at 16 kHz (loading length)
     augment_transform:          # training only
       - type: "rawboost"
         noise_ratio: 0.4
@@ -161,6 +161,8 @@ model:
 training:
   epochs: 50
   device: "cuda"
+  # optional: crop each train batch to 0.5s/1s/2s/3s/4s (loader still reads 4s)
+  # multi_resolution: {enabled: true, durations_sec: [0.5, 1.0, 2.0, 3.0, 4.0]}
   optimizer:
     type: "adam"
     lr: 0.0001

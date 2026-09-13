@@ -269,6 +269,14 @@ training:
   
   # WandB (optional)
   wandb: {...}
+
+  # Optional: load/pad the full clip (e.g. 4s), then crop each training batch
+  # to one randomly chosen duration. Validation stays at full max_len.
+  multi_resolution:
+    enabled: true
+    durations_sec: [0.5, 1.0, 2.0, 3.0, 4.0]
+    sample_rate: 16000
+    random_crop: true
 ```
 
 ### Core Parameters
@@ -282,6 +290,13 @@ training:
 * **epochs** - (*int*) Total training epochs (default: `50`).
 * **gradient_accumulation_steps** - (*int*) Accumulate gradients (default: `1`).
 * **max_grad_norm** - (*float*) Gradient clipping norm (default: `1.0`).
+* **multi_resolution** - (*dict*, optional) Train-time crop. Audio is still read and padded to `data.*.base_transform.pad.max_len` (the proposed full clip). Each training batch then keeps **one** randomly chosen duration for every sample in that batch. Validation and test are not cropped.
+  * **enabled** - (*bool*) Turn the crop on (default: `false` if the block is omitted).
+  * **durations_sec** - (*list[float]*) Durations in seconds (default: `[0.5, 1.0, 2.0, 3.0, 4.0]`).
+  * **durations_samples** - (*list[int]*) Optional exact sample counts; overrides `durations_sec`.
+  * **sample_rate** - (*int*) Used to convert seconds to samples (default: `data.sampling_rate` or `16000`).
+  * **random_crop** - (*bool*) If `true`, pick a random start inside the full clip; if `false`, keep the prefix (default: `true`).
+  * **weights** - (*list[float]*, optional) Sampling weights matching the duration list.
 
 ### Logging
 

@@ -84,6 +84,26 @@ max_len: 80000   # 5 * 16000
 random_pad: False
 ```
 
+### Train-time multi-resolution
+
+`pad.max_len` is still the **proposed** clip length used when reading audio. To train each batch at a shorter resolution without changing the loader, set `training.multi_resolution`:
+
+```yaml
+data:
+  train:
+    base_transform:
+      - type: "pad"
+        max_len: 64000          # keep loading at 4s @ 16 kHz
+
+training:
+  multi_resolution:
+    enabled: true
+    durations_sec: [0.5, 1.0, 2.0, 3.0, 4.0]
+    random_crop: true
+```
+
+The dataloader still returns 4s waveforms. During `StandardTrainer._train_step` only, one duration is sampled for the whole batch and both `x` and `mask` are cropped to that length. See [Configuration Reference](05_configuration.md).
+
 ---
 
 ### 3. Random Crop (`RandomCrop`)

@@ -178,6 +178,9 @@ def main():
         cfg.data.val.sampling_rate = cfg.data.sampling_rate
         if "test" in cfg.data:
             cfg.data.test.sampling_rate = cfg.data.sampling_rate
+        if cfg.training.get("multi_resolution") is not None:
+            if cfg.training.multi_resolution.get("sample_rate") is None:
+                cfg.training.multi_resolution.sample_rate = cfg.data.sampling_rate
 
     train_cfg = OmegaConf.to_container(cfg.data.train, resolve=True)
     val_cfg = OmegaConf.to_container(cfg.data.val, resolve=True)

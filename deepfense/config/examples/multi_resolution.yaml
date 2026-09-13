@@ -1,0 +1,79 @@
+# Keep pad.max_len at the proposed full clip (4s). During training only,
+# each batch randomly keeps 0.5s / 1s / 2s / 3s / 4s and trains on that crop.
+# Validation and test still use the full padded length.
+
+exp_name: "TCM_MultiResolution"
+output_dir: "./outputs/multi_resolution/"
+seed: 42
+
+data:
+  sampling_rate: 16000
+  label_map: {"bonafide": 1, "spoof": 0}
+
+  train:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Train"]
+    parquet_files: ["./tests/test.parquet"]
+    batch_size: 8
+    shuffle: true
+    base_transform:
+      - type: "pad"
+        max_len: 64000          # proposed 4s @ 16 kHz; loading stays unchanged
+        random_pad: true
+        pad_type: "repeat"
+
+  val:
+    dataset_type: "StandardDataset"
+    dataset_names: ["Val"]
+    parquet_files: ["./tests/test.parquet"]
+    batch_size: 8
+    base_transform:
+      - type: "pad"
+        max_len: 64000
+        pad_type: "repeat"
+
+model:
+  type: "StandardDetector"
+  frontend:
+    type: "wav2vec2"
+    args:
+      source: "huggingface"
+      ckpt_path: "facebook/wav2vec2-xls-r-300m"
+      freeze: true
+  backend:
+    type: "TCM"
+    args:
+      input_dim: 1024
+      emb_size: 128
+      heads: 4
+      num_encoders: 1
+  loss:
+    - type: "CrossEntropy"
+      weight: 1.0
+      embedding_dim: 128
+      n_classes: 2
+
+training:
+  trainer: "StandardTrainer"
+  epochs: 10
+  device: "cuda"
+  batch_log_interval: 10
+  eval_every_epochs: 1
+  monitor_metric: "EER"
+  monitor_mode: "min"
+
+  # Audio is still read/padded to 4s. Each training batch then keeps one duration.
+  multi_resolution:
+    enabled: true
+    durations_sec: [0.5, 1.0, 2.0, 3.0, 4.0]
+    sample_rate: 16000
+    random_crop: true          # random start inside the 4s clip; false = keep the prefix
+
+  optimizer:
+    type: "adam"
+    lr: 0.000001
+    weight_decay: 0.0001
+
+  metrics:
+    ACC: {}
+    EER: {}

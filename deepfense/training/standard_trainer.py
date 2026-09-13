@@ -19,6 +19,7 @@ from deepfense.training.evaluations.evaluator import Evaluator
 from deepfense.utils.visualization import plot_metric_trend
 from deepfense.training.optimizers.utils import SAM
 from deepfense.training.batch_augmentation import build_batch_augmenter
+from deepfense.training.multi_resolution import build_multi_resolution_cropper
 
 
 @register_trainer("StandardTrainer")
@@ -121,6 +122,19 @@ class StandardTrainer(BaseTrainer):
                 self.batch_augmenter.concat_original,
             )
 
+        multi_res_cfg = config.get("multi_resolution")
+        if multi_res_cfg is not None and hasattr(multi_res_cfg, "items"):
+            from omegaconf import OmegaConf
+
+            multi_res_cfg = OmegaConf.to_container(multi_res_cfg, resolve=True)
+        self.multi_resolution = build_multi_resolution_cropper(multi_res_cfg)
+        if self.multi_resolution is not None and self.is_main:
+            self.logger.info(
+                "Trainer multi_resolution enabled (durations_samples=%s random_crop=%s)",
+                self.multi_resolution.durations_samples,
+                self.multi_resolution.random_crop,
+            )
+
     def _unwrapped_model(self):
         """Return the raw detector, unwrapping DDP and _DDPForwardWrapper."""
         if self.ddp:
@@ -171,8 +185,14 @@ class StandardTrainer(BaseTrainer):
                     lr = self._current_lr()
                     running_avg_loss = epoch_loss_sum / (batch_idx + 1)
 
+                    duration_msg = ""
+                    if self.multi_resolution is not None and self.multi_resolution.last_duration_sec is not None:
+                        duration_msg = (
+                            f" Res={self.multi_resolution.last_duration_sec:.3f}s"
+                            f"({self.multi_resolution.last_duration_samples} samples)"
+                        )
                     self.logger.info(
-                        f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}"
+                        f"[Epoch {current_epoch}] [Step {batch_idx}] Running Avg Loss={running_avg_loss:.4f} LR={lr:.6f}{duration_msg}"
                     )
                     if self.wandb:
                         self.wandb.log(
@@ -250,6 +270,13 @@ class StandardTrainer(BaseTrainer):
             return x, labels, mask
         return self.batch_augmenter.apply_batch(x, labels, mask)
 
+    def _apply_multi_resolution(self, x, mask):
+        """Keep one randomly chosen duration for the whole training batch."""
+        if self.multi_resolution is None or not self.model.training:
+            return x, mask
+        x, mask = self.multi_resolution.apply(x, mask)
+        return x, mask
+
     def _train_step(self, batch, batch_idx, epoch):
         x = batch["x"].to(self.device)
         labels = batch["label"].to(self.device)
@@ -271,6 +298,7 @@ class StandardTrainer(BaseTrainer):
             mask = mask.to(self.device)
 
         x, labels, mask = self._apply_trainer_augmentation(x, labels, mask)
+        x, mask = self._apply_multi_resolution(x, mask)
 
         if self.ddp:
             outputs = self.model(x, mask=mask, labels=labels)

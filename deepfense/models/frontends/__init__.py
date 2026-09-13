@@ -1,3 +1,4 @@
+from .dummy import DummyFrontend
 from .wav2vec2 import Wav2VecWrapper
 from .wavlm import WavLMWrapper
 from .hubert import HubertWrapper
