@@ -97,13 +97,25 @@ def compute_det_curve(labels, scores, bonafide_label=1):
         raise ValueError("Both bonafide and spoof samples must be present")
 
         
-    all_scores = np.unique(np.concatenate((ts, ns)))
-    
-    # count target and non-target samples for each score
-    def count_ele(s):
-        return [np.sum(ts == s), np.sum(ns == s)]
 
-    cnt = np.array(list(map(count_ele, all_scores)))
+    
+    # Too slow --> complexity O(NK)
+    # all_scores = np.unique(np.concatenate((ts, ns)))
+    # count target and non-target samples for each score
+    #def count_ele(s):
+    #    return [np.sum(ts == s), np.sum(ns == s)]
+    #cnt = np.array(list(map(count_ele, all_scores)))
+
+    # New version --> complexity O(NlogN)
+    scores = np.concatenate((ts, ns))
+    all_scores, inverse = np.unique(scores, return_inverse=True)
+    n_ts = len(ts)
+    # count the number of times that each ts score occur
+    cnt_ts = np.bincount(inverse[:n_ts], minlength=len(all_scores))
+    # count the number of times that each ns score occur
+    cnt_ns = np.bincount(inverse[n_ts:], minlength=len(all_scores))
+    cnt = np.column_stack((cnt_ts, cnt_ns))
+
     indices = np.argsort(all_scores, kind='mergesort')
     all_scores = all_scores[indices]
     
@@ -111,16 +123,16 @@ def compute_det_curve(labels, scores, bonafide_label=1):
     t_labels = cnt[indices, 0]
     n_labels = cnt[indices, 1]
 
-    # compute false rejection and false acceptance rates                                                       
+    # compute false rejection and false acceptance rates
     tar_trial_sums = np.cumsum(t_labels)
     nontarget_trial_sums = np.cumsum(n_labels)
 
-    # false rejection rates                                                                                    
+    # false rejection rates
     frr = np.concatenate((np.atleast_1d(0), tar_trial_sums / ts.size))
     # false acceptance rates
     far = 1-np.concatenate((np.atleast_1d(0), nontarget_trial_sums / ns.size))
     
-    # Thresholds are the sorted scores                                                                         
+    # Thresholds are the sorted scores
     thresholds = np.concatenate(
         (np.atleast_1d(all_scores[0] - 0.001), all_scores+np.finfo(np.float32).eps))
 
